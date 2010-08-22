@@ -1,0 +1,40 @@
+Name:                certificate
+Version:             0.1
+Description:         Certificate and Key reader/writer
+License:             BSD3
+License-file:        LICENSE
+Author:              Vincent Hanquez
+Maintainer:          vincent@snarc.org
+Synopsis:            Certificate and Key Reader/Writer
+Build-Type:          Simple
+Category:            Data
+stability:           experimental
+Cabal-Version:       >=1.6
+
+Flag executable
+  Description:       Build the executable
+  Default:           True
+
+Library
+  Build-Depends:     base >= 3 && < 5,
+                     binary >= 0.5,
+                     bytestring,
+                     mtl,
+                     asn1-data,
+                     dataenc
+  Exposed-modules:   Data.Certificate.X509,
+                     Data.Certificate.PEM,
+                     Data.Certificate.Key
+  ghc-options:       -Wall
+
+Executable           certificate
+  Main-Is:           Certificate.hs
+  if flag(executable)
+    Buildable:       True
+    Build-depends:   RSA, hexdump, haskell98
+  else
+    Buildable:       False
+
+source-repository head
+  type:     git
+  location: git://github.com/vincenthz/hs-certificate
