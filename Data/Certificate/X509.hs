@@ -363,7 +363,8 @@ encodeCertificateHeader cert =
 encodeCertificate :: Certificate -> L.ByteString
 encodeCertificate cert = encodeASN1 rootSeq
 	where
-		sigalg = Sequence []
-		sig = Sequence []
+		(sigalg, sigbits) = fromJust $ certSignature cert
+		esigalg = Sequence [ OID (sigOID sigalg), Null ]
+		esig = BitString 0 $ L.pack sigbits
 		header = Sequence $ encodeCertificateHeader cert
-		rootSeq = Sequence [ header, sigalg, sig ]
+		rootSeq = Sequence [ header, esigalg, esig ]
