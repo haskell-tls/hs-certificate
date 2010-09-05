@@ -66,6 +66,7 @@ data SignatureALG =
 	  SignatureALG_md5WithRSAEncryption
 	| SignatureALG_md2WithRSAEncryption
 	| SignatureALG_sha1WithRSAEncryption
+	| SignatureALG_rsa
 	| SignatureALG_dsa
 	| SignatureALG_dsaWithSHA1
 	| SignatureALG_Unknown OID
@@ -169,6 +170,7 @@ sig_table =
 	[ ([1,2,840,113549,1,1,5], SignatureALG_sha1WithRSAEncryption)
 	, ([1,2,840,113549,1,1,4], SignatureALG_md5WithRSAEncryption)
 	, ([1,2,840,113549,1,1,2], SignatureALG_md2WithRSAEncryption)
+	, ([1,2,840,113549,1,1,1], SignatureALG_rsa)
 	, ([1,2,840,10040,4,1],    SignatureALG_dsa)
 	, ([1,2,840,10040,4,3],    SignatureALG_dsaWithSHA1)
 	]
@@ -244,6 +246,7 @@ parseCertHeaderSubjectPK = do
 				SignatureALG_sha1WithRSAEncryption -> parse_RSA bits
 				SignatureALG_md5WithRSAEncryption  -> parse_RSA bits
 				SignatureALG_md2WithRSAEncryption  -> parse_RSA bits
+				SignatureALG_rsa                   -> parse_RSA bits
 				_                                  -> PubKeyUnknown $ L.unpack bits
 			return $ PubKey sig desc
 		Sequence [ Sequence [ OID pkalg, Sequence [ IntVal dsaP, IntVal dsaQ, IntVal dsaG ]], BitString _ dsapub ] ->
