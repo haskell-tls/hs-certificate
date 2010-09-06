@@ -44,9 +44,12 @@ showCert cert =
 showKey :: PrivateKey -> String
 showKey key =
 	unlines [
-		"version:  " ++ (show $ privKey_version key),
-		"modulus:  " ++ (show $ privKey_modulus key),
-		"exponant: " ++ (show $ privKey_public_exponant key)
+		"version:          " ++ (show $ privKey_version key),
+		"len-modulus:      " ++ (show $ privKey_lenmodulus key),
+		"modulus:          " ++ (show $ privKey_modulus key),
+		"public exponant:  " ++ (show $ privKey_public_exponant key),
+		"private exponant: " ++ (show $ privKey_private_exponant key),
+		"coefficient:      " ++ (show $ privKey_coef key)
 		]
 
 main = do
