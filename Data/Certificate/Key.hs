@@ -10,6 +10,7 @@ import qualified Data.ByteString.Lazy as L
 
 data PrivateKey = PrivateKey
 	{ privKey_version :: Int
+	, privKey_lenmodulus :: Int
 	, privKey_modulus :: Integer
 	, privKey_public_exponant :: Integer
 	, privKey_private_exponant :: Integer
@@ -28,6 +29,7 @@ parsePrivateKey x =
 		         , IntVal exp1, IntVal exp2, IntVal coef ] ->
 			Right $ PrivateKey
 				{ privKey_version = fromIntegral ver
+				, privKey_lenmodulus = calculate_modulus modulus 1
 				, privKey_modulus = modulus
 				, privKey_public_exponant = pub_exp
 				, privKey_private_exponant = priv_exp
@@ -38,6 +40,8 @@ parsePrivateKey x =
 				, privKey_coef = fromIntegral coef }
 		_ ->
 			Left "unexpected format"
+	where
+		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
 
 decodePrivateKey :: L.ByteString -> Either String PrivateKey
 decodePrivateKey dat = either (Left . show) parsePrivateKey $ decodeASN1 dat
