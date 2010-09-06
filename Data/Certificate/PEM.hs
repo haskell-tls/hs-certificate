@@ -1,3 +1,12 @@
+-- |
+-- Module      : Data.Certificate.PEM
+-- License     : BSD-style
+-- Maintainer  : Vincent Hanquez <vincent@snarc.org>
+-- Stability   : experimental
+-- Portability : unknown
+--
+-- Read PEM files
+--
 module Data.Certificate.PEM (
 	parsePEM,
 	parsePEMCert,

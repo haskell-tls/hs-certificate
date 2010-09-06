@@ -1,3 +1,13 @@
+-- |
+-- Module      : Data.Certificate.Key
+-- License     : BSD-style
+-- Maintainer  : Vincent Hanquez <vincent@snarc.org>
+-- Stability   : experimental
+-- Portability : unknown
+--
+-- Read/Write Private Key
+--
+
 module Data.Certificate.Key (
 	PrivateKey(..),
 	decodePrivateKey,
