@@ -11,10 +11,10 @@ import Data.Maybe
 import Data.ASN1.DER
 
 readcert :: FilePath -> IO (Either String Certificate)
-readcert file = L.readFile file >>= return . either Left (decodeCertificate) . parsePEMCert
+readcert file = B.readFile file >>= return . either Left (decodeCertificate . L.fromChunks . (:[])) . parsePEMCert
 
 readprivate :: FilePath -> IO (Either String PrivateKey)
-readprivate file = L.readFile file >>= return . either Left (decodePrivateKey) . parsePEMKey
+readprivate file = B.readFile file >>= return . either Left (decodePrivateKey . L.fromChunks . (:[])) . parsePEMKey
 
 showCert :: Certificate -> String
 showCert cert =
