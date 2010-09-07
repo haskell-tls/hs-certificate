@@ -3,8 +3,9 @@ Version:             0.1
 Description:         Certificate and Key reader/writer
 License:             BSD3
 License-file:        LICENSE
-Author:              Vincent Hanquez
-Maintainer:          vincent@snarc.org
+Copyright:           Vincent Hanquez <vincent@snarc.org>
+Author:              Vincent Hanquez <vincent@snarc.org>
+Maintainer:          Vincent Hanquez <vincent@snarc.org>
 Synopsis:            Certificate and Key Reader/Writer
 Build-Type:          Simple
 Category:            Data
