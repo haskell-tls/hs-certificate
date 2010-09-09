@@ -1,12 +1,16 @@
 Name:                certificate
 Version:             0.2
-Description:         Certificate and Key reader/writer
+Description:
+    Certificates and Key reader/writer
+    .
+    At the moment only X509 certificate and unencrypted private key are supported,
+    but will include PGP certificate and pkcs8 private keys
 License:             BSD3
 License-file:        LICENSE
 Copyright:           Vincent Hanquez <vincent@snarc.org>
 Author:              Vincent Hanquez <vincent@snarc.org>
 Maintainer:          Vincent Hanquez <vincent@snarc.org>
-Synopsis:            Certificate and Key Reader/Writer
+Synopsis:            Certificates and Key Reader/Writer
 Build-Type:          Simple
 Category:            Data
 stability:           experimental
