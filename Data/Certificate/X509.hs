@@ -76,10 +76,10 @@ data PubKeyDesc =
 	  PubKeyRSA (Int, Integer, Integer) -- len modulus, modulus, e
 	| PubKeyDSA (L.ByteString, Integer, Integer, Integer) -- pub, p, q, g
 	| PubKeyUnknown [Word8]
-	deriving (Show)
+	deriving (Show,Eq)
 
 data PubKey = PubKey SignatureALG PubKeyDesc -- OID RSA|DSA|rawdata
-	deriving (Show)
+	deriving (Show,Eq)
 
 data CertificateDN = CertificateDN {
 	cdnCommonName       :: Maybe String,
@@ -87,7 +87,7 @@ data CertificateDN = CertificateDN {
 	cdnOrganization     :: Maybe String,
 	cdnOrganizationUnit :: Maybe String,
 	cdnOthers           :: [ (OID, String) ]
-	} deriving (Show)
+	} deriving (Show,Eq)
 
 -- FIXME use a proper standard type for representing time.
 type Time = (Int, Int, Int, Int, Int, Int, Bool)
@@ -103,7 +103,7 @@ data Certificate = Certificate {
 	certExtensions   :: Maybe [ASN1],
 	certSignature    :: Maybe (SignatureALG, [Word8]),
 	certOthers       :: [ASN1]
-	} deriving (Show)
+	} deriving (Show,Eq)
 
 {- | parse a RSA pubkeys from ASN1 encoded bits.
  - return PubKeyRSA (len-modulus, modulus, e) if successful -}
