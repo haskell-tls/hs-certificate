@@ -73,36 +73,36 @@ data SignatureALG =
 	deriving (Show, Eq)
 
 data PubKeyDesc =
-	  PubKeyRSA (Int, Integer, Integer) -- len modulus, modulus, e
-	| PubKeyDSA (L.ByteString, Integer, Integer, Integer) -- pub, p, q, g
-	| PubKeyUnknown [Word8]
+	  PubKeyRSA (Int, Integer, Integer)                   -- ^ RSA format with (len modulus, modulus, e)
+	| PubKeyDSA (L.ByteString, Integer, Integer, Integer) -- ^ DSA format with (pub, p, q, g)
+	| PubKeyUnknown [Word8]                               -- ^ unrecognized format
 	deriving (Show,Eq)
 
 data PubKey = PubKey SignatureALG PubKeyDesc -- OID RSA|DSA|rawdata
 	deriving (Show,Eq)
 
-data CertificateDN = CertificateDN {
-	cdnCommonName       :: Maybe String,
-	cdnCountry          :: Maybe String,
-	cdnOrganization     :: Maybe String,
-	cdnOrganizationUnit :: Maybe String,
-	cdnOthers           :: [ (OID, String) ]
+data CertificateDN = CertificateDN
+	{ cdnCommonName       :: Maybe String      -- ^ Certificate DN Common Name
+	, cdnCountry          :: Maybe String      -- ^ Certificate DN Country of Issuance
+	, cdnOrganization     :: Maybe String      -- ^ Certificate DN Organization
+	, cdnOrganizationUnit :: Maybe String      -- ^ Certificate DN Organization Unit
+	, cdnOthers           :: [ (OID, String) ] -- ^ Certificate DN Other Attributes
 	} deriving (Show,Eq)
 
 -- FIXME use a proper standard type for representing time.
 type Time = (Int, Int, Int, Int, Int, Int, Bool)
 
-data Certificate = Certificate {
-	certVersion      :: Int,
-	certSerial       :: Integer,
-	certSignatureAlg :: SignatureALG,
-	certIssuerDN     :: CertificateDN,
-	certSubjectDN    :: CertificateDN,
-	certValidity     :: (Time, Time),
-	certPubKey       :: PubKey,
-	certExtensions   :: Maybe [ASN1],
-	certSignature    :: Maybe (SignatureALG, [Word8]),
-	certOthers       :: [ASN1]
+data Certificate = Certificate
+	{ certVersion      :: Int                           -- ^ Certificate Version
+	, certSerial       :: Integer                       -- ^ Certificate Serial number
+	, certSignatureAlg :: SignatureALG                  -- ^ Certificate Signature algorithm
+	, certIssuerDN     :: CertificateDN                 -- ^ Certificate Issuer DN
+	, certSubjectDN    :: CertificateDN                 -- ^ Certificate Subject DN
+	, certValidity     :: (Time, Time)                  -- ^ Certificate Validity period
+	, certPubKey       :: PubKey                        -- ^ Certificate Public key
+	, certExtensions   :: Maybe [ASN1]                  -- ^ Certificate Extensions (format will change)
+	, certSignature    :: Maybe (SignatureALG, [Word8]) -- ^ Certificate Signature Algorithm and Signature
+	, certOthers       :: [ASN1]                        -- ^ any others fields not parsed
 	} deriving (Show,Eq)
 
 {- | parse a RSA pubkeys from ASN1 encoded bits.
@@ -294,8 +294,12 @@ parseCertificate = do
 		certOthers       = l
 		}
 
-processCertificate :: ASN1 -> ASN1 -> ASN1 -> Either String Certificate
-processCertificate header sigalg sig = do
+{- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
+ - * the header
+ - * the signature algorithm
+ - * the signature -}
+processCertificate :: ASN1 -> Either String Certificate
+processCertificate (Sequence [ header, sigalg, sig ]) = do
 	let sigAlg =
 		case sigalg of
 			Sequence [ OID oid, Null ] -> oidSig oid
@@ -310,17 +314,11 @@ processCertificate header sigalg sig = do
 			either Left (\c -> Right $ c { certSignature = Just (sigAlg, L.unpack sigbits) }) cert
 		_          -> Left "Certificate is not a sequence" 
 	
+processCertificate x = Left ("certificate root element error: " ++ show x)
 
-{- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
- - * the header
- - * the signature algorithm
- - * the signature -}
-parseCertRoot :: ASN1 -> Either String Certificate
-parseCertRoot (Sequence [ header, sigalg, sig ]) = processCertificate header sigalg sig
-parseCertRoot x = Left ("certificate root element error: " ++ show x)
-
+{- | decode a X509 certificate from a bytestring -}
 decodeCertificate :: L.ByteString -> Either String Certificate
-decodeCertificate by = either (Left . show) parseCertRoot $ decodeASN1 by
+decodeCertificate by = either (Left . show) processCertificate $ decodeASN1 by
 
 encodeDN :: CertificateDN -> ASN1
 encodeDN dn = Sequence sets
@@ -360,6 +358,7 @@ encodeCertificateHeader cert =
 		epkinfo   = encodePK $ certPubKey cert
 		others    = []
 
+{-| encode a X509 certificate to a bytestring -}
 encodeCertificate :: Certificate -> L.ByteString
 encodeCertificate cert = encodeASN1 rootSeq
 	where
