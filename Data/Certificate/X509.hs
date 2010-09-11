@@ -154,8 +154,8 @@ parseCertHeaderVersion :: ParseCert Int
 parseCertHeaderVersion = do
 	n <- lookNext
 	v <- case n of
-		Other Application 0 (Right [ IntVal v ]) -> getNext >> return (fromIntegral v)
-		_                                        -> return 1
+		Other Context 0 (Right [ IntVal v ]) -> getNext >> return (fromIntegral v)
+		_                                    -> return 1
 	return v
 
 parseCertHeaderSerial :: ParseCert Integer
@@ -262,8 +262,8 @@ parseCertExtensions = do
 		then do
 			n <- lookNext
 			case n of
-				Other Application 3 (Right l) -> getNext >> return (Just l)
-				_                             -> return Nothing
+				Other Context 3 (Right l) -> getNext >> return (Just l)
+				_                         -> return Nothing
 		else return Nothing
 
 {- | parse header structure of a x509 certificate. it contains
