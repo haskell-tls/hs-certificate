@@ -10,8 +10,8 @@
 -- Read PEM files
 --
 module Data.Certificate.PEM (
-	parsePEM,
 	parsePEMCert,
+	parsePEMCertReq,
 	parsePEMKey
 	) where
 
@@ -27,8 +27,8 @@ mapTill endp f (x:xs) = if endp x then [] else f x : mapTill endp f xs
 
 {- | parse a PEM content that is delimited by the begin string and the end string,
    and returns the base64-decoded bytestring on success or a string on error. -}
-parsePEM :: ByteString -> ByteString -> ByteString -> Either String ByteString
-parsePEM begin end content =
+parsePEMSpecific :: ByteString -> ByteString -> ByteString -> Either String ByteString
+parsePEMSpecific begin end content =
 	concatErrOrContent $ mapTill ((==) end) (decode) $ tail $ dropWhile ((/=) begin) ls
 	where
 		ls     = BC.split '\n' content
@@ -37,7 +37,10 @@ parsePEM begin end content =
 			if l == [] then Right $ B.concat r else Left $ head l
 
 parsePEMCert :: ByteString -> Either String ByteString
-parsePEMCert = parsePEM "-----BEGIN CERTIFICATE-----" "-----END CERTIFICATE-----"
+parsePEMCert = parsePEMSpecific "-----BEGIN CERTIFICATE-----" "-----END CERTIFICATE-----"
+
+parsePEMCertReq :: ByteString -> Either String ByteString
+parsePEMCertReq = parsePEMSpecific "-----BEGIN CERTIFICATE REQUEST-----" "-----END CERTIFICATE REQUEST-----"
 
 parsePEMKey :: ByteString -> Either String ByteString
-parsePEMKey = parsePEM "-----BEGIN RSA PRIVATE KEY-----" "-----END RSA PRIVATE KEY-----"
+parsePEMKey = parsePEMSpecific "-----BEGIN RSA PRIVATE KEY-----" "-----END RSA PRIVATE KEY-----"
