@@ -105,8 +105,10 @@ data CertKeyUsage =
 	deriving (Show, Eq)
 
 data CertificateExts = CertificateExts
-	{ certExtKeyUsage :: Maybe [CertKeyUsage]
-	, certExtOthers   :: [ (OID, Bool, ASN1) ]
+	{ certExtKeyUsage             :: Maybe [CertKeyUsage]
+	, certExtBasicConstraints     :: Maybe Bool
+	, certExtSubjectKeyIdentifier :: Maybe [Word8]
+	, certExtOthers               :: [ (OID, Bool, ASN1) ]
 	} deriving (Show,Eq)
 
 data Certificate = Certificate
@@ -276,22 +278,24 @@ parseCertHeaderSubjectPK = do
 parseCertExtensionHelper :: [ASN1] -> State CertificateExts ()
 parseCertExtensionHelper l = do
 	forM_ (mapMaybe extractStruct l) $ \e -> case e of
-		([2,5,29,14], critical, obj) ->
+		([2,5,29,14], critical, Right (OctetString x)) ->
+			modify (\s -> s { certExtSubjectKeyIdentifier = Just $ L.unpack x })
+		([2,5,29,15], critical, Right (BitString _ _)) ->
 			return ()
-		([2,5,29,15], critical, obj) ->
+		([2,5,29,19], critical, Right (Sequence [Boolean True])) ->
+			modify (\s -> s { certExtBasicConstraints = Just True })
+		([2,5,29,31], critical, obj) -> -- distributions points
 			return ()
-		([2,5,29,19], critical, obj) -> -- basic constraints CA:TRUE
+		([2,5,29,35], critical, obj) -> -- authority key identifer
 			return ()
-		([2,5,29,31], critical, obj) -> -- distriubtions points
-			return ()
-		([2,5,29,35], critical, obj) ->
-			return ()
-		(oid, critical, obj)         ->
+		(oid, critical, Right obj)    ->
 			modify (\s -> s { certExtOthers = (oid, critical, obj) : certExtOthers s })
+		(_, True, Left err)           -> fail "critical extension not understood"
+		(_, False, Left _)            -> return ()
 	where
-		extractStruct (Sequence [ OID oid, Boolean True, obj ]) = Just (oid, True, obj)
-		extractStruct (Sequence [ OID oid, obj ])               = Just (oid, False, obj)
-		extractStruct _                                         = Nothing
+		extractStruct (Sequence [ OID oid, Boolean True, OctetString obj ]) = Just (oid, True, decodeASN1 obj)
+		extractStruct (Sequence [ OID oid, OctetString obj ])               = Just (oid, False, decodeASN1 obj)
+		extractStruct _                                                     = Nothing
 
 parseCertExtensions :: ParseCert (Maybe CertificateExts)
 parseCertExtensions = do
@@ -303,8 +307,10 @@ parseCertExtensions = do
 				Other Context 3 (Right [Sequence l]) -> do
 					_ <- getNext
 					let def = CertificateExts
-						{ certExtKeyUsage = Nothing
-						, certExtOthers   = []
+						{ certExtKeyUsage             = Nothing
+						, certExtBasicConstraints     = Nothing
+						, certExtSubjectKeyIdentifier = Nothing
+						, certExtOthers               = []
 						}
 					return $ Just $ execState (parseCertExtensionHelper l) def
 				Other Context 3 _                    ->
