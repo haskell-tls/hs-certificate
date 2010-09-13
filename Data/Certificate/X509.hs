@@ -92,6 +92,23 @@ data CertificateDN = CertificateDN
 -- FIXME use a proper standard type for representing time.
 type Time = (Int, Int, Int, Int, Int, Int, Bool)
 
+data CertKeyUsage =
+	  CertKeyUsageDigitalSignature
+	| CertKeyUsageNonRepudiation
+	| CertKeyUsageKeyEncipherment
+	| CertKeyUsageDataEncipherment
+	| CertKeyUsageKeyAgreement
+	| CertKeyUsageKeyCertSign
+	| CertKeyUsageCRLSign
+	| CertKeyUsageEncipherOnly
+	| CertKeyUsageDecipherOnly
+	deriving (Show, Eq)
+
+data CertificateExts = CertificateExts
+	{ certExtKeyUsage :: Maybe [CertKeyUsage]
+	, certExtOthers   :: [ (OID, Bool, ASN1) ]
+	} deriving (Show,Eq)
+
 data Certificate = Certificate
 	{ certVersion      :: Int                           -- ^ Certificate Version
 	, certSerial       :: Integer                       -- ^ Certificate Serial number
