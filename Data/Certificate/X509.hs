@@ -237,15 +237,14 @@ parseCertHeaderDN = do
 	n <- getNext
 	case n of
 		Sequence l -> do
-			let defdn = CertificateDN {
-				cdnCommonName       = Nothing,
-				cdnCountry          = Nothing,
-				cdnOrganization     = Nothing,
-				cdnOrganizationUnit = Nothing,
-				cdnOthers           = []
+			let defdn = CertificateDN
+				{ cdnCommonName       = Nothing
+				, cdnCountry          = Nothing
+				, cdnOrganization     = Nothing
+				, cdnOrganizationUnit = Nothing
+				, cdnOthers           = []
 				}
-			let dn = execState (parseCertHeaderDNHelper l) defdn 
-			return dn
+			return $ execState (parseCertHeaderDNHelper l) defdn 
 		_          -> throwError "Distinguished name bad format"
 
 parseCertHeaderValidity :: ParseCert (Time, Time)
