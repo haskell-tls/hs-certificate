@@ -190,27 +190,29 @@ parseCertHeaderAlgorithmID = do
 		Sequence [ OID oid, Null ] -> return $ oidSig oid
 		_                          -> throwError "algorithm ID bad format"
 
-stringOfASN1PrintString :: ASN1 -> String
-stringOfASN1PrintString (PrintableString x) = map (toEnum.fromEnum) $ L.unpack x
-stringOfASN1PrintString (UTF8String x)      = map (toEnum.fromEnum) $ L.unpack x
-stringOfASN1PrintString x                   = error ("not a print string " ++ show x)
+stringOfASN1String :: ASN1 -> String
+stringOfASN1String (PrintableString x) = map (toEnum.fromEnum) $ L.unpack x
+stringOfASN1String (UTF8String x)      = map (toEnum.fromEnum) $ L.unpack x
+stringOfASN1String (TeletexString x)   = map (toEnum.fromEnum) $ L.unpack x
+stringOfASN1String (UniversalString x) = map (toEnum.fromEnum) $ L.unpack x
+stringOfASN1String (BMPString x)       = map (toEnum.fromEnum) $ L.unpack x
+stringOfASN1String x                   = error ("not a print string " ++ show x)
 
 parseCertHeaderDNHelper :: [ASN1] -> State CertificateDN ()
 parseCertHeaderDNHelper l = do
-	forM_ l $ (\e -> do
-		case e of
-			Set [ Sequence [ OID [2,5,4,3], val ] ] ->
-				modify (\s -> s { cdnCommonName = Just $ stringOfASN1PrintString val })
-			Set [ Sequence [ OID [2,5,4,6], val ] ] ->
-				modify (\s -> s { cdnCountry = Just $ stringOfASN1PrintString val })
-			Set [ Sequence [ OID [2,5,4,10], val ] ] ->
-				modify (\s -> s { cdnOrganization = Just $ stringOfASN1PrintString val })
-			Set [ Sequence [ OID [2,5,4,11], val ] ] ->
-				modify (\s -> s { cdnOrganizationUnit = Just $ stringOfASN1PrintString val })
-			Set [ Sequence [ OID oid, val ] ] ->
-				modify (\s -> s { cdnOthers = (oid, show val) : cdnOthers s })
-			_      ->
-				return ()
+	forM_ l $ (\e -> case e of
+		Set [ Sequence [ OID [2,5,4,3], val ] ] ->
+			modify (\s -> s { cdnCommonName = Just $ stringOfASN1String val })
+		Set [ Sequence [ OID [2,5,4,6], val ] ] ->
+			modify (\s -> s { cdnCountry = Just $ stringOfASN1String val })
+		Set [ Sequence [ OID [2,5,4,10], val ] ] ->
+			modify (\s -> s { cdnOrganization = Just $ stringOfASN1String val })
+		Set [ Sequence [ OID [2,5,4,11], val ] ] ->
+			modify (\s -> s { cdnOrganizationUnit = Just $ stringOfASN1String val })
+		Set [ Sequence [ OID oid, val ] ] ->
+			modify (\s -> s { cdnOthers = (oid, show val) : cdnOthers s })
+		_      ->
+			return ()
 		)
 
 parseCertHeaderDN :: ParseCert CertificateDN
