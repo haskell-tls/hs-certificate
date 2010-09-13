@@ -193,7 +193,7 @@ parseCertHeaderAlgorithmID = do
 stringOfASN1String :: ASN1 -> String
 stringOfASN1String (PrintableString x) = map (toEnum.fromEnum) $ L.unpack x
 stringOfASN1String (UTF8String x)      = map (toEnum.fromEnum) $ L.unpack x
-stringOfASN1String (TeletexString x)   = map (toEnum.fromEnum) $ L.unpack x
+stringOfASN1String (T61String x)       = map (toEnum.fromEnum) $ L.unpack x
 stringOfASN1String (UniversalString x) = map (toEnum.fromEnum) $ L.unpack x
 stringOfASN1String (BMPString x)       = map (toEnum.fromEnum) $ L.unpack x
 stringOfASN1String x                   = error ("not a print string " ++ show x)
