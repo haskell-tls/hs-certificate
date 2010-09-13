@@ -117,7 +117,7 @@ data Certificate = Certificate
 	, certSubjectDN    :: CertificateDN                 -- ^ Certificate Subject DN
 	, certValidity     :: (Time, Time)                  -- ^ Certificate Validity period
 	, certPubKey       :: PubKey                        -- ^ Certificate Public key
-	, certExtensions   :: Maybe [ASN1]                  -- ^ Certificate Extensions (format will change)
+	, certExtensions   :: Maybe CertificateExts         -- ^ Certificate Extensions
 	, certSignature    :: Maybe (SignatureALG, [Word8]) -- ^ Certificate Signature Algorithm and Signature
 	, certOthers       :: [ASN1]                        -- ^ any others fields not parsed
 	} deriving (Show,Eq)
@@ -273,15 +273,44 @@ parseCertHeaderSubjectPK = do
 		_ ->
 			throwError ("subject public key bad format : " ++ show n)
 
-parseCertExtensions :: ParseCert (Maybe [ASN1])
+parseCertExtensionHelper :: [ASN1] -> State CertificateExts ()
+parseCertExtensionHelper l = do
+	forM_ (mapMaybe extractStruct l) $ \e -> case e of
+		([2,5,29,14], critical, obj) ->
+			return ()
+		([2,5,29,15], critical, obj) ->
+			return ()
+		([2,5,29,19], critical, obj) -> -- basic constraints CA:TRUE
+			return ()
+		([2,5,29,31], critical, obj) -> -- distriubtions points
+			return ()
+		([2,5,29,35], critical, obj) ->
+			return ()
+		(oid, critical, obj)         ->
+			modify (\s -> s { certExtOthers = (oid, critical, obj) : certExtOthers s })
+	where
+		extractStruct (Sequence [ OID oid, Boolean True, obj ]) = Just (oid, True, obj)
+		extractStruct (Sequence [ OID oid, obj ])               = Just (oid, False, obj)
+		extractStruct _                                         = Nothing
+
+parseCertExtensions :: ParseCert (Maybe CertificateExts)
 parseCertExtensions = do
 	h <- hasNext
 	if h
 		then do
 			n <- lookNext
 			case n of
-				Other Context 3 (Right l) -> getNext >> return (Just l)
-				_                         -> return Nothing
+				Other Context 3 (Right [Sequence l]) -> do
+					_ <- getNext
+					let def = CertificateExts
+						{ certExtKeyUsage = Nothing
+						, certExtOthers   = []
+						}
+					return $ Just $ execState (parseCertExtensionHelper l) def
+				Other Context 3 _                    ->
+					throwError "certificate header bad format"
+				_                                    ->
+					return Nothing
 		else return Nothing
 
 {- | parse header structure of a x509 certificate. it contains
