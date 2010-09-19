@@ -105,9 +105,10 @@ data CertKeyUsage =
 	deriving (Show, Eq)
 
 data CertificateExts = CertificateExts
-	{ certExtKeyUsage             :: Maybe [CertKeyUsage]
-	, certExtBasicConstraints     :: Maybe Bool
-	, certExtSubjectKeyIdentifier :: Maybe [Word8]
+	{ certExtKeyUsage             :: Maybe (Bool, [CertKeyUsage])
+	, certExtBasicConstraints     :: Maybe (Bool, Bool)
+	, certExtSubjectKeyIdentifier :: Maybe (Bool, [Word8])
+	, certExtPolicies             :: Maybe (Bool)
 	, certExtOthers               :: [ (OID, Bool, ASN1) ]
 	} deriving (Show,Eq)
 
@@ -275,22 +276,42 @@ parseCertHeaderSubjectPK = do
 		_ ->
 			throwError ("subject public key bad format : " ++ show n)
 
+-- RFC 5280
 parseCertExtensionHelper :: [ASN1] -> State CertificateExts ()
 parseCertExtensionHelper l = do
 	forM_ (mapMaybe extractStruct l) $ \e -> case e of
 		([2,5,29,14], critical, Right (OctetString x)) ->
-			modify (\s -> s { certExtSubjectKeyIdentifier = Just $ L.unpack x })
+			modify (\s -> s { certExtSubjectKeyIdentifier = Just (critical, L.unpack x) })
+		{-
 		([2,5,29,15], critical, Right (BitString _ _)) ->
+			all the flags:
+			digitalSignature        (0),
+			nonRepudiation          (1), -- recent editions of X.509 have renamed this bit to contentCommitment
+			keyEncipherment         (2),
+			dataEncipherment        (3),
+			keyAgreement            (4),
+			keyCertSign             (5),
+			cRLSign                 (6),
+			encipherOnly            (7),
+			decipherOnly            (8) }
+
 			return ()
+		-}
 		([2,5,29,19], critical, Right (Sequence [Boolean True])) ->
-			modify (\s -> s { certExtBasicConstraints = Just True })
+			modify (\s -> s { certExtBasicConstraints = Just (critical, True) })
+		{-
 		([2,5,29,31], critical, obj) -> -- distributions points
+			return ()
+		([2,5,29,32], critical, obj) -> -- policies
+			return ()
+		([2,5,29,33], critical, obj) -> -- policies mapping
 			return ()
 		([2,5,29,35], critical, obj) -> -- authority key identifer
 			return ()
+		-}
 		(oid, critical, Right obj)    ->
 			modify (\s -> s { certExtOthers = (oid, critical, obj) : certExtOthers s })
-		(_, True, Left err)           -> fail "critical extension not understood"
+		(_, True, Left _)             -> fail "critical extension not understood"
 		(_, False, Left _)            -> return ()
 	where
 		extractStruct (Sequence [ OID oid, Boolean True, OctetString obj ]) = Just (oid, True, decodeASN1 obj)
@@ -310,6 +331,7 @@ parseCertExtensions = do
 						{ certExtKeyUsage             = Nothing
 						, certExtBasicConstraints     = Nothing
 						, certExtSubjectKeyIdentifier = Nothing
+						, certExtPolicies             = Nothing
 						, certExtOthers               = []
 						}
 					return $ Just $ execState (parseCertExtensionHelper l) def
