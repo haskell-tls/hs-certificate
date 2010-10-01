@@ -73,9 +73,9 @@ data SignatureALG =
 	deriving (Show, Eq)
 
 data PubKeyDesc =
-	  PubKeyRSA (Int, Integer, Integer)                   -- ^ RSA format with (len modulus, modulus, e)
-	| PubKeyDSA (L.ByteString, Integer, Integer, Integer) -- ^ DSA format with (pub, p, q, g)
-	| PubKeyUnknown [Word8]                               -- ^ unrecognized format
+	  PubKeyRSA (Int, Integer, Integer)              -- ^ RSA format with (len modulus, modulus, e)
+	| PubKeyDSA (Integer, Integer, Integer, Integer) -- ^ DSA format with (pub, p, q, g)
+	| PubKeyUnknown [Word8]                          -- ^ unrecognized format
 	deriving (Show,Eq)
 
 data PubKey = PubKey SignatureALG PubKeyDesc -- OID RSA|DSA|rawdata
@@ -208,7 +208,8 @@ parseCertHeaderAlgorithmID = do
 	n <- getNext
 	case n of
 		Sequence [ OID oid, Null ] -> return $ oidSig oid
-		_                          -> throwError "algorithm ID bad format"
+		Sequence [ OID oid ]       -> return $ oidSig oid
+		_                          -> throwError ("algorithm ID bad format " ++ show n)
 
 stringOfASN1String :: ASN1 -> String
 stringOfASN1String (PrintableString x) = map (toEnum.fromEnum) $ L.unpack x
@@ -270,9 +271,11 @@ parseCertHeaderSubjectPK = do
 				SignatureALG_rsa                   -> parse_RSA bits
 				_                                  -> PubKeyUnknown $ L.unpack bits
 			return $ PubKey sig desc
-		Sequence [ Sequence [ OID pkalg, Sequence [ IntVal dsaP, IntVal dsaQ, IntVal dsaG ]], BitString _ dsapub ] ->
+		Sequence [ Sequence [ OID pkalg, Sequence [ IntVal dsaP, IntVal dsaQ, IntVal dsaG ]], BitString _ dsapubenc ] ->
 			let sig = oidSig pkalg in
-			return $ PubKey sig (PubKeyDSA (dsapub, dsaP, dsaQ, dsaG))
+			case decodeASN1 dsapubenc of
+				Right (IntVal dsapub) -> return $ PubKey sig (PubKeyDSA (dsapub, dsaP, dsaQ, dsaG))
+				_                     -> throwError "unrecognized DSA pub format"
 		_ ->
 			throwError ("subject public key bad format : " ++ show n)
 
@@ -414,8 +417,10 @@ encodePK :: PubKey -> ASN1
 encodePK (PubKey sig (PubKeyRSA (_, modulus, e))) = Sequence [ Sequence [ OID $ sigOID sig, Null ], BitString 0 bits ]
 	where bits = encodeASN1 $ Sequence [ IntVal modulus, IntVal e ]
 
-encodePK (PubKey sig (PubKeyDSA (bits, p, q, g))) = Sequence [ Sequence [ OID $ sigOID sig, dsaseq ], BitString 0 bits ]
-	where dsaseq = Sequence [ IntVal p, IntVal q, IntVal g ]
+encodePK (PubKey sig (PubKeyDSA (pub, p, q, g)))  = Sequence [ Sequence [ OID $ sigOID sig, dsaseq ], BitString 0 bits ]
+	where
+		dsaseq = Sequence [ IntVal p, IntVal q, IntVal g ]
+		bits   = encodeASN1 $ IntVal pub
 
 encodePK (PubKey sig (PubKeyUnknown l))           = Sequence [ Sequence [ OID $ sigOID sig, Null ], BitString 0 (L.pack l) ]
 
