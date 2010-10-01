@@ -9,10 +9,12 @@
 --
 -- Read PEM files
 --
-module Data.Certificate.PEM (
-	parsePEMCert,
-	parsePEMCertReq,
-	parsePEMKey
+module Data.Certificate.PEM
+	( parsePEMCert
+	, parsePEMCertReq
+	, parsePEMKey
+	, parsePEMKeyRSA
+	, parsePEMKeyDSA
 	) where
 
 import Data.ByteString (ByteString)
@@ -42,5 +44,12 @@ parsePEMCert = parsePEMSpecific "-----BEGIN CERTIFICATE-----" "-----END CERTIFIC
 parsePEMCertReq :: ByteString -> Either String ByteString
 parsePEMCertReq = parsePEMSpecific "-----BEGIN CERTIFICATE REQUEST-----" "-----END CERTIFICATE REQUEST-----"
 
+parsePEMKeyRSA :: ByteString -> Either String ByteString
+parsePEMKeyRSA = parsePEMSpecific "-----BEGIN RSA PRIVATE KEY-----" "-----END RSA PRIVATE KEY-----"
+
+parsePEMKeyDSA :: ByteString -> Either String ByteString
+parsePEMKeyDSA = parsePEMSpecific "-----BEGIN DSA PRIVATE KEY-----" "-----END DSA PRIVATE KEY-----"
+
+{-# DEPRECATED parsePEMKey "use parsePEMKeyRSA now" #-}
 parsePEMKey :: ByteString -> Either String ByteString
-parsePEMKey = parsePEMSpecific "-----BEGIN RSA PRIVATE KEY-----" "-----END RSA PRIVATE KEY-----"
+parsePEMKey = parsePEMKeyRSA
