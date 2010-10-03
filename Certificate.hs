@@ -11,10 +11,10 @@ import Data.Maybe
 import Data.ASN1.DER
 
 readcert :: FilePath -> IO (Either String Certificate)
-readcert file = B.readFile file >>= return . either Left (decodeCertificate . L.fromChunks . (:[])) . parsePEMCert
+readcert file = B.readFile file >>= return . maybe (Left "no valid certificate found") (decodeCertificate . L.fromChunks . (:[])) . parsePEMCert
 
 readprivate :: FilePath -> IO (Either String PrivateKey)
-readprivate file = B.readFile file >>= return . either Left (decodePrivateKey . L.fromChunks . (:[])) . parsePEMKeyRSA
+readprivate file = B.readFile file >>= return . maybe (Left "no valid private RSA key found") (decodePrivateKey . L.fromChunks . (:[])) . parsePEMKeyRSA
 
 showCert :: Certificate -> String
 showCert cert =

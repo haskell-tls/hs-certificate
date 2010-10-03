@@ -15,41 +15,52 @@ module Data.Certificate.PEM
 	, parsePEMKey
 	, parsePEMKeyRSA
 	, parsePEMKeyDSA
+	, parsePEMs
 	) where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import Data.ByteString.Base64
-import Data.Either
+import Data.List
 
-mapTill :: (a -> Bool) -> (a -> b) -> [a] -> [b]
-mapTill _    _ []     = []
-mapTill endp f (x:xs) = if endp x then [] else f x : mapTill endp f xs
+type PEM = (String, ByteString)
 
-{- | parse a PEM content that is delimited by the begin string and the end string,
-   and returns the base64-decoded bytestring on success or a string on error. -}
-parsePEMSpecific :: ByteString -> ByteString -> ByteString -> Either String ByteString
-parsePEMSpecific begin end content =
-	concatErrOrContent $ mapTill ((==) end) (decode) $ tail $ dropWhile ((/=) begin) ls
-	where
-		ls     = BC.split '\n' content
-		concatErrOrContent x =
-			let (l, r) = partitionEithers x in
-			if l == [] then Right $ B.concat r else Left $ head l
+takeTillEnd :: [ByteString] -> ([ByteString], [ByteString])
+takeTillEnd ls = break (BC.isPrefixOf "-----END ") ls
 
-parsePEMCert :: ByteString -> Either String ByteString
-parsePEMCert = parsePEMSpecific "-----BEGIN CERTIFICATE-----" "-----END CERTIFICATE-----"
+findSectionName :: ByteString -> String
+findSectionName s = BC.unpack $ B.take (B.length x - 5) x
+	where x = B.drop 11 s
 
-parsePEMCertReq :: ByteString -> Either String ByteString
-parsePEMCertReq = parsePEMSpecific "-----BEGIN CERTIFICATE REQUEST-----" "-----END CERTIFICATE REQUEST-----"
+parsePEMSections :: [ByteString] -> [PEM]
+parsePEMSections []     = []
+parsePEMSections (x:xs)
+	| "-----BEGIN " `B.isPrefixOf` x =
+		let (content, rest) = takeTillEnd xs in
+		case decode $ B.concat content of
+			Left _  -> parsePEMSections rest
+			Right y -> (findSectionName x, y) : parsePEMSections rest
+	| otherwise                      = parsePEMSections xs
 
-parsePEMKeyRSA :: ByteString -> Either String ByteString
-parsePEMKeyRSA = parsePEMSpecific "-----BEGIN RSA PRIVATE KEY-----" "-----END RSA PRIVATE KEY-----"
+parsePEMs :: ByteString -> [PEM]
+parsePEMs content = parsePEMSections $ BC.lines content
 
-parsePEMKeyDSA :: ByteString -> Either String ByteString
-parsePEMKeyDSA = parsePEMSpecific "-----BEGIN DSA PRIVATE KEY-----" "-----END DSA PRIVATE KEY-----"
+findPEM :: String -> [PEM] -> Maybe ByteString
+findPEM name = maybe Nothing (Just . snd) . find ((==) name . fst)
+
+parsePEMCert :: ByteString -> Maybe ByteString
+parsePEMCert = findPEM "CERTIFICATE" . parsePEMs
+
+parsePEMCertReq :: ByteString -> Maybe ByteString
+parsePEMCertReq = findPEM "CERTIFICATE REQUEST" . parsePEMs
+
+parsePEMKeyRSA :: ByteString -> Maybe ByteString
+parsePEMKeyRSA = findPEM "RSA PRIVATE KEY" . parsePEMs
+
+parsePEMKeyDSA :: ByteString -> Maybe ByteString
+parsePEMKeyDSA = findPEM "DSA PRIVATE KEY" . parsePEMs
 
 {-# DEPRECATED parsePEMKey "use parsePEMKeyRSA now" #-}
-parsePEMKey :: ByteString -> Either String ByteString
+parsePEMKey :: ByteString -> Maybe ByteString
 parsePEMKey = parsePEMKeyRSA
