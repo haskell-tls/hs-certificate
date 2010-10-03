@@ -428,7 +428,7 @@ encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
 	[ eVer, eSerial, eAlgId, eIssuer, eValidity, eSubject, epkinfo ] ++ others
 	where
-		eVer      = Other Application 0 (Right [ IntVal (fromIntegral $ certVersion cert) ])
+		eVer      = Other Context 0 (Right [ IntVal (fromIntegral $ certVersion cert) ])
 		eSerial   = IntVal $ certSerial cert
 		eAlgId    = Sequence [ OID (sigOID $ certSignatureAlg cert), Null ]
 		eIssuer   = encodeDN $ certIssuerDN cert
