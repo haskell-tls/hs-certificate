@@ -258,26 +258,28 @@ parseCertHeaderValidity = do
 		Sequence [ UTCTime t1, UTCTime t2 ] -> return (t1, t2)
 		_                                   -> throwError "bad validity format"
 
+matchPubKey :: ASN1 -> ParseCert PubKey
+matchPubKey (Sequence[Sequence[OID pkalg,Null],BitString _ bits]) = do
+	let sig = oidSig pkalg
+	let desc = case sig of
+		SignatureALG_sha1WithRSAEncryption -> parse_RSA bits
+		SignatureALG_md5WithRSAEncryption  -> parse_RSA bits
+		SignatureALG_md2WithRSAEncryption  -> parse_RSA bits
+		SignatureALG_rsa                   -> parse_RSA bits
+		_                                  -> PubKeyUnknown $ L.unpack bits
+	return $ PubKey sig desc
+
+matchPubKey (Sequence[Sequence[OID pkalg,Sequence[IntVal p,IntVal q,IntVal g]], BitString _ pubenc ]) = do
+	let sig = oidSig pkalg
+	case decodeASN1 pubenc of
+		Right (IntVal dsapub) -> return $ PubKey sig (PubKeyDSA (dsapub, p, q, g))
+		_                     -> throwError "unrecognized DSA pub format"
+
+
+matchPubKey n = throwError ("subject public key bad format : " ++ show n)
+
 parseCertHeaderSubjectPK :: ParseCert PubKey
-parseCertHeaderSubjectPK = do
-	n <- getNext
-	case n of
-		Sequence [ Sequence [ OID pkalg, Null], BitString _ bits ] -> do
-			let sig = oidSig pkalg
-			let desc = case sig of
-				SignatureALG_sha1WithRSAEncryption -> parse_RSA bits
-				SignatureALG_md5WithRSAEncryption  -> parse_RSA bits
-				SignatureALG_md2WithRSAEncryption  -> parse_RSA bits
-				SignatureALG_rsa                   -> parse_RSA bits
-				_                                  -> PubKeyUnknown $ L.unpack bits
-			return $ PubKey sig desc
-		Sequence [ Sequence [ OID pkalg, Sequence [ IntVal dsaP, IntVal dsaQ, IntVal dsaG ]], BitString _ dsapubenc ] ->
-			let sig = oidSig pkalg in
-			case decodeASN1 dsapubenc of
-				Right (IntVal dsapub) -> return $ PubKey sig (PubKeyDSA (dsapub, dsaP, dsaQ, dsaG))
-				_                     -> throwError "unrecognized DSA pub format"
-		_ ->
-			throwError ("subject public key bad format : " ++ show n)
+parseCertHeaderSubjectPK = getNext >>= matchPubKey
 
 -- RFC 5280
 parseCertExtensionHelper :: [ASN1] -> State CertificateExts ()
