@@ -49,6 +49,10 @@ showKey key =
 		"modulus:          " ++ (show $ privKey_modulus key),
 		"public exponant:  " ++ (show $ privKey_public_exponant key),
 		"private exponant: " ++ (show $ privKey_private_exponant key),
+		"p1:               " ++ (show $ privKey_p1 key),
+		"p2:               " ++ (show $ privKey_p2 key),
+		"exp1:             " ++ (show $ privKey_exp1 key),
+		"exp2:             " ++ (show $ privKey_exp2 key),
 		"coefficient:      " ++ (show $ privKey_coef key)
 		]
 
