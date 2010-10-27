@@ -28,7 +28,7 @@ data PrivateKey = PrivateKey
 	, privKey_p2 :: Integer
 	, privKey_exp1 :: Integer
 	, privKey_exp2 :: Integer
-	, privKey_coef :: Int
+	, privKey_coef :: Integer
 	}
 
 parsePrivateKey :: ASN1 -> Either String PrivateKey
@@ -47,7 +47,7 @@ parsePrivateKey x =
 				, privKey_p2 = p2
 				, privKey_exp1 = exp1
 				, privKey_exp2 = exp2
-				, privKey_coef = fromIntegral coef }
+				, privKey_coef = coef }
 		_ ->
 			Left "unexpected format"
 	where
