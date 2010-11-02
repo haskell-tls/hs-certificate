@@ -37,7 +37,7 @@ Executable           certificate
   Main-Is:           Certificate.hs
   if flag(executable)
     Buildable:       True
-    Build-depends:   RSA, hexdump, haskell98
+    Build-depends:   RSA, haskell98
   else
     Buildable:       False
 

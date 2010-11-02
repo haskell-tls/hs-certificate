@@ -4,7 +4,6 @@ import Data.Certificate.X509
 import Data.Certificate.Key
 import Data.Certificate.PEM
 import System
-import Text.Hexdump
 import Control.Monad
 import Data.Maybe
 
