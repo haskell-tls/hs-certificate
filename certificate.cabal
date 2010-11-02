@@ -22,7 +22,7 @@ Flag executable
   Default:           False
 
 Library
-  Build-Depends:     base >= 3 && < 5,
+  Build-Depends:     base >= 3 && < 7,
                      binary >= 0.5,
                      bytestring,
                      monads-fd,
