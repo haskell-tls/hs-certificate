@@ -1,5 +1,5 @@
 Name:                certificate
-Version:             0.3.1
+Version:             0.3.2
 Description:
     Certificates and Key reader/writer
     .
@@ -25,7 +25,7 @@ Library
   Build-Depends:     base >= 3 && < 7,
                      binary >= 0.5,
                      bytestring,
-                     monads-fd,
+                     mtl,
                      asn1-data >= 0.2,
                      base64-bytestring
   Exposed-modules:   Data.Certificate.X509,
