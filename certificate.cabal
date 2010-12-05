@@ -37,7 +37,7 @@ Executable           certificate
   Main-Is:           Certificate.hs
   if flag(executable)
     Buildable:       True
-    Build-depends:   haskell98
+    Build-depends:   cmdargs, text >= 0.11
   else
     Buildable:       False
 
