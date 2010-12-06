@@ -12,6 +12,7 @@
 
 module Data.Certificate.X509 (
 	-- * Data Structure
+	SignatureALG(..),
 	PubKeyDesc(..),
 	PubKey(..),
 	CertificateDN(..),
