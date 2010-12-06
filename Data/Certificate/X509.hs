@@ -13,6 +13,7 @@
 module Data.Certificate.X509 (
 	-- * Data Structure
 	SignatureALG(..),
+	PubKeyALG(..),
 	PubKeyDesc(..),
 	PubKey(..),
 	CertificateDN(..),
@@ -27,6 +28,7 @@ import Data.Word
 import Data.List (find)
 import Data.ASN1.DER
 import Data.Maybe
+import Data.Either
 import qualified Data.ByteString.Lazy as L
 import Control.Monad.State
 import Control.Monad.Error
@@ -67,19 +69,26 @@ data SignatureALG =
 	  SignatureALG_md5WithRSAEncryption
 	| SignatureALG_md2WithRSAEncryption
 	| SignatureALG_sha1WithRSAEncryption
-	| SignatureALG_rsa
-	| SignatureALG_dsa
 	| SignatureALG_dsaWithSHA1
+	| SignatureALG_ecdsaWithSHA384
 	| SignatureALG_Unknown OID
 	deriving (Show, Eq)
+
+data PubKeyALG =
+	  PubKeyALG_RSA
+	| PubKeyALG_DSA
+	| PubKeyALG_ECDSA
+	| PubKeyALG_Unknown OID
+	deriving (Show,Eq)
 
 data PubKeyDesc =
 	  PubKeyRSA (Int, Integer, Integer)              -- ^ RSA format with (len modulus, modulus, e)
 	| PubKeyDSA (Integer, Integer, Integer, Integer) -- ^ DSA format with (pub, p, q, g)
+	| PubKeyECDSA ASN1                               -- ^ ECDSA format not done yet FIXME
 	| PubKeyUnknown [Word8]                          -- ^ unrecognized format
 	deriving (Show,Eq)
 
-data PubKey = PubKey SignatureALG PubKeyDesc -- OID RSA|DSA|rawdata
+data PubKey = PubKey PubKeyALG PubKeyDesc -- OID RSA|DSA|rawdata
 	deriving (Show,Eq)
 
 data CertificateDN = CertificateDN
@@ -138,6 +147,12 @@ parse_RSA bits =
 	where
 		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
 
+parse_ECDSA :: L.ByteString -> PubKeyDesc
+parse_ECDSA bits =
+	case decodeASN1 bits of
+		Right l -> PubKeyECDSA l
+		Left x  -> PubKeyUnknown $ map (fromIntegral . fromEnum) $ show x
+
 newtype ParseCert a = P { runP :: ErrorT String (State [ASN1]) a }
 	deriving (Monad, MonadError String)
 
@@ -191,18 +206,30 @@ sig_table =
 	[ ([1,2,840,113549,1,1,5], SignatureALG_sha1WithRSAEncryption)
 	, ([1,2,840,113549,1,1,4], SignatureALG_md5WithRSAEncryption)
 	, ([1,2,840,113549,1,1,2], SignatureALG_md2WithRSAEncryption)
-	, ([1,2,840,113549,1,1,1], SignatureALG_rsa)
-	, ([1,2,840,10040,4,1],    SignatureALG_dsa)
 	, ([1,2,840,10040,4,3],    SignatureALG_dsaWithSHA1)
+	, ([1,2,840,10045,4,3,3],  SignatureALG_ecdsaWithSHA384)
 	]
 
+pk_table :: [ (OID, PubKeyALG) ]
+pk_table =
+	[ ([1,2,840,113549,1,1,1], PubKeyALG_RSA)
+	, ([1,2,840,10040,4,1],    PubKeyALG_DSA)
+	, ([1,2,840,10045,2,1],    PubKeyALG_ECDSA)
+	]
 
 oidSig :: OID -> SignatureALG
 oidSig oid = maybe (SignatureALG_Unknown oid) snd $ find ((==) oid . fst) sig_table
 
+oidPubKey :: OID -> PubKeyALG
+oidPubKey oid = maybe (PubKeyALG_Unknown oid) snd $ find ((==) oid . fst) pk_table
+
 sigOID :: SignatureALG -> OID
 sigOID (SignatureALG_Unknown oid) = oid
 sigOID sig = maybe [] fst $ find ((==) sig . snd) sig_table
+
+pubkeyalgOID :: PubKeyALG -> OID
+pubkeyalgOID (PubKeyALG_Unknown oid) = oid
+pubkeyalgOID sig = maybe [] fst $ find ((==) sig . snd) pk_table
 
 parseCertHeaderAlgorithmID :: ParseCert SignatureALG
 parseCertHeaderAlgorithmID = do
@@ -261,17 +288,28 @@ parseCertHeaderValidity = do
 
 matchPubKey :: ASN1 -> ParseCert PubKey
 matchPubKey (Sequence[Sequence[OID pkalg,Null],BitString _ bits]) = do
-	let sig = oidSig pkalg
+	let sig = oidPubKey pkalg
 	let desc = case sig of
+		PubKeyALG_RSA                      -> parse_RSA bits
+		{-
 		SignatureALG_sha1WithRSAEncryption -> parse_RSA bits
 		SignatureALG_md5WithRSAEncryption  -> parse_RSA bits
 		SignatureALG_md2WithRSAEncryption  -> parse_RSA bits
 		SignatureALG_rsa                   -> parse_RSA bits
+		-}
 		_                                  -> PubKeyUnknown $ L.unpack bits
 	return $ PubKey sig desc
 
+matchPubKey (Sequence[Sequence[OID pkalg,OID pkgalg2],BitString _ bits]) = do
+	let sig = oidPubKey pkalg
+	let desc = case sig of
+		PubKeyALG_ECDSA  -> parse_ECDSA bits
+		_                -> PubKeyUnknown $ L.unpack bits
+	return $ PubKey sig desc
+
+
 matchPubKey (Sequence[Sequence[OID pkalg,Sequence[IntVal p,IntVal q,IntVal g]], BitString _ pubenc ]) = do
-	let sig = oidSig pkalg
+	let sig = oidPubKey pkalg
 	case decodeASN1 pubenc of
 		Right (IntVal dsapub) -> return $ PubKey sig (PubKeyDSA (dsapub, p, q, g))
 		_                     -> throwError "unrecognized DSA pub format"
@@ -417,15 +455,15 @@ encodeDN dn = Sequence sets
 			]
 
 encodePK :: PubKey -> ASN1
-encodePK (PubKey sig (PubKeyRSA (_, modulus, e))) = Sequence [ Sequence [ OID $ sigOID sig, Null ], BitString 0 bits ]
+encodePK (PubKey sig (PubKeyRSA (_, modulus, e))) = Sequence [ Sequence [ OID $ pubkeyalgOID sig, Null ], BitString 0 bits ]
 	where bits = encodeASN1 $ Sequence [ IntVal modulus, IntVal e ]
 
-encodePK (PubKey sig (PubKeyDSA (pub, p, q, g)))  = Sequence [ Sequence [ OID $ sigOID sig, dsaseq ], BitString 0 bits ]
+encodePK (PubKey sig (PubKeyDSA (pub, p, q, g)))  = Sequence [ Sequence [ OID $ pubkeyalgOID sig, dsaseq ], BitString 0 bits ]
 	where
 		dsaseq = Sequence [ IntVal p, IntVal q, IntVal g ]
 		bits   = encodeASN1 $ IntVal pub
 
-encodePK (PubKey sig (PubKeyUnknown l))           = Sequence [ Sequence [ OID $ sigOID sig, Null ], BitString 0 (L.pack l) ]
+encodePK (PubKey sig (PubKeyUnknown l))           = Sequence [ Sequence [ OID $ pubkeyalgOID sig, Null ], BitString 0 (L.pack l) ]
 
 encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
