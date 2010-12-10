@@ -291,12 +291,6 @@ matchPubKey (Sequence[Sequence[OID pkalg,Null],BitString _ bits]) = do
 	let sig = oidPubKey pkalg
 	let desc = case sig of
 		PubKeyALG_RSA                      -> parse_RSA bits
-		{-
-		SignatureALG_sha1WithRSAEncryption -> parse_RSA bits
-		SignatureALG_md5WithRSAEncryption  -> parse_RSA bits
-		SignatureALG_md2WithRSAEncryption  -> parse_RSA bits
-		SignatureALG_rsa                   -> parse_RSA bits
-		-}
 		_                                  -> PubKeyUnknown $ L.unpack bits
 	return $ PubKey sig desc
 
