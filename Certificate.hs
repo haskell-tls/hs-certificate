@@ -27,44 +27,44 @@ hexdump bs = concatMap hex $ L.unpack bs
 		| otherwise = "0" ++ showHex n ""
 
 showCert :: Certificate -> String
-showCert cert =
-	let ver = certVersion cert in
-	let ser = certSerial cert in
-	let sigalg = certSignatureAlg cert in
-	let idn = certIssuerDN cert in
-	let sdn = certSubjectDN cert in
-	let valid = certValidity cert in
-	let pk = certPubKey cert in
-	let exts = certExtensions cert in
-	let sig = certSignature cert in
-	let other = certOthers cert in
+showCert cert = unlines
+	[ "version: " ++ show ver
+	, "serial:  " ++ show ser
+	, "sigalg:  " ++ show sigalg
+	, "issuer:  " ++ show idn
+	, "subject: " ++ show sdn
+	, "valid:   " ++ show valid
+	, "pk:      " ++ show pk
+	, "exts:    " ++ show exts
+	, "sig:     " ++ show sig
+	, "other:   " ++ show other
+	]
+	where
+		ver    = certVersion cert
+		ser    = certSerial cert
+		sigalg = certSignatureAlg cert
+		idn    = certIssuerDN cert
+		sdn    = certSubjectDN cert
+		valid  = certValidity cert
+		pk     = certPubKey cert
+		exts   = certExtensions cert
+		sig    = certSignature cert
+		other  = certOthers cert
 
-	unlines [
-		"version: " ++ show ver,
-		"serial:  " ++ show ser,
-		"sigalg:  " ++ show sigalg,
-		"issuer:  " ++ show idn,
-		"subject: " ++ show sdn,
-		"valid:   " ++ show valid,
-		"pk:      " ++ show pk,
-		"exts:    " ++ show exts,
-		"sig:     " ++ show sig,
-		"other:   " ++ show other ]
 
 showKey :: PrivateKey -> String
-showKey key =
-	unlines [
-		"version:          " ++ (show $ privKey_version key),
-		"len-modulus:      " ++ (show $ privKey_lenmodulus key),
-		"modulus:          " ++ (show $ privKey_modulus key),
-		"public exponant:  " ++ (show $ privKey_public_exponant key),
-		"private exponant: " ++ (show $ privKey_private_exponant key),
-		"p1:               " ++ (show $ privKey_p1 key),
-		"p2:               " ++ (show $ privKey_p2 key),
-		"exp1:             " ++ (show $ privKey_exp1 key),
-		"exp2:             " ++ (show $ privKey_exp2 key),
-		"coefficient:      " ++ (show $ privKey_coef key)
-		]
+showKey key = unlines
+	[ "version:          " ++ (show $ privKey_version key)
+	, "len-modulus:      " ++ (show $ privKey_lenmodulus key)
+	, "modulus:          " ++ (show $ privKey_modulus key)
+	, "public exponant:  " ++ (show $ privKey_public_exponant key)
+	, "private exponant: " ++ (show $ privKey_private_exponant key)
+	, "p1:               " ++ (show $ privKey_p1 key)
+	, "p2:               " ++ (show $ privKey_p2 key)
+	, "exp1:             " ++ (show $ privKey_exp1 key)
+	, "exp2:             " ++ (show $ privKey_exp2 key)
+	, "coefficient:      " ++ (show $ privKey_coef key)
+	]
 
 showASN1 :: ASN1 -> IO ()
 showASN1 = prettyPrint 0 where
