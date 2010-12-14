@@ -18,6 +18,8 @@ module Data.Certificate.X509
 	, PubKeyDesc(..)
 	, PubKey(..)
 	, Certificate(..)
+	, ASN1StringType(..)
+	, ASN1String
 
 	-- * some common OIDs found in certificate Distinguish Names
 	, oidCommonName
