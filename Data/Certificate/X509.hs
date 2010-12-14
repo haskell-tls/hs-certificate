@@ -10,25 +10,32 @@
 -- Read/Write X509 certificate
 --
 
-module Data.Certificate.X509 (
+module Data.Certificate.X509
+	(
 	-- * Data Structure
-	SignatureALG(..),
-	PubKeyALG(..),
-	PubKeyDesc(..),
-	PubKey(..),
-	CertificateDN(..),
-	Certificate(..),
+	  SignatureALG(..)
+	, PubKeyALG(..)
+	, PubKeyDesc(..)
+	, PubKey(..)
+	, Certificate(..)
+
+	-- * some common OIDs found in certificate Distinguish Names
+	, oidCommonName
+	, oidCountry
+	, oidOrganization
+	, oidOrganizationUnit
 
 	-- * serialization from ASN1 bytestring
-	decodeCertificate,
-	encodeCertificate
+	, decodeCertificate
+	, encodeCertificate
 	) where
 
 import Data.Word
 import Data.List (find)
 import Data.ASN1.DER
 import Data.Maybe
-import Data.Either
+import Data.ByteString.Lazy (ByteString)
+import Data.Text.Lazy (Text)
 import qualified Data.ByteString.Lazy as L
 import Control.Monad.State
 import Control.Monad.Error
@@ -91,14 +98,6 @@ data PubKeyDesc =
 data PubKey = PubKey PubKeyALG PubKeyDesc -- OID RSA|DSA|rawdata
 	deriving (Show,Eq)
 
-data CertificateDN = CertificateDN
-	{ cdnCommonName       :: Maybe String      -- ^ Certificate DN Common Name
-	, cdnCountry          :: Maybe String      -- ^ Certificate DN Country of Issuance
-	, cdnOrganization     :: Maybe String      -- ^ Certificate DN Organization
-	, cdnOrganizationUnit :: Maybe String      -- ^ Certificate DN Organization Unit
-	, cdnOthers           :: [ (OID, String) ] -- ^ Certificate DN Other Attributes
-	} deriving (Show,Eq)
-
 -- FIXME use a proper standard type for representing time.
 type Time = (Int, Int, Int, Int, Int, Int, Bool)
 
@@ -122,12 +121,21 @@ data CertificateExts = CertificateExts
 	, certExtOthers               :: [ (OID, Bool, ASN1) ]
 	} deriving (Show,Eq)
 
+data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 deriving (Show,Eq)
+type ASN1String = (ASN1StringType, Text)
+
+oidCommonName, oidCountry, oidOrganization, oidOrganizationUnit :: OID
+oidCommonName       = [2,5,4,3]
+oidCountry          = [2,5,4,6]
+oidOrganization     = [2,5,4,10]
+oidOrganizationUnit = [2,5,4,11]
+
 data Certificate = Certificate
 	{ certVersion      :: Int                           -- ^ Certificate Version
 	, certSerial       :: Integer                       -- ^ Certificate Serial number
 	, certSignatureAlg :: SignatureALG                  -- ^ Certificate Signature algorithm
-	, certIssuerDN     :: CertificateDN                 -- ^ Certificate Issuer DN
-	, certSubjectDN    :: CertificateDN                 -- ^ Certificate Subject DN
+	, certIssuerDN     :: [ (OID, ASN1String) ]         -- ^ Certificate Issuer DN
+	, certSubjectDN    :: [ (OID, ASN1String) ]         -- ^ Certificate Subject DN
 	, certValidity     :: (Time, Time)                  -- ^ Certificate Validity period
 	, certPubKey       :: PubKey                        -- ^ Certificate Public key
 	, certExtensions   :: Maybe CertificateExts         -- ^ Certificate Extensions
@@ -137,7 +145,7 @@ data Certificate = Certificate
 
 {- | parse a RSA pubkeys from ASN1 encoded bits.
  - return PubKeyRSA (len-modulus, modulus, e) if successful -}
-parse_RSA :: L.ByteString -> PubKeyDesc
+parse_RSA :: ByteString -> PubKeyDesc
 parse_RSA bits =
 	case decodeASN1 $ bits of
 		Right (Sequence [ IntVal modulus, IntVal pubexp ]) ->
@@ -147,7 +155,7 @@ parse_RSA bits =
 	where
 		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
 
-parse_ECDSA :: L.ByteString -> PubKeyDesc
+parse_ECDSA :: ByteString -> PubKeyDesc
 parse_ECDSA bits =
 	case decodeASN1 bits of
 		Right l -> PubKeyECDSA l
@@ -239,45 +247,30 @@ parseCertHeaderAlgorithmID = do
 		Sequence [ OID oid ]       -> return $ oidSig oid
 		_                          -> throwError ("algorithm ID bad format " ++ show n)
 
-stringOfASN1String :: ASN1 -> String
-stringOfASN1String (PrintableString x) = map (toEnum.fromEnum) $ L.unpack x
-stringOfASN1String (UTF8String x)      = map (toEnum.fromEnum) $ L.unpack x
-stringOfASN1String (T61String x)       = map (toEnum.fromEnum) $ L.unpack x
-stringOfASN1String (UniversalString x) = map (toEnum.fromEnum) $ L.unpack x
-stringOfASN1String (BMPString x)       = map (toEnum.fromEnum) $ L.unpack x
-stringOfASN1String x                   = error ("not a print string " ++ show x)
+asn1String :: ASN1 -> ASN1String
+asn1String (PrintableString x) = (Printable, x)
+asn1String (UTF8String x)      = (UTF8, x)
+asn1String (UniversalString x) = (Univ, x)
+asn1String (BMPString x)       = (BMP, x)
+asn1String (IA5String x)       = (IA5, x)
+asn1String x                   = error ("not a print string " ++ show x)
 
-parseCertHeaderDNHelper :: [ASN1] -> State CertificateDN ()
-parseCertHeaderDNHelper l = do
-	forM_ l $ (\e -> case e of
-		Set [ Sequence [ OID [2,5,4,3], val ] ] ->
-			modify (\s -> s { cdnCommonName = Just $ stringOfASN1String val })
-		Set [ Sequence [ OID [2,5,4,6], val ] ] ->
-			modify (\s -> s { cdnCountry = Just $ stringOfASN1String val })
-		Set [ Sequence [ OID [2,5,4,10], val ] ] ->
-			modify (\s -> s { cdnOrganization = Just $ stringOfASN1String val })
-		Set [ Sequence [ OID [2,5,4,11], val ] ] ->
-			modify (\s -> s { cdnOrganizationUnit = Just $ stringOfASN1String val })
-		Set [ Sequence [ OID oid, val ] ] ->
-			modify (\s -> s { cdnOthers = (oid, show val) : cdnOthers s })
-		_      ->
-			return ()
-		)
+encodeAsn1String :: ASN1String -> ASN1
+encodeAsn1String (Printable, x) = PrintableString x
+encodeAsn1String (UTF8, x)      = UTF8String x
+encodeAsn1String (Univ, x)      = UniversalString x
+encodeAsn1String (BMP, x)       = BMPString x
+encodeAsn1String (IA5, x)       = IA5String x
 
-parseCertHeaderDN :: ParseCert CertificateDN
+parseCertHeaderDN :: ParseCert [ (OID, ASN1String) ]
 parseCertHeaderDN = do
 	n <- getNext
 	case n of
-		Sequence l -> do
-			let defdn = CertificateDN
-				{ cdnCommonName       = Nothing
-				, cdnCountry          = Nothing
-				, cdnOrganization     = Nothing
-				, cdnOrganizationUnit = Nothing
-				, cdnOthers           = []
-				}
-			return $ execState (parseCertHeaderDNHelper l) defdn 
+		Sequence l -> mapM parseDNOne l
 		_          -> throwError "Distinguished name bad format"
+	where
+		parseDNOne (Set [ Sequence [OID oid, val]]) = return (oid, asn1String val)
+		parseDNOne _                                = throwError "field in dn bad format"
 
 parseCertHeaderValidity :: ParseCert (Time, Time)
 parseCertHeaderValidity = do
@@ -394,17 +387,17 @@ parseCertificate = do
 	exts     <- parseCertExtensions
 	l        <- getRemaining
 	
-	return $ Certificate {
-		certVersion      = version,
-		certSerial       = serial,
-		certSignatureAlg = sigalg,
-		certIssuerDN     = issuer,
-		certSubjectDN    = subject,
-		certValidity     = validity,
-		certPubKey       = pk,
-		certSignature    = Nothing,
-		certExtensions   = exts,
-		certOthers       = l
+	return $ Certificate
+		{ certVersion      = version
+		, certSerial       = serial
+		, certSignatureAlg = sigalg
+		, certIssuerDN     = issuer
+		, certSubjectDN    = subject
+		, certValidity     = validity
+		, certPubKey       = pk
+		, certSignature    = Nothing
+		, certExtensions   = exts
+		, certOthers       = l
 		}
 
 {- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
@@ -433,20 +426,10 @@ processCertificate x = Left ("certificate root element error: " ++ show x)
 decodeCertificate :: L.ByteString -> Either String Certificate
 decodeCertificate by = either (Left . show) processCertificate $ decodeASN1 by
 
-encodeDN :: CertificateDN -> ASN1
-encodeDN dn = Sequence sets
+encodeDN :: [ (OID, ASN1String) ] -> ASN1
+encodeDN dn = Sequence $ map dnSet dn
 	where
-		sets = catMaybes [
-			maybe Nothing (mapSet [2,5,4,3]) $ cdnCommonName dn,
-			maybe Nothing (mapSet [2,5,4,6]) $ cdnCountry dn,
-			maybe Nothing (mapSet [2,5,4,10]) $ cdnOrganization dn,
-			maybe Nothing (mapSet [2,5,4,11]) $ cdnOrganizationUnit dn
-			] 
-		mapSet oid str = Just $ Set [
-			Sequence [
-				OID oid,
-				PrintableString (L.pack $ map (toEnum . fromEnum) str) ]
-			]
+		dnSet (oid, stringy) = Set [ Sequence [ OID oid, encodeAsn1String stringy ]]
 
 encodePK :: PubKey -> ASN1
 encodePK (PubKey sig (PubKeyRSA (_, modulus, e))) = Sequence [ Sequence [ OID $ pubkeyalgOID sig, Null ], BitString 0 bits ]

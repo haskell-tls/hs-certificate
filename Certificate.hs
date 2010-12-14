@@ -26,30 +26,25 @@ hexdump bs = concatMap hex $ L.unpack bs
 		| n > 0xa   = showHex n ""
 		| otherwise = "0" ++ showHex n ""
 
-showCert :: Certificate -> String
-showCert cert = unlines
-	[ "version: " ++ show ver
-	, "serial:  " ++ show ser
-	, "sigalg:  " ++ show sigalg
-	, "issuer:  " ++ show idn
-	, "subject: " ++ show sdn
-	, "valid:   " ++ show valid
-	, "pk:      " ++ show pk
-	, "exts:    " ++ show exts
-	, "sig:     " ++ show sig
-	, "other:   " ++ show other
-	]
-	where
-		ver    = certVersion cert
-		ser    = certSerial cert
-		sigalg = certSignatureAlg cert
-		idn    = certIssuerDN cert
-		sdn    = certSubjectDN cert
-		valid  = certValidity cert
-		pk     = certPubKey cert
-		exts   = certExtensions cert
-		sig    = certSignature cert
-		other  = certOthers cert
+showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ T.unpack t)) dn
+
+showExts e = putStrLn $ show e
+
+showCert :: Certificate -> IO ()
+showCert cert = do
+	putStrLn ("version: " ++ show (certVersion cert))
+	putStrLn ("serial:  " ++ show (certSerial cert))
+	putStrLn ("sigalg:  " ++ show (certSignatureAlg cert))
+	putStrLn "issuer:"
+	showDN $ certIssuerDN cert
+	putStrLn "subject:"
+	showDN $ certSubjectDN cert
+	putStrLn ("valid:  " ++ show (certValidity cert))
+	putStrLn ("pk:     " ++ show (certPubKey cert))
+	putStrLn "exts:"
+	showExts $ certExtensions cert
+	putStrLn ("sig:    " ++ show (certSignature cert))
+	putStrLn ("other:  " ++ show (certOthers cert))
 
 
 showKey :: PrivateKey -> String
@@ -79,11 +74,11 @@ showASN1 = prettyPrint 0 where
 	p _ (OID is)               = putStr ("OID: " ++ show is) 
 	p _ (Real d)               = putStr "real"
 	p _ (Enumerated)           = putStr "enum"
-	p _ (UTF8String bs)        = putStr ("utf8string:" ++ T.unpack (decodeUtf8 bs))
+	p _ (UTF8String t)         = putStr ("utf8string:" ++ T.unpack t)
 	p l (Sequence o)           = putStrLn "sequence" >> mapM_ (prettyPrint (l+1)) o >> indent l >> putStr "end-sequence"
 	p l (Set o)                = putStrLn "set" >> mapM_ (prettyPrint (l+1)) o >> indent l >> putStr "end-set"
 	p _ (NumericString bs)     = putStr "numericstring:"
-	p _ (PrintableString bs)   = putStr ("printablestring: " ++ LC.unpack bs)
+	p _ (PrintableString t)    = putStr ("printablestring: " ++ T.unpack t)
 	p _ (T61String bs)         = putStr "t61string:"
 	p _ (VideoTexString bs)    = putStr "videotexstring:"
 	p _ (IA5String bs)         = putStr "ia5string:"
@@ -92,9 +87,9 @@ showASN1 = prettyPrint 0 where
 	p _ (GraphicString bs)     = putStr "graphicstring:"
 	p _ (VisibleString bs)     = putStr "visiblestring:"
 	p _ (GeneralString bs)     = putStr "generalstring:"
-	p _ (UniversalString bs)   = putStr "universalstring:"
+	p _ (UniversalString t)    = putStr ("universalstring:" ++ T.unpack t)
 	p _ (CharacterString bs)   = putStr "characterstring:"
-	p _ (BMPString bs)         = putStr "bmpstring:"
+	p _ (BMPString t)          = putStr ("bmpstring: " ++ T.unpack t)
 	p l (Other tc tn x)        = putStr "other:"
 
 mainX509 :: CertMainOpts -> IO ()
@@ -107,7 +102,7 @@ mainX509 opts = do
 		Right asn1 -> showASN1 asn1
 	when (text opts || not (or [asn1 opts,raw opts])) $ case decodeCertificate $ L.fromChunks [cert] of
 		Left err   -> error ("decoding certificate failed: " ++ show err)
-		Right c    -> putStrLn $ showCert c
+		Right c    -> showCert c
 	exitSuccess
 	
 mainKey :: CertMainOpts -> IO ()

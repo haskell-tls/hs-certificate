@@ -22,20 +22,31 @@ readAllSystemCertificates = do
 			Nothing -> return acc
 			Just x  -> return ((certfile, x) : acc)
 
+checkCert name c = do
+	let errs =
+		(checkSigAlg $ certSignatureAlg c) ++
+		(checkPubKey $ certPubKey c) ++
+		(checkExtensions $ certExtensions c) ++
+		(map (("elements not recognized in root structure: " ++) . show) $ certOthers c)
+	when (errs /= []) $ do
+		putStrLn ("error decoding " ++ name)
+		mapM_ (putStrLn . ("  " ++))  errs
+	where
+		checkExtensions ext = []
+
+		checkSigAlg (SignatureALG_Unknown oid) = ["unknown signature algorithm " ++ show oid]
+		checkSigAlg _                          = []
+
+		checkPubKey (PubKey (PubKeyALG_Unknown oid) _) = ["unknown public key alg " ++ show (certPubKey c)]
+		checkPubKey (PubKey _ (PubKeyUnknown l))       = ["unknown public key " ++ show (certPubKey c)]
+		checkPubKey (PubKey _ (PubKeyECDSA x))         = ["unknown public ECDSA key " ++ show x]
+		checkPubKey _                                  = []
+
 runTests :: IO ()
 runTests = do
 	certs <- readAllSystemCertificates
 	forM certs $ \(name, cert) -> do
 		case decodeCertificate $ L.fromChunks [cert] of
 			Left err -> putStrLn ("cannot decode certificate " ++ name ++ " " ++ show err)
-			Right c  -> do
-				case certSignatureAlg c of
-					SignatureALG_Unknown oid -> putStrLn ("unknown signature algorithm " ++ show oid ++ " decoding " ++ name)
-					_                        -> return ()
-				case certPubKey c of
-					(PubKey (PubKeyALG_Unknown oid) _) -> putStrLn ("unknown public key alg " ++ show (certPubKey c) ++ " decoding " ++ name)
-					(PubKey _ (PubKeyUnknown l))       -> putStrLn ("unknown public key " ++ show (certPubKey c) ++ " decoding " ++ name)
-					(PubKey _ (PubKeyECDSA x))         -> putStrLn ("unknown public ECDSA key " ++ show x ++ " decoding " ++ name)
-					_                                  -> return ()
-				return ()
+			Right c  -> checkCert name c
 	return ()
