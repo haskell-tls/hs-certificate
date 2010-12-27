@@ -8,66 +8,66 @@
 -- Read/Write Private Key
 --
 
-module Data.Certificate.Key (
-	PrivateKey(..),
-	decodePrivateKey,
-	encodePrivateKey
+module Data.Certificate.Key
+	( PrivateRSAKey(..)
+	, decodePrivateRSAKey
+	, encodePrivateRSAKey
 	) where
 
 import Data.ASN1.DER hiding (decodeASN1)
 import Data.ASN1.BER (decodeASN1)
 import qualified Data.ByteString.Lazy as L
 
-data PrivateKey = PrivateKey
-	{ privKey_version :: Int
-	, privKey_lenmodulus :: Int
-	, privKey_modulus :: Integer
-	, privKey_public_exponant :: Integer
-	, privKey_private_exponant :: Integer
-	, privKey_p1 :: Integer
-	, privKey_p2 :: Integer
-	, privKey_exp1 :: Integer
-	, privKey_exp2 :: Integer
-	, privKey_coef :: Integer
+data PrivateRSAKey = PrivateRSAKey
+	{ privRSAKey_version          :: Int
+	, privRSAKey_lenmodulus       :: Int
+	, privRSAKey_modulus          :: Integer
+	, privRSAKey_public_exponant  :: Integer
+	, privRSAKey_private_exponant :: Integer
+	, privRSAKey_p1               :: Integer
+	, privRSAKey_p2               :: Integer
+	, privRSAKey_exp1             :: Integer
+	, privRSAKey_exp2             :: Integer
+	, privRSAKey_coef             :: Integer
 	}
 
-parsePrivateKey :: ASN1 -> Either String PrivateKey
-parsePrivateKey x =
-	case x of
-		Sequence [ IntVal ver, IntVal modulus, IntVal pub_exp
-		         , IntVal priv_exp, IntVal p1, IntVal p2
-		         , IntVal exp1, IntVal exp2, IntVal coef ] ->
-			Right $ PrivateKey
-				{ privKey_version = fromIntegral ver
-				, privKey_lenmodulus = calculate_modulus modulus 1
-				, privKey_modulus = modulus
-				, privKey_public_exponant = pub_exp
-				, privKey_private_exponant = priv_exp
-				, privKey_p1 = p1
-				, privKey_p2 = p2
-				, privKey_exp1 = exp1
-				, privKey_exp2 = exp2
-				, privKey_coef = coef }
-		_ ->
-			Left "unexpected format"
+parsePrivateRSAKey :: ASN1 -> Either String PrivateRSAKey
+parsePrivateRSAKey (Sequence
+	[ IntVal ver, IntVal modulus, IntVal pub_exp
+	, IntVal priv_exp, IntVal p1, IntVal p2
+	, IntVal exp1, IntVal exp2, IntVal coef ]) =
+		Right $ PrivateRSAKey
+			{ privRSAKey_version          = fromIntegral ver
+			, privRSAKey_lenmodulus       = calculate_modulus modulus 1
+			, privRSAKey_modulus          = modulus
+			, privRSAKey_public_exponant  = pub_exp
+			, privRSAKey_private_exponant = priv_exp
+			, privRSAKey_p1               = p1
+			, privRSAKey_p2               = p2
+			, privRSAKey_exp1             = exp1
+			, privRSAKey_exp2             = exp2
+			, privRSAKey_coef             = coef
+			}
 	where
 		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
 
-decodePrivateKey :: L.ByteString -> Either String PrivateKey
-decodePrivateKey dat = either (Left . show) parsePrivateKey $ decodeASN1 dat
+parsePrivateRSAKey _ = Left "unexpected format"
 
-encodePrivateKey :: PrivateKey -> L.ByteString
-encodePrivateKey pk = encodeASN1 pkseq
+decodePrivateRSAKey :: L.ByteString -> Either String PrivateRSAKey
+decodePrivateRSAKey dat = either (Left . show) parsePrivateRSAKey $ decodeASN1 dat
+
+encodePrivateRSAKey :: PrivateRSAKey -> L.ByteString
+encodePrivateRSAKey pk = encodeASN1 pkseq
 	where
-		pkseq = Sequence [ IntVal ver, IntVal modulus, IntVal pub_exp
-		                 , IntVal priv_exp, IntVal p1, IntVal p2
-		                 , IntVal exp1, IntVal exp2, IntVal coef ]
-		ver = fromIntegral $ privKey_version pk
-		modulus = privKey_modulus pk
-		pub_exp = privKey_public_exponant pk
-		priv_exp = privKey_private_exponant pk
-		p1 = privKey_p1 pk
-		p2 = privKey_p2 pk
-		exp1 = privKey_exp1 pk
-		exp2 = privKey_exp2 pk
-		coef = fromIntegral $ privKey_coef pk
+		pkseq    = Sequence [ IntVal ver, IntVal modulus, IntVal pub_exp
+		                    , IntVal priv_exp, IntVal p1, IntVal p2
+		                    , IntVal exp1, IntVal exp2, IntVal coef ]
+		ver      = fromIntegral $ privRSAKey_version pk
+		modulus  = privRSAKey_modulus pk
+		pub_exp  = privRSAKey_public_exponant pk
+		priv_exp = privRSAKey_private_exponant pk
+		p1       = privRSAKey_p1 pk
+		p2       = privRSAKey_p2 pk
+		exp1     = privRSAKey_exp1 pk
+		exp2     = privRSAKey_exp2 pk
+		coef     = fromIntegral $ privRSAKey_coef pk
