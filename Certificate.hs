@@ -17,9 +17,6 @@ import System.Exit
 import Data.ASN1.DER
 import Numeric
 
-readprivate :: FilePath -> IO (Either String PrivateKey)
-readprivate file = B.readFile file >>= return . maybe (Left "no valid private RSA key found") (decodePrivateKey . L.fromChunks . (:[])) . parsePEMKeyRSA
-
 hexdump :: L.ByteString -> String
 hexdump bs = concatMap hex $ L.unpack bs
 	where hex n
@@ -47,18 +44,18 @@ showCert cert = do
 	putStrLn ("other:  " ++ show (certOthers cert))
 
 
-showKey :: PrivateKey -> String
+showKey :: PrivateRSAKey -> String
 showKey key = unlines
-	[ "version:          " ++ (show $ privKey_version key)
-	, "len-modulus:      " ++ (show $ privKey_lenmodulus key)
-	, "modulus:          " ++ (show $ privKey_modulus key)
-	, "public exponant:  " ++ (show $ privKey_public_exponant key)
-	, "private exponant: " ++ (show $ privKey_private_exponant key)
-	, "p1:               " ++ (show $ privKey_p1 key)
-	, "p2:               " ++ (show $ privKey_p2 key)
-	, "exp1:             " ++ (show $ privKey_exp1 key)
-	, "exp2:             " ++ (show $ privKey_exp2 key)
-	, "coefficient:      " ++ (show $ privKey_coef key)
+	[ "version:          " ++ (show $ privRSAKey_version key)
+	, "len-modulus:      " ++ (show $ privRSAKey_lenmodulus key)
+	, "modulus:          " ++ (show $ privRSAKey_modulus key)
+	, "public exponant:  " ++ (show $ privRSAKey_public_exponant key)
+	, "private exponant: " ++ (show $ privRSAKey_private_exponant key)
+	, "p1:               " ++ (show $ privRSAKey_p1 key)
+	, "p2:               " ++ (show $ privRSAKey_p2 key)
+	, "exp1:             " ++ (show $ privRSAKey_exp1 key)
+	, "exp2:             " ++ (show $ privRSAKey_exp2 key)
+	, "coefficient:      " ++ (show $ privRSAKey_coef key)
 	]
 
 showASN1 :: ASN1 -> IO ()
@@ -92,8 +89,8 @@ showASN1 = prettyPrint 0 where
 	p _ (BMPString t)          = putStr ("bmpstring: " ++ T.unpack t)
 	p l (Other tc tn x)        = putStr "other:"
 
-mainX509 :: CertMainOpts -> IO ()
-mainX509 opts = do
+doMain :: CertMainOpts -> IO ()
+doMain opts@(X509 _ _ _ _) = do
 	cert <- maybe (error "cannot read PEM certificate") (id) . parsePEMCert <$> B.readFile (head $ files opts)
 
 	when (raw opts) $ putStrLn $ hexdump $ L.fromChunks [cert]
@@ -105,12 +102,21 @@ mainX509 opts = do
 		Right c    -> showCert c
 	exitSuccess
 	
-mainKey :: CertMainOpts -> IO ()
-mainKey opts = do
-	c <- readprivate $ head $ files opts
-	case c of
-		Left err   -> error err
-		Right cert -> putStrLn $ showKey cert
+doMain (Key files) = do
+	content <- B.readFile $ head files
+	let pems = parsePEMs content
+	let rsadata = findPEM "RSA PRIVATE KEY" pems
+	let dsadata = findPEM "DSA PRIVATE KEY" pems
+	case (rsadata, dsadata) of
+		(Just x, _) -> do
+			let rsaKey = decodePrivateRSAKey $ L.fromChunks [x]
+			case rsaKey of
+				Left err   -> error err
+				Right k -> putStrLn $ showKey k
+		(_, Just x) ->
+			putStrLn "decoding DSA key not implemented"
+		_ -> do
+			putStrLn "no recognized private key found"
 
 data CertMainOpts =
 	  X509
@@ -126,9 +132,9 @@ data CertMainOpts =
 
 x509Opts = X509
 	{ files = def &= args &= typFile
-	, asn1 = def
-	, text = def
-	, raw = def
+	, asn1  = def
+	, text  = def
+	, raw   = def
 	} &= help "x509 certificate related commands"
 
 keyOpts = Key
@@ -136,10 +142,8 @@ keyOpts = Key
 	} &= help "keys related commands"
 
 mode = cmdArgsMode $ modes [x509Opts,keyOpts]
-	&= help "create, manipulate certificate (x509,etc) and keys" &= program "certificate" &= summary "certificate v0.1"
+	&= help "create, manipulate certificate (x509,etc) and keys"
+	&= program "certificate"
+	&= summary "certificate v0.1"
 
-main = do
-	x <- cmdArgsRun mode
-	case x of
-		X509 _ _ _ _ -> mainX509 x
-		Key  _ -> mainKey x
+main = cmdArgsRun mode >>= doMain
