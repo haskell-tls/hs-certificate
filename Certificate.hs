@@ -58,6 +58,15 @@ showKey key = unlines
 	, "coefficient:      " ++ (show $ privRSAKey_coef key)
 	]
 
+showDSAKey key = unlines
+	[ "version: " ++ (show $ privDSAKey_version key)
+	, "priv     " ++ (show $ privDSAKey_priv key)
+	, "pub:     " ++ (show $ privDSAKey_pub key)
+	, "p:       " ++ (show $ privDSAKey_p key)
+	, "q:       " ++ (show $ privDSAKey_q key)
+	, "g:       " ++ (show $ privDSAKey_g key)
+	]
+
 showASN1 :: ASN1 -> IO ()
 showASN1 = prettyPrint 0 where
 	prettyPrint l a = indent l >> p l a >> putStrLn ""
@@ -113,8 +122,11 @@ doMain (Key files) = do
 			case rsaKey of
 				Left err   -> error err
 				Right k -> putStrLn $ showKey k
-		(_, Just x) ->
-			putStrLn "decoding DSA key not implemented"
+		(_, Just x) -> do
+			let rsaKey = decodePrivateDSAKey $ L.fromChunks [x]
+			case rsaKey of
+				Left err   -> error err
+				Right k -> putStrLn $ showDSAKey k
 		_ -> do
 			putStrLn "no recognized private key found"
 

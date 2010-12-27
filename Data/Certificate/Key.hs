@@ -12,6 +12,9 @@ module Data.Certificate.Key
 	( PrivateRSAKey(..)
 	, decodePrivateRSAKey
 	, encodePrivateRSAKey
+	, PrivateDSAKey(..)
+	, decodePrivateDSAKey
+	, encodePrivateDSAKey
 	) where
 
 import Data.ASN1.DER hiding (decodeASN1)
@@ -29,6 +32,15 @@ data PrivateRSAKey = PrivateRSAKey
 	, privRSAKey_exp1             :: Integer
 	, privRSAKey_exp2             :: Integer
 	, privRSAKey_coef             :: Integer
+	}
+
+data PrivateDSAKey = PrivateDSAKey
+	{ privDSAKey_version :: Int
+	, privDSAKey_priv    :: Integer
+	, privDSAKey_pub     :: Integer
+	, privDSAKey_p       :: Integer
+	, privDSAKey_q       :: Integer
+	, privDSAKey_g       :: Integer
 	}
 
 parsePrivateRSAKey :: ASN1 -> Either String PrivateRSAKey
@@ -71,3 +83,32 @@ encodePrivateRSAKey pk = encodeASN1 pkseq
 		exp1     = privRSAKey_exp1 pk
 		exp2     = privRSAKey_exp2 pk
 		coef     = fromIntegral $ privRSAKey_coef pk
+
+
+parsePrivateDSAKey :: ASN1 -> Either String PrivateDSAKey
+parsePrivateDSAKey (Sequence
+	[ IntVal ver, IntVal pub, IntVal priv, IntVal p, IntVal g, IntVal q ]) =
+		Right $ PrivateDSAKey
+			{ privDSAKey_version = fromIntegral ver
+			, privDSAKey_priv    = priv
+			, privDSAKey_pub     = pub
+			, privDSAKey_p       = p
+			, privDSAKey_q       = q
+			, privDSAKey_g       = g
+			}
+
+parsePrivateDSAKey _ = Left "unexpected format"
+
+decodePrivateDSAKey :: L.ByteString -> Either String PrivateDSAKey
+decodePrivateDSAKey dat = either (Left . show) parsePrivateDSAKey $ decodeASN1 dat
+
+encodePrivateDSAKey :: PrivateDSAKey -> L.ByteString
+encodePrivateDSAKey pk = encodeASN1 pkseq
+	where pkseq = Sequence
+		[ IntVal $ fromIntegral $ privDSAKey_version pk
+		, IntVal $ privDSAKey_pub pk
+		, IntVal $ privDSAKey_priv pk
+		, IntVal $ privDSAKey_p pk
+		, IntVal $ privDSAKey_g pk
+		, IntVal $ privDSAKey_q pk
+		]
