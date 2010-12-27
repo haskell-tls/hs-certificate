@@ -16,6 +16,7 @@ module Data.Certificate.PEM
 	, parsePEMKeyRSA
 	, parsePEMKeyDSA
 	, parsePEMs
+	, findPEM
 	) where
 
 import Data.ByteString (ByteString)
