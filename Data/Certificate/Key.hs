@@ -70,20 +70,17 @@ decodePrivateRSAKey dat = either (Left . show) parsePrivateRSAKey $ decodeASN1 d
 
 encodePrivateRSAKey :: PrivateRSAKey -> L.ByteString
 encodePrivateRSAKey pk = encodeASN1 pkseq
-	where
-		pkseq    = Sequence [ IntVal ver, IntVal modulus, IntVal pub_exp
-		                    , IntVal priv_exp, IntVal p1, IntVal p2
-		                    , IntVal exp1, IntVal exp2, IntVal coef ]
-		ver      = fromIntegral $ privRSAKey_version pk
-		modulus  = privRSAKey_modulus pk
-		pub_exp  = privRSAKey_public_exponant pk
-		priv_exp = privRSAKey_private_exponant pk
-		p1       = privRSAKey_p1 pk
-		p2       = privRSAKey_p2 pk
-		exp1     = privRSAKey_exp1 pk
-		exp2     = privRSAKey_exp2 pk
-		coef     = fromIntegral $ privRSAKey_coef pk
-
+	where pkseq = Sequence
+		[ IntVal $ fromIntegral $ privRSAKey_version pk
+		, IntVal $ privRSAKey_modulus pk
+		, IntVal $ privRSAKey_public_exponant pk
+		, IntVal $ privRSAKey_private_exponant pk
+		, IntVal $ privRSAKey_p1 pk
+		, IntVal $ privRSAKey_p2 pk
+		, IntVal $ privRSAKey_exp1 pk
+		, IntVal $ privRSAKey_exp2 pk
+		, IntVal $ fromIntegral $ privRSAKey_coef pk
+		]
 
 parsePrivateDSAKey :: ASN1 -> Either String PrivateDSAKey
 parsePrivateDSAKey (Sequence
