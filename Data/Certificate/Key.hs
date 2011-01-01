@@ -17,8 +17,9 @@ module Data.Certificate.Key
 	, encodePrivateDSAKey
 	) where
 
-import Data.ASN1.DER hiding (decodeASN1)
+import Data.ASN1.DER (encodeASN1)
 import Data.ASN1.BER (decodeASN1)
+import Data.ASN1.Types (ASN1t(..))
 import qualified Data.ByteString.Lazy as L
 
 data PrivateRSAKey = PrivateRSAKey
@@ -43,7 +44,7 @@ data PrivateDSAKey = PrivateDSAKey
 	, privDSAKey_g       :: Integer
 	}
 
-parsePrivateRSAKey :: ASN1 -> Either String PrivateRSAKey
+parsePrivateRSAKey :: ASN1t -> Either String PrivateRSAKey
 parsePrivateRSAKey (Sequence
 	[ IntVal ver, IntVal modulus, IntVal pub_exp
 	, IntVal priv_exp, IntVal p1, IntVal p2
@@ -82,7 +83,7 @@ encodePrivateRSAKey pk = encodeASN1 pkseq
 		, IntVal $ fromIntegral $ privRSAKey_coef pk
 		]
 
-parsePrivateDSAKey :: ASN1 -> Either String PrivateDSAKey
+parsePrivateDSAKey :: ASN1t -> Either String PrivateDSAKey
 parsePrivateDSAKey (Sequence
 	[ IntVal ver, IntVal pub, IntVal priv, IntVal p, IntVal g, IntVal q ]) =
 		Right $ PrivateDSAKey

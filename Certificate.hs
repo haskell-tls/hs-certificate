@@ -14,7 +14,8 @@ import Control.Applicative ((<$>))
 import Data.Maybe
 import System.Exit
 
-import Data.ASN1.DER
+import Data.ASN1.Types
+import Data.ASN1.DER (decodeASN1)
 import Numeric
 
 hexdump :: L.ByteString -> String
@@ -67,11 +68,10 @@ showDSAKey key = unlines
 	, "g:       " ++ (show $ privDSAKey_g key)
 	]
 
-showASN1 :: ASN1 -> IO ()
+showASN1 :: ASN1t -> IO ()
 showASN1 = prettyPrint 0 where
 	prettyPrint l a = indent l >> p l a >> putStrLn ""
 	indent l        = putStr (replicate l ' ')
-	p _ (EOC)                  = putStr ""
 	p _ (Boolean b)            = putStr ("bool: " ++ show b)
 	p _ (IntVal i)             = putStr ("int: " ++ showHex i "")
 	p _ (BitString i bs)       = putStr ("bitstring: " ++ hexdump bs)
