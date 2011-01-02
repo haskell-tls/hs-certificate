@@ -6,7 +6,8 @@ import qualified Data.ByteString as B
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.Certificate.X509
-import Data.Certificate.Key
+import Data.Certificate.KeyRSA as KeyRSA
+import Data.Certificate.KeyDSA as KeyDSA
 import Data.Certificate.PEM
 import System.Console.CmdArgs
 import Control.Monad
@@ -45,27 +46,28 @@ showCert cert = do
 	putStrLn ("other:  " ++ show (certOthers cert))
 
 
-showKey :: PrivateRSAKey -> String
-showKey key = unlines
-	[ "version:          " ++ (show $ privRSAKey_version key)
-	, "len-modulus:      " ++ (show $ privRSAKey_lenmodulus key)
-	, "modulus:          " ++ (show $ privRSAKey_modulus key)
-	, "public exponant:  " ++ (show $ privRSAKey_public_exponant key)
-	, "private exponant: " ++ (show $ privRSAKey_private_exponant key)
-	, "p1:               " ++ (show $ privRSAKey_p1 key)
-	, "p2:               " ++ (show $ privRSAKey_p2 key)
-	, "exp1:             " ++ (show $ privRSAKey_exp1 key)
-	, "exp2:             " ++ (show $ privRSAKey_exp2 key)
-	, "coefficient:      " ++ (show $ privRSAKey_coef key)
+showRSAKey :: KeyRSA.Private -> String
+showRSAKey key = unlines
+	[ "version:          " ++ (show $ KeyRSA.version key)
+	, "len-modulus:      " ++ (show $ KeyRSA.lenmodulus key)
+	, "modulus:          " ++ (show $ KeyRSA.modulus key)
+	, "public exponant:  " ++ (show $ KeyRSA.public_exponant key)
+	, "private exponant: " ++ (show $ KeyRSA.private_exponant key)
+	, "p1:               " ++ (show $ KeyRSA.p1 key)
+	, "p2:               " ++ (show $ KeyRSA.p2 key)
+	, "exp1:             " ++ (show $ KeyRSA.exp1 key)
+	, "exp2:             " ++ (show $ KeyRSA.exp2 key)
+	, "coefficient:      " ++ (show $ KeyRSA.coef key)
 	]
 
+showDSAKey :: KeyDSA.Private -> String
 showDSAKey key = unlines
-	[ "version: " ++ (show $ privDSAKey_version key)
-	, "priv     " ++ (show $ privDSAKey_priv key)
-	, "pub:     " ++ (show $ privDSAKey_pub key)
-	, "p:       " ++ (show $ privDSAKey_p key)
-	, "q:       " ++ (show $ privDSAKey_q key)
-	, "g:       " ++ (show $ privDSAKey_g key)
+	[ "version: " ++ (show $ KeyDSA.version key)
+	, "priv     " ++ (show $ KeyDSA.priv key)
+	, "pub:     " ++ (show $ KeyDSA.pub key)
+	, "p:       " ++ (show $ KeyDSA.p key)
+	, "q:       " ++ (show $ KeyDSA.q key)
+	, "g:       " ++ (show $ KeyDSA.g key)
 	]
 
 showASN1 :: ASN1t -> IO ()
@@ -118,12 +120,12 @@ doMain (Key files) = do
 	let dsadata = findPEM "DSA PRIVATE KEY" pems
 	case (rsadata, dsadata) of
 		(Just x, _) -> do
-			let rsaKey = decodePrivateRSAKey $ L.fromChunks [x]
+			let rsaKey = KeyRSA.decodePrivate $ L.fromChunks [x]
 			case rsaKey of
 				Left err   -> error err
-				Right k -> putStrLn $ showKey k
+				Right k -> putStrLn $ showRSAKey k
 		(_, Just x) -> do
-			let rsaKey = decodePrivateDSAKey $ L.fromChunks [x]
+			let rsaKey = KeyDSA.decodePrivate $ L.fromChunks [x]
 			case rsaKey of
 				Left err   -> error err
 				Right k -> putStrLn $ showDSAKey k
