@@ -15,8 +15,7 @@ import Control.Applicative ((<$>))
 import Data.Maybe
 import System.Exit
 
-import Data.ASN1.Types
-import Data.ASN1.DER (decodeASN1)
+import Data.ASN1.DER (decodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
 import Numeric
 
 hexdump :: L.ByteString -> String
@@ -70,42 +69,51 @@ showDSAKey key = unlines
 	, "g:       " ++ (show $ KeyDSA.g key)
 	]
 
-showASN1 :: ASN1t -> IO ()
+showASN1 :: [ASN1] -> IO ()
 showASN1 = prettyPrint 0 where
-	prettyPrint l a = indent l >> p l a >> putStrLn ""
-	indent l        = putStr (replicate l ' ')
-	p _ (Boolean b)            = putStr ("bool: " ++ show b)
-	p _ (IntVal i)             = putStr ("int: " ++ showHex i "")
-	p _ (BitString i bs)       = putStr ("bitstring: " ++ hexdump bs)
-	p _ (OctetString bs)       = putStr ("octetstring: " ++ hexdump bs)
-	p _ (Null)                 = putStr "null"
-	p _ (OID is)               = putStr ("OID: " ++ show is) 
-	p _ (Real d)               = putStr "real"
-	p _ (Enumerated)           = putStr "enum"
-	p _ (UTF8String t)         = putStr ("utf8string:" ++ T.unpack t)
-	p l (Sequence o)           = putStrLn "sequence" >> mapM_ (prettyPrint (l+1)) o >> indent l >> putStr "end-sequence"
-	p l (Set o)                = putStrLn "set" >> mapM_ (prettyPrint (l+1)) o >> indent l >> putStr "end-set"
-	p _ (NumericString bs)     = putStr "numericstring:"
-	p _ (PrintableString t)    = putStr ("printablestring: " ++ T.unpack t)
-	p _ (T61String bs)         = putStr "t61string:"
-	p _ (VideoTexString bs)    = putStr "videotexstring:"
-	p _ (IA5String bs)         = putStr "ia5string:"
-	p _ (UTCTime time)         = putStr ("utctime: " ++ show time)
-	p _ (GeneralizedTime time) = putStr ("generalizedtime: " ++ show time)
-	p _ (GraphicString bs)     = putStr "graphicstring:"
-	p _ (VisibleString bs)     = putStr "visiblestring:"
-	p _ (GeneralString bs)     = putStr "generalstring:"
-	p _ (UniversalString t)    = putStr ("universalstring:" ++ T.unpack t)
-	p _ (CharacterString bs)   = putStr "characterstring:"
-	p _ (BMPString t)          = putStr ("bmpstring: " ++ T.unpack t)
-	p l (Other tc tn x)        = putStr "other:"
+	indent n = putStr (replicate n ' ')
+
+	prettyPrint n []                 = return ()
+	prettyPrint n (x@(Start _) : xs) = indent n >> p x >> putStrLn "" >> prettyPrint (n+1) xs
+	prettyPrint n (x@(End _) : xs)   = indent (n-1) >> p x >> putStrLn "" >> prettyPrint (n-1) xs
+	prettyPrint n (x : xs)           = indent n >> p x >> putStrLn "" >> prettyPrint n xs
+
+	p (Boolean b)            = putStr ("bool: " ++ show b)
+	p (IntVal i)             = putStr ("int: " ++ showHex i "")
+	p (BitString i bs)       = putStr ("bitstring: " ++ hexdump bs)
+	p (OctetString bs)       = putStr ("octetstring: " ++ hexdump bs)
+	p (Null)                 = putStr "null"
+	p (OID is)               = putStr ("OID: " ++ show is)
+	p (Real d)               = putStr "real"
+	p (Enumerated)           = putStr "enum"
+	p (UTF8String t)         = putStr ("utf8string:" ++ T.unpack t)
+	p (Start Sequence)       = putStr "sequence"
+	p (End Sequence)         = putStr "end-sequence"
+	p (Start Set)            = putStr "set"
+	p (End Set)              = putStr "end-set"
+	p (Start _)              = putStr "container"
+	p (End _)                = putStr "end-container"
+	p (NumericString bs)     = putStr "numericstring:"
+	p (PrintableString t)    = putStr ("printablestring: " ++ T.unpack t)
+	p (T61String bs)         = putStr "t61string:"
+	p (VideoTexString bs)    = putStr "videotexstring:"
+	p (IA5String bs)         = putStr "ia5string:"
+	p (UTCTime time)         = putStr ("utctime: " ++ show time)
+	p (GeneralizedTime time) = putStr ("generalizedtime: " ++ show time)
+	p (GraphicString bs)     = putStr "graphicstring:"
+	p (VisibleString bs)     = putStr "visiblestring:"
+	p (GeneralString bs)     = putStr "generalstring:"
+	p (UniversalString t)    = putStr ("universalstring:" ++ T.unpack t)
+	p (CharacterString bs)   = putStr "characterstring:"
+	p (BMPString t)          = putStr ("bmpstring: " ++ T.unpack t)
+	p (Other tc tn x)        = putStr "other"
 
 doMain :: CertMainOpts -> IO ()
 doMain opts@(X509 _ _ _ _) = do
 	cert <- maybe (error "cannot read PEM certificate") (id) . parsePEMCert <$> B.readFile (head $ files opts)
 
 	when (raw opts) $ putStrLn $ hexdump $ L.fromChunks [cert]
-	when (asn1 opts) $ case decodeASN1 $ L.fromChunks [cert] of
+	when (asn1 opts) $ case decodeASN1Stream $ L.fromChunks [cert] of
 		Left err   -> error ("decoding ASN1 failed: " ++ show err)
 		Right asn1 -> showASN1 asn1
 	when (text opts || not (or [asn1 opts,raw opts])) $ case decodeCertificate $ L.fromChunks [cert] of
