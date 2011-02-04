@@ -14,9 +14,8 @@ module Data.Certificate.KeyRSA
 	, encodePrivate
 	) where
 
-import Data.ASN1.DER (encodeASN1)
-import Data.ASN1.BER (decodeASN1)
-import Data.ASN1.Types (ASN1t(..))
+import Data.ASN1.DER (encodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
+import Data.ASN1.BER (decodeASN1Stream)
 import qualified Data.ByteString.Lazy as L
 
 data Private = Private
@@ -32,34 +31,40 @@ data Private = Private
 	, coef             :: Integer
 	}
 
-parsePrivate :: ASN1t -> Either String Private
-parsePrivate (Sequence
-	[ IntVal ver, IntVal modulus, IntVal pub_exp
-	, IntVal priv_exp, IntVal p1, IntVal p2
-	, IntVal exp1, IntVal exp2, IntVal coef ]) =
+parsePrivate :: [ASN1] -> Either String Private
+parsePrivate
+	[ Start Sequence
+	, IntVal ver, IntVal p_modulus, IntVal pub_exp
+	, IntVal priv_exp, IntVal p_p1, IntVal p_p2
+	, IntVal p_exp1, IntVal p_exp2, IntVal p_coef
+	, End Sequence ] =
 		Right $ Private
 			{ version          = fromIntegral ver
-			, lenmodulus       = calculate_modulus modulus 1
-			, modulus          = modulus
+			, lenmodulus       = calculate_modulus p_modulus 1
+			, modulus          = p_modulus
 			, public_exponant  = pub_exp
 			, private_exponant = priv_exp
-			, p1               = p1
-			, p2               = p2
-			, exp1             = exp1
-			, exp2             = exp2
-			, coef             = coef
+			, p1               = p_p1
+			, p2               = p_p2
+			, exp1             = p_exp1
+			, exp2             = p_exp2
+			, coef             = p_coef
 			}
 	where
 		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
 parsePrivate _ = Left "unexpected format"
 
 decodePrivate :: L.ByteString -> Either String Private
-decodePrivate dat = either (Left . show) parsePrivate $ decodeASN1 dat
+decodePrivate dat = either (Left . show) parsePrivate $ decodeASN1Stream dat
 
 encodePrivate :: Private -> L.ByteString
-encodePrivate pk = encodeASN1 pkseq
-	where pkseq = Sequence
-		[ IntVal $ fromIntegral $ version pk
+encodePrivate pk =
+	case encodeASN1Stream pkseq of
+		Left err  -> error $ show err
+		Right lbs -> lbs
+	where pkseq =
+		[ Start Sequence
+		, IntVal $ fromIntegral $ version pk
 		, IntVal $ modulus pk
 		, IntVal $ public_exponant pk
 		, IntVal $ private_exponant pk
@@ -68,4 +73,5 @@ encodePrivate pk = encodeASN1 pkseq
 		, IntVal $ exp1 pk
 		, IntVal $ exp2 pk
 		, IntVal $ fromIntegral $ coef pk
+		, End Sequence
 		]

@@ -14,9 +14,8 @@ module Data.Certificate.KeyDSA
 	, encodePrivate
 	) where
 
-import Data.ASN1.DER (encodeASN1)
-import Data.ASN1.BER (decodeASN1)
-import Data.ASN1.Types (ASN1t(..))
+import Data.ASN1.DER (encodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
+import Data.ASN1.BER (decodeASN1Stream)
 import qualified Data.ByteString.Lazy as L
 
 data Private = Private
@@ -28,8 +27,11 @@ data Private = Private
 	, g       :: Integer
 	}
 
-parsePrivate :: ASN1t -> Either String Private
-parsePrivate (Sequence [ IntVal ver, IntVal p_pub, IntVal p_priv, IntVal p_p, IntVal p_g, IntVal p_q ]) =
+parsePrivate :: [ASN1] -> Either String Private
+parsePrivate
+	[ Start Sequence
+	, IntVal ver, IntVal p_pub, IntVal p_priv, IntVal p_p, IntVal p_g, IntVal p_q
+	, End Sequence ] =
 		Right $ Private
 			{ version = fromIntegral ver
 			, priv    = p_priv
@@ -42,15 +44,20 @@ parsePrivate (Sequence [ IntVal ver, IntVal p_pub, IntVal p_priv, IntVal p_p, In
 parsePrivate _ = Left "unexpected format"
 
 decodePrivate :: L.ByteString -> Either String Private
-decodePrivate dat = either (Left . show) parsePrivate $ decodeASN1 dat
+decodePrivate dat = either (Left . show) parsePrivate $ decodeASN1Stream dat
 
 encodePrivate :: Private -> L.ByteString
-encodePrivate pk = encodeASN1 pkseq
-	where pkseq = Sequence
-		[ IntVal $ fromIntegral $ version pk
+encodePrivate pk =
+	case encodeASN1Stream pkseq of
+		Left err  -> error $ show err
+		Right lbs -> lbs
+	where pkseq =
+		[ Start Sequence
+		, IntVal $ fromIntegral $ version pk
 		, IntVal $ pub pk
 		, IntVal $ priv pk
 		, IntVal $ p pk
 		, IntVal $ g pk
 		, IntVal $ q pk
+		, End Sequence
 		]
