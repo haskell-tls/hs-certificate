@@ -143,7 +143,7 @@ data Certificate = Certificate
 	, certPubKey       :: PubKey                        -- ^ Certificate Public key
 	, certExtensions   :: Maybe CertificateExts         -- ^ Certificate Extensions
 	, certSignature    :: Maybe (SignatureALG, [Word8]) -- ^ Certificate Signature Algorithm and Signature
-	, certOthers       :: [ASN1t]                        -- ^ any others fields not parsed
+	, certOthers       :: [ASN1t]                       -- ^ any others fields not parsed
 	} deriving (Show,Eq)
 
 {- | parse a RSA pubkeys from ASN1 encoded bits.
@@ -462,7 +462,7 @@ encodeCertificate :: Certificate -> L.ByteString
 encodeCertificate cert = encodeASN1 rootSeq
 	where
 		(sigalg, sigbits) = fromJust $ certSignature cert
-		esigalg = Sequence [ OID (sigOID sigalg), Null ]
-		esig = BitString 0 $ L.pack sigbits
-		header = Sequence $ encodeCertificateHeader cert
-		rootSeq = Sequence [ header, esigalg, esig ]
+		esigalg           = Sequence [ OID (sigOID sigalg), Null ]
+		esig              = BitString 0 $ L.pack sigbits
+		header            = Sequence $ encodeCertificateHeader cert
+		rootSeq           = Sequence [ header, esigalg, esig ]
