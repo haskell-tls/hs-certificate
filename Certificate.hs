@@ -135,9 +135,9 @@ doMain (Key files) = do
 data CertMainOpts =
 	  X509
 		{ files :: [FilePath]
-		, asn1 :: Bool
-		, text :: Bool
-		, raw :: Bool
+		, asn1  :: Bool
+		, text  :: Bool
+		, raw   :: Bool
 		}
 	| Key
 		{ files :: [FilePath]
