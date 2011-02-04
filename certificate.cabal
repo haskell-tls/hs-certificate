@@ -30,7 +30,7 @@ Library
                      bytestring,
                      text >= 0.11,
                      mtl,
-                     asn1-data >= 0.4 && < 0.5,
+                     asn1-data >= 0.4.3 && < 0.5,
                      base64-bytestring
   Exposed-modules:   Data.Certificate.X509,
                      Data.Certificate.PEM,
