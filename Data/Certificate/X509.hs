@@ -34,7 +34,7 @@ module Data.Certificate.X509
 
 import Data.Word
 import Data.List (find)
-import Data.ASN1.DER hiding (ASN1(..))
+import Data.ASN1.DER hiding (ASN1(..), ASN1ConstructionType(..))
 import Data.ASN1.Types (ASN1t(..))
 import Data.Maybe
 import Data.ByteString.Lazy (ByteString)
