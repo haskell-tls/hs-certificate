@@ -22,12 +22,11 @@ readAllSystemCertificates = do
 			Nothing -> return acc
 			Just x  -> return ((certfile, x) : acc)
 
-checkCert name c = do
+checkCert name (X509 c sigalg sigbits) = do
 	let errs =
 		(checkSigAlg $ certSignatureAlg c) ++
 		(checkPubKey $ certPubKey c) ++
-		(checkExtensions $ certExtensions c) ++
-		(map (("elements not recognized in root structure: " ++) . show) $ certOthers c)
+		(checkExtensions $ certExtensions c)
 	when (errs /= []) $ do
 		putStrLn ("error decoding " ++ name)
 		mapM_ (putStrLn . ("  " ++))  errs

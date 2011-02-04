@@ -18,6 +18,7 @@ module Data.Certificate.X509
 	, PubKeyDesc(..)
 	, PubKey(..)
 	, Certificate(..)
+	, X509(..)
 	, ASN1StringType(..)
 	, ASN1String
 
@@ -134,17 +135,18 @@ oidOrganization     = [2,5,4,10]
 oidOrganizationUnit = [2,5,4,11]
 
 data Certificate = Certificate
-	{ certVersion      :: Int                           -- ^ Certificate Version
-	, certSerial       :: Integer                       -- ^ Certificate Serial number
-	, certSignatureAlg :: SignatureALG                  -- ^ Certificate Signature algorithm
-	, certIssuerDN     :: [ (OID, ASN1String) ]         -- ^ Certificate Issuer DN
-	, certSubjectDN    :: [ (OID, ASN1String) ]         -- ^ Certificate Subject DN
-	, certValidity     :: (Time, Time)                  -- ^ Certificate Validity period
-	, certPubKey       :: PubKey                        -- ^ Certificate Public key
-	, certExtensions   :: Maybe CertificateExts         -- ^ Certificate Extensions
-	, certSignature    :: Maybe (SignatureALG, [Word8]) -- ^ Certificate Signature Algorithm and Signature
-	, certOthers       :: [ASN1t]                       -- ^ any others fields not parsed
+	{ certVersion      :: Int                   -- ^ Certificate Version
+	, certSerial       :: Integer               -- ^ Certificate Serial number
+	, certSignatureAlg :: SignatureALG          -- ^ Certificate Signature algorithm
+	, certIssuerDN     :: [ (OID, ASN1String) ] -- ^ Certificate Issuer DN
+	, certSubjectDN    :: [ (OID, ASN1String) ] -- ^ Certificate Subject DN
+	, certValidity     :: (Time, Time)          -- ^ Certificate Validity period
+	, certPubKey       :: PubKey                -- ^ Certificate Public key
+	, certExtensions   :: Maybe CertificateExts -- ^ Certificate Extensions
 	} deriving (Show,Eq)
+
+data X509 = X509 Certificate SignatureALG [Word8]
+	deriving (Show,Eq)
 
 {- | parse a RSA pubkeys from ASN1 encoded bits.
  - return PubKeyRSA (len-modulus, modulus, e) if successful -}
@@ -179,9 +181,6 @@ getNext = do
 	case list of
 		[]    -> throwError "empty"
 		(h:l) -> P (lift (put l)) >> return h
-
-getRemaining :: ParseCert [ASN1t]
-getRemaining = P (lift get)
 
 hasNext :: ParseCert Bool
 hasNext = do
@@ -386,7 +385,8 @@ parseCertificate = do
 	subject  <- parseCertHeaderDN
 	pk       <- parseCertHeaderSubjectPK
 	exts     <- parseCertExtensions
-	l        <- getRemaining
+	hnext    <- hasNext
+	when hnext $ throwError "expecting End Of Data."
 	
 	return $ Certificate
 		{ certVersion      = version
@@ -396,16 +396,14 @@ parseCertificate = do
 		, certSubjectDN    = subject
 		, certValidity     = validity
 		, certPubKey       = pk
-		, certSignature    = Nothing
 		, certExtensions   = exts
-		, certOthers       = l
 		}
 
 {- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
  - * the header
  - * the signature algorithm
  - * the signature -}
-processCertificate :: ASN1t -> Either String Certificate
+processCertificate :: ASN1t -> Either String X509
 processCertificate (Sequence [ header, sigalg, sig ]) = do
 	let sigAlg =
 		case sigalg of
@@ -418,13 +416,13 @@ processCertificate (Sequence [ header, sigalg, sig ]) = do
 	case header of
 		Sequence l ->
 			let cert = runParseCert parseCertificate l in
-			either Left (\c -> Right $ c { certSignature = Just (sigAlg, L.unpack sigbits) }) cert
+			either Left (\c -> Right $ X509 c sigAlg (L.unpack sigbits)) cert
 		_          -> Left "Certificate is not a sequence" 
 	
 processCertificate x = Left ("certificate root element error: " ++ show x)
 
 {- | decode a X509 certificate from a bytestring -}
-decodeCertificate :: L.ByteString -> Either String Certificate
+decodeCertificate :: L.ByteString -> Either String X509
 decodeCertificate by = either (Left . show) processCertificate $ decodeASN1 by
 
 encodeDN :: [ (OID, ASN1String) ] -> ASN1t
@@ -458,10 +456,9 @@ encodeCertificateHeader cert =
 		others    = []
 
 {-| encode a X509 certificate to a bytestring -}
-encodeCertificate :: Certificate -> L.ByteString
-encodeCertificate cert = encodeASN1 rootSeq
+encodeCertificate :: X509 -> L.ByteString
+encodeCertificate (X509 cert sigalg sigbits) = encodeASN1 rootSeq
 	where
-		(sigalg, sigbits) = fromJust $ certSignature cert
 		esigalg           = Sequence [ OID (sigOID sigalg), Null ]
 		esig              = BitString 0 $ L.pack sigbits
 		header            = Sequence $ encodeCertificateHeader cert

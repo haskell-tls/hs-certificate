@@ -28,8 +28,8 @@ showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ T.unpa
 
 showExts e = putStrLn $ show e
 
-showCert :: Certificate -> IO ()
-showCert cert = do
+showCert :: X509 -> IO ()
+showCert (X509 cert sigalg sigbits) = do
 	putStrLn ("version: " ++ show (certVersion cert))
 	putStrLn ("serial:  " ++ show (certSerial cert))
 	putStrLn ("sigalg:  " ++ show (certSignatureAlg cert))
@@ -41,8 +41,8 @@ showCert cert = do
 	putStrLn ("pk:     " ++ show (certPubKey cert))
 	putStrLn "exts:"
 	showExts $ certExtensions cert
-	putStrLn ("sig:    " ++ show (certSignature cert))
-	putStrLn ("other:  " ++ show (certOthers cert))
+	putStrLn ("sigAlg: " ++ show sigalg)
+	putStrLn ("sig:    " ++ show sigbits)
 
 
 showRSAKey :: KeyRSA.Private -> String
@@ -109,7 +109,7 @@ showASN1 = prettyPrint 0 where
 	p (Other tc tn x)        = putStr "other"
 
 doMain :: CertMainOpts -> IO ()
-doMain opts@(X509 _ _ _ _) = do
+doMain opts@(X509Opt _ _ _ _) = do
 	cert <- maybe (error "cannot read PEM certificate") (id) . parsePEMCert <$> B.readFile (head $ files opts)
 
 	when (raw opts) $ putStrLn $ hexdump $ L.fromChunks [cert]
@@ -141,7 +141,7 @@ doMain (Key files) = do
 			putStrLn "no recognized private key found"
 
 data CertMainOpts =
-	  X509
+	  X509Opt
 		{ files :: [FilePath]
 		, asn1  :: Bool
 		, text  :: Bool
@@ -152,7 +152,7 @@ data CertMainOpts =
 		}
 	deriving (Show,Data,Typeable)
 
-x509Opts = X509
+x509Opts = X509Opt
 	{ files = def &= args &= typFile
 	, asn1  = def
 	, text  = def
