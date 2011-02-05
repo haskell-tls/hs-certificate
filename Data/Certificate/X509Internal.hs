@@ -80,15 +80,6 @@ hasNext = do
 		[] -> return False
 		_  -> return True
 
-{-
-lookNext :: ParseASN1 ASN1
-lookNext = do
-	list <- P (lift get)
-	case list of
-		[]    -> throwError "empty"
-		(h:_) -> return h
--}
-
 asn1Container :: ASN1ConstructionType -> [ASN1] -> [ASN1]
 asn1Container ty l = [Start ty] ++ l ++ [End ty]
 
