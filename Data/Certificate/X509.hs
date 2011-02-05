@@ -29,14 +29,14 @@ module Data.Certificate.X509
 
 import Data.Word
 import Data.ASN1.DER
+import Data.ASN1.Stream (getConstructedEndRepr)
+import Data.ASN1.Raw (toBytes)
 import qualified Data.ByteString.Lazy as L
-import Control.Applicative ((<$>))
-import Control.Monad.Error
 
 import Data.Certificate.X509Internal
 import Data.Certificate.X509Cert
 
-data X509 = X509 Certificate SignatureALG [Word8]
+data X509 = X509 Certificate (Maybe L.ByteString) SignatureALG [Word8]
 	deriving (Show,Eq)
 
 {- | decode an X509 from a bytestring
@@ -46,28 +46,39 @@ data X509 = X509 Certificate SignatureALG [Word8]
  -   Certificate Signature
 -}
 decodeCertificate :: L.ByteString -> Either String X509
-decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Stream by
+decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1StreamRepr by
 	where
 		{- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
 		 - * the header
 		 - * the signature algorithm
 		 - * the signature -}
-		parseRootASN1 x = runParseASN1 parseRoot x
-		parseRoot = onNextContainer Sequence $ do
-			cert    <- onNextContainer Sequence parseCertificate
-			sigalg  <- parseSigAlg <$> getNextContainer Sequence
-			sigbits <- getNext
-			bits    <- case sigbits of
-				BitString _ b -> return b
-				_             -> throwError "signature not in right format"
-			return $ X509 cert sigalg (L.unpack bits)
+		parseRootASN1 l = onContainer rootseq $ \l2 ->
+				let (certrepr,rem1)  = getConstructedEndRepr l2 in
+				let (sigalgseq,rem2) = getConstructedEndRepr rem1 in
+				let (sigseq,_)       = getConstructedEndRepr rem2 in
+				let cert = onContainer certrepr (runParseASN1 parseCertificate . map fst) in
+				case (cert, map fst sigseq) of
+					(Right c, [BitString _ b]) ->
+						let certevs = toBytes $ concatMap snd certrepr in
+						let sigalg  = onContainer sigalgseq (parseSigAlg . map fst) in
+						Right $ X509 c (Just certevs) sigalg (L.unpack b)
+					(Left err, _) -> Left $ ("certificate error: " ++ show err)
+					_             -> Left $ "certificate structure error"
+			where
+				(rootseq, _) = getConstructedEndRepr l
+
+		onContainer ((Start _, _) : l) f =
+			case reverse l of
+				((End _, _) : l2) -> f $ reverse l2
+				_                 -> f []
+		onContainer _ f = f []
 
 		parseSigAlg [ OID oid, Null ] = oidSig oid
 		parseSigAlg _                 = SignatureALG_Unknown []
 
 {-| encode a X509 certificate to a bytestring -}
 encodeCertificate :: X509 -> L.ByteString
-encodeCertificate (X509 cert sigalg sigbits) = case encodeASN1Stream rootSeq of
+encodeCertificate (X509 cert _ sigalg sigbits) = case encodeASN1Stream rootSeq of
 		Right x  -> x
 		Left err -> error (show err)
 	where

@@ -29,7 +29,7 @@ showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ T.unpa
 showExts e = putStrLn $ show e
 
 showCert :: X509 -> IO ()
-showCert (X509 cert sigalg sigbits) = do
+showCert (X509 cert _ sigalg sigbits) = do
 	putStrLn ("version: " ++ show (certVersion cert))
 	putStrLn ("serial:  " ++ show (certSerial cert))
 	putStrLn ("sigalg:  " ++ show (certSignatureAlg cert))

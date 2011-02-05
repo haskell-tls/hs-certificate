@@ -22,11 +22,12 @@ readAllSystemCertificates = do
 			Nothing -> return acc
 			Just x  -> return ((certfile, x) : acc)
 
-checkCert name (X509 c sigalg sigbits) = do
+checkCert name rawCert (X509 c mraw sigalg sigbits) = do
 	let errs =
 		(checkSigAlg $ certSignatureAlg c) ++
 		(checkPubKey $ certPubKey c) ++
-		(checkExtensions $ certExtensions c)
+		(checkExtensions $ certExtensions c) ++
+		(checkBodyRaw rawCert mraw)
 	when (errs /= []) $ do
 		putStrLn ("error decoding " ++ name)
 		mapM_ (putStrLn . ("  " ++))  errs
@@ -41,11 +42,20 @@ checkCert name (X509 c sigalg sigbits) = do
 		checkPubKey (PubKey _ (PubKeyECDSA x))         = ["unknown public ECDSA key " ++ show x]
 		checkPubKey _                                  = []
 
+		checkBodyRaw x Nothing  = []
+		checkBodyRaw x (Just y) = if findsubstring y x then [] else ["cannot find body cert in original raw file"]
+
+		findsubstring a b
+			| L.null b        = False
+			| a `L.isPrefixOf` b = True
+			| otherwise          = findsubstring a (L.drop 1 b)
+
 runTests :: IO ()
 runTests = do
 	certs <- readAllSystemCertificates
 	forM certs $ \(name, cert) -> do
-		case decodeCertificate $ L.fromChunks [cert] of
+		let rawCert = L.fromChunks [cert]
+		case decodeCertificate rawCert of
 			Left err -> putStrLn ("cannot decode certificate " ++ name ++ " " ++ show err)
-			Right c  -> checkCert name c
+			Right c  -> checkCert name rawCert c
 	return ()
