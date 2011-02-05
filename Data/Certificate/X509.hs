@@ -35,12 +35,13 @@ module Data.Certificate.X509
 
 import Data.Word
 import Data.List (find)
-import Data.ASN1.DER hiding (ASN1(..), ASN1ConstructionType(..))
-import Data.ASN1.Types (ASN1t(..))
+import Data.ASN1.DER
+import Data.ASN1.Stream (getConstructedEnd)
 import Data.Maybe
 import Data.ByteString.Lazy (ByteString)
 import Data.Text.Lazy (Text)
 import qualified Data.ByteString.Lazy as L
+import Control.Applicative ((<$>))
 import Control.Monad.State
 import Control.Monad.Error
 
@@ -95,7 +96,7 @@ data PubKeyALG =
 data PubKeyDesc =
 	  PubKeyRSA (Int, Integer, Integer)              -- ^ RSA format with (len modulus, modulus, e)
 	| PubKeyDSA (Integer, Integer, Integer, Integer) -- ^ DSA format with (pub, p, q, g)
-	| PubKeyECDSA ASN1t                              -- ^ ECDSA format not done yet FIXME
+	| PubKeyECDSA [ASN1]                             -- ^ ECDSA format not done yet FIXME
 	| PubKeyUnknown [Word8]                          -- ^ unrecognized format
 	deriving (Show,Eq)
 
@@ -122,7 +123,7 @@ data CertificateExts = CertificateExts
 	, certExtBasicConstraints     :: Maybe (Bool, Bool)
 	, certExtSubjectKeyIdentifier :: Maybe (Bool, [Word8])
 	, certExtPolicies             :: Maybe (Bool)
-	, certExtOthers               :: [ (OID, Bool, ASN1t) ]
+	, certExtOthers               :: [ (OID, Bool, [ASN1]) ]
 	} deriving (Show,Eq)
 
 data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 deriving (Show,Eq)
@@ -152,8 +153,8 @@ data X509 = X509 Certificate SignatureALG [Word8]
  - return PubKeyRSA (len-modulus, modulus, e) if successful -}
 parse_RSA :: ByteString -> PubKeyDesc
 parse_RSA bits =
-	case decodeASN1 $ bits of
-		Right (Sequence [ IntVal modulus, IntVal pubexp ]) ->
+	case decodeASN1Stream $ bits of
+		Right [Start Sequence, IntVal modulus, IntVal pubexp, End Sequence] ->
 			PubKeyRSA (calculate_modulus modulus 1, modulus, pubexp)
 		_ ->
 			PubKeyUnknown $ L.unpack bits
@@ -162,49 +163,93 @@ parse_RSA bits =
 
 parse_ECDSA :: ByteString -> PubKeyDesc
 parse_ECDSA bits =
-	case decodeASN1 bits of
+	case decodeASN1Stream bits of
 		Right l -> PubKeyECDSA l
 		Left x  -> PubKeyUnknown $ map (fromIntegral . fromEnum) $ show x
 
-newtype ParseCert a = P { runP :: ErrorT String (State [ASN1t]) a }
+newtype ParseASN1 a = P { runP :: ErrorT String (State [ASN1]) a }
 	deriving (Functor, Monad, MonadError String)
 
-runParseCert :: ParseCert a -> [ASN1t] -> Either String a
-runParseCert f s =
+runParseASN1 :: ParseASN1 a -> [ASN1] -> Either String a
+runParseASN1 f s =
 	case runState (runErrorT (runP f)) s of
 		(Left err, _) -> Left err
 		(Right r, _) -> Right r
 
-getNext :: ParseCert ASN1t
+makeASN1Sequence :: [ASN1] -> [[ASN1]]
+makeASN1Sequence list =
+	let (l1, l2) = getConstructedEnd 0 list in
+	case l2 of
+		[] -> []
+		_  -> l1 : makeASN1Sequence l2
+
+getNext :: ParseASN1 ASN1
 getNext = do
 	list <- P (lift get)
 	case list of
 		[]    -> throwError "empty"
 		(h:l) -> P (lift (put l)) >> return h
 
-hasNext :: ParseCert Bool
+getNextContainer :: ASN1ConstructionType -> ParseASN1 [ASN1]
+getNextContainer ty = do
+	list <- P (lift get)
+	case list of
+		[]    -> throwError "empty"
+		(h:l) -> if h == Start ty
+			then do
+				let (l1, l2) = getConstructedEnd 0 l
+				P (lift $ put l2) >> return l1
+			else throwError "not an expected container"
+
+onNextContainer ty f = do
+	n <- getNextContainer ty
+	case runParseASN1 f n of
+		Left err -> throwError err
+		Right r  -> return r
+
+getNextContainerMaybe :: ASN1ConstructionType -> ParseASN1 (Maybe [ASN1])
+getNextContainerMaybe ty = do
+	list <- P (lift get)
+	case list of
+		[]    -> return Nothing
+		(h:l) -> if h == Start ty
+			then do
+				let (l1, l2) = getConstructedEnd 0 l
+				P (lift $ put l2) >> return (Just l1)
+			else return Nothing
+
+onNextContainerMaybe ty f = do
+	n <- getNextContainerMaybe ty
+	case n of
+		Just l -> case runParseASN1 f l of
+			Left err -> throwError err
+			Right r  -> return $ Just r
+		Nothing -> return Nothing
+
+hasNext :: ParseASN1 Bool
 hasNext = do
 	list <- P (lift get)
 	case list of
 		[] -> return False
 		_  -> return True
 
-lookNext :: ParseCert ASN1t
+lookNext :: ParseASN1 ASN1
 lookNext = do
 	list <- P (lift get)
 	case list of
 		[]    -> throwError "empty"
 		(h:_) -> return h
 
-parseCertHeaderVersion :: ParseCert Int
+parseCertHeaderVersion :: ParseASN1 Int
 parseCertHeaderVersion = do
-	n <- lookNext
-	v <- case n of
-		Container Context 0 [ IntVal v ] -> getNext >> return (fromIntegral v)
-		_                                -> return 1
-	return v
+	v <- onNextContainerMaybe (Container Context 0) $ do
+		n <- getNext
+		case n of
+			IntVal v -> return $ fromIntegral v
+			_        -> throwError "unexpected type for version"
+	return $ maybe 1 id v
 
-parseCertHeaderSerial :: ParseCert Integer
+parseCertHeaderSerial :: ParseASN1 Integer
 parseCertHeaderSerial = do
 	n <- getNext
 	case n of
@@ -241,15 +286,15 @@ pubkeyalgOID :: PubKeyALG -> OID
 pubkeyalgOID (PubKeyALG_Unknown oid) = oid
 pubkeyalgOID sig = maybe [] fst $ find ((==) sig . snd) pk_table
 
-parseCertHeaderAlgorithmID :: ParseCert SignatureALG
+parseCertHeaderAlgorithmID :: ParseASN1 SignatureALG
 parseCertHeaderAlgorithmID = do
-	n <- getNext
+	n <- getNextContainer Sequence
 	case n of
-		Sequence [ OID oid, Null ] -> return $ oidSig oid
-		Sequence [ OID oid ]       -> return $ oidSig oid
-		_                          -> throwError ("algorithm ID bad format " ++ show n)
+		[ OID oid, Null ] -> return $ oidSig oid
+		[ OID oid ]       -> return $ oidSig oid
+		_                 -> throwError ("algorithm ID bad format " ++ show n)
 
-asn1String :: ASN1t -> ASN1String
+asn1String :: ASN1 -> ASN1String
 asn1String (PrintableString x) = (Printable, x)
 asn1String (UTF8String x)      = (UTF8, x)
 asn1String (UniversalString x) = (Univ, x)
@@ -257,63 +302,71 @@ asn1String (BMPString x)       = (BMP, x)
 asn1String (IA5String x)       = (IA5, x)
 asn1String x                   = error ("not a print string " ++ show x)
 
-encodeAsn1String :: ASN1String -> ASN1t
+encodeAsn1String :: ASN1String -> ASN1
 encodeAsn1String (Printable, x) = PrintableString x
 encodeAsn1String (UTF8, x)      = UTF8String x
 encodeAsn1String (Univ, x)      = UniversalString x
 encodeAsn1String (BMP, x)       = BMPString x
 encodeAsn1String (IA5, x)       = IA5String x
 
-parseCertHeaderDN :: ParseCert [ (OID, ASN1String) ]
+parseCertHeaderDN :: ParseASN1 [ (OID, ASN1String) ]
 parseCertHeaderDN = do
-	n <- getNext
-	case n of
-		Sequence l -> mapM parseDNOne l
-		_          -> throwError "Distinguished name bad format"
+	onNextContainer Sequence getDNs
 	where
-		parseDNOne (Set [ Sequence [OID oid, val]]) = return (oid, asn1String val)
-		parseDNOne _                                = throwError "field in dn bad format"
+		getDNs = do
+			n <- hasNext
+			if n
+				then do
+					dn <- parseDNOne
+					liftM (dn :) getDNs
+				else return []
+		parseDNOne = onNextContainer Set $ do
+			s <- getNextContainer Sequence
+			case s of
+				[OID oid, val] -> return (oid, asn1String val)
+				_              -> throwError "expecting sequence"
 
-parseCertHeaderValidity :: ParseCert (Time, Time)
+parseCertHeaderValidity :: ParseASN1 (Time, Time)
 parseCertHeaderValidity = do
-	n <- getNext
+	n <- getNextContainer Sequence
 	case n of
-		Sequence [ UTCTime t1, UTCTime t2 ] -> return (t1, t2)
-		_                                   -> throwError "bad validity format"
+		[ UTCTime t1, UTCTime t2 ] -> return (t1, t2)
+		_                          -> throwError "bad validity format"
 
-matchPubKey :: ASN1t -> ParseCert PubKey
-matchPubKey (Sequence[Sequence[OID pkalg,Null],BitString _ bits]) = do
-	let sig = oidPubKey pkalg
-	let desc = case sig of
-		PubKeyALG_RSA                      -> parse_RSA bits
-		_                                  -> PubKeyUnknown $ L.unpack bits
-	return $ PubKey sig desc
+parseCertHeaderSubjectPK :: ParseASN1 PubKey
+parseCertHeaderSubjectPK = onNextContainer Sequence $ do
+	l <- getNextContainer Sequence
+	bits <- getNextBitString
+	case l of
+		[OID pkalg,Null]                                                   -> do
+			let sig = oidPubKey pkalg
+			let desc = case sig of
+				PubKeyALG_RSA -> parse_RSA bits
+				_             -> PubKeyUnknown $ L.unpack bits
+			return $ PubKey sig desc
+		[OID pkalg,OID pkalg2]                                            -> do
+			let sig = oidPubKey pkalg
+			let desc = case sig of
+				PubKeyALG_ECDSA  -> parse_ECDSA bits
+				_                -> PubKeyUnknown $ L.unpack bits
+			return $ PubKey sig desc
+		[OID pkalg,Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] -> do
+			let sig = oidPubKey pkalg
+			case decodeASN1Stream bits of
+				Right [IntVal dsapub] -> return $ PubKey sig (PubKeyDSA (dsapub, p, q, g))
+				_                     -> throwError "unrecognized DSA pub format"
+		n ->
+			throwError ("subject public key bad format : " ++ show n)
 
-matchPubKey (Sequence[Sequence[OID pkalg,OID pkgalg2],BitString _ bits]) = do
-	let sig = oidPubKey pkalg
-	let desc = case sig of
-		PubKeyALG_ECDSA  -> parse_ECDSA bits
-		_                -> PubKeyUnknown $ L.unpack bits
-	return $ PubKey sig desc
-
-
-matchPubKey (Sequence[Sequence[OID pkalg,Sequence[IntVal p,IntVal q,IntVal g]], BitString _ pubenc ]) = do
-	let sig = oidPubKey pkalg
-	case decodeASN1 pubenc of
-		Right (IntVal dsapub) -> return $ PubKey sig (PubKeyDSA (dsapub, p, q, g))
-		_                     -> throwError "unrecognized DSA pub format"
-
-
-matchPubKey n = throwError ("subject public key bad format : " ++ show n)
-
-parseCertHeaderSubjectPK :: ParseCert PubKey
-parseCertHeaderSubjectPK = getNext >>= matchPubKey
+	where getNextBitString = getNext >>= \bs -> case bs of
+		BitString _ bits -> return bits
+		_                -> throwError "expecting bitstring"
 
 -- RFC 5280
-parseCertExtensionHelper :: [ASN1t] -> State CertificateExts ()
+parseCertExtensionHelper :: [[ASN1]] -> State CertificateExts ()
 parseCertExtensionHelper l = do
 	forM_ (mapMaybe extractStruct l) $ \e -> case e of
-		([2,5,29,14], critical, Right (OctetString x)) ->
+		([2,5,29,14], critical, Right [OctetString x]) ->
 			modify (\s -> s { certExtSubjectKeyIdentifier = Just (critical, L.unpack x) })
 		{-
 		([2,5,29,15], critical, Right (BitString _ _)) ->
@@ -330,7 +383,7 @@ parseCertExtensionHelper l = do
 
 			return ()
 		-}
-		([2,5,29,19], critical, Right (Sequence [Boolean True])) ->
+		([2,5,29,19], critical, Right [Start Sequence, Boolean True, End Sequence]) ->
 			modify (\s -> s { certExtBasicConstraints = Just (critical, True) })
 		{-
 		([2,5,29,31], critical, obj) -> -- distributions points
@@ -347,35 +400,27 @@ parseCertExtensionHelper l = do
 		(_, True, Left _)             -> fail "critical extension not understood"
 		(_, False, Left _)            -> return ()
 	where
-		extractStruct (Sequence [ OID oid, Boolean True, OctetString obj ]) = Just (oid, True, decodeASN1 obj)
-		extractStruct (Sequence [ OID oid, OctetString obj ])               = Just (oid, False, decodeASN1 obj)
-		extractStruct _                                                     = Nothing
+		extractStruct [OID oid,Boolean True,OctetString obj] = Just (oid, True, decodeASN1Stream obj)
+		extractStruct [OID oid,OctetString obj]              = Just (oid, False, decodeASN1Stream obj)
+		extractStruct _                                      = Nothing
 
-parseCertExtensions :: ParseCert (Maybe CertificateExts)
+parseCertExtensions :: ParseASN1 (Maybe CertificateExts)
 parseCertExtensions = do
-	h <- hasNext
-	if h
-		then do
-			n <- lookNext
-			case n of
-				Container Context 3 [Sequence l] -> do
-					_ <- getNext
-					let def = CertificateExts
-						{ certExtKeyUsage             = Nothing
-						, certExtBasicConstraints     = Nothing
-						, certExtSubjectKeyIdentifier = Nothing
-						, certExtPolicies             = Nothing
-						, certExtOthers               = []
-						}
-					return $ Just $ execState (parseCertExtensionHelper l) def
-				_                                    ->
-					return Nothing
-		else return Nothing
+	onNextContainerMaybe (Container Context 3) $ do
+		let def = CertificateExts
+			{ certExtKeyUsage             = Nothing
+			, certExtBasicConstraints     = Nothing
+			, certExtSubjectKeyIdentifier = Nothing
+			, certExtPolicies             = Nothing
+			, certExtOthers               = []
+			}
+		l <- getNextContainer Sequence
+		return $ execState (parseCertExtensionHelper $ makeASN1Sequence l) def
 
 {- | parse header structure of a x509 certificate. it contains
  - the version, the serial number, the issuer DN, the validity period,
  - the subject DN, and the public keys -}
-parseCertificate :: ParseCert Certificate
+parseCertificate :: ParseASN1 Certificate
 parseCertificate = do
 	version  <- parseCertHeaderVersion
 	serial   <- parseCertHeaderSerial
@@ -399,67 +444,70 @@ parseCertificate = do
 		, certExtensions   = exts
 		}
 
-{- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
- - * the header
- - * the signature algorithm
- - * the signature -}
-processCertificate :: ASN1t -> Either String X509
-processCertificate (Sequence [ header, sigalg, sig ]) = do
-	let sigAlg =
-		case sigalg of
-			Sequence [ OID oid, Null ] -> oidSig oid
-			_                          -> SignatureALG_Unknown []
-	let sigbits =
-		case sig of
-			BitString _ bits -> bits
-			_                -> error "signature not in right format"
-	case header of
-		Sequence l ->
-			let cert = runParseCert parseCertificate l in
-			either Left (\c -> Right $ X509 c sigAlg (L.unpack sigbits)) cert
-		_          -> Left "Certificate is not a sequence" 
-	
-processCertificate x = Left ("certificate root element error: " ++ show x)
-
 {- | decode a X509 certificate from a bytestring -}
 decodeCertificate :: L.ByteString -> Either String X509
-decodeCertificate by = either (Left . show) processCertificate $ decodeASN1 by
-
-encodeDN :: [ (OID, ASN1String) ] -> ASN1t
-encodeDN dn = Sequence $ map dnSet dn
+decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Stream by
 	where
-		dnSet (oid, stringy) = Set [ Sequence [ OID oid, encodeAsn1String stringy ]]
+		{- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
+		 - * the header
+		 - * the signature algorithm
+		 - * the signature -}
+		parseRootASN1 x = runParseASN1 parseRoot x
+		parseRoot = onNextContainer Sequence $ do
+			cert    <- onNextContainer Sequence parseCertificate
+			sigalg  <- parseSigAlg <$> getNextContainer Sequence
+			sigbits <- getNext
+			bits    <- case sigbits of
+				BitString _ b -> return b
+				_             -> throwError "signature not in right format"
+			return $ X509 cert sigalg (L.unpack bits)
 
-encodePK :: PubKey -> ASN1t
-encodePK (PubKey sig (PubKeyRSA (_, modulus, e))) = Sequence [ Sequence [ OID $ pubkeyalgOID sig, Null ], BitString 0 bits ]
-	where bits = encodeASN1 $ Sequence [ IntVal modulus, IntVal e ]
+		parseSigAlg [ OID oid, Null ] = oidSig oid
+		parseSigAlg _                 = SignatureALG_Unknown []
 
-encodePK (PubKey sig (PubKeyDSA (pub, p, q, g)))  = Sequence [ Sequence [ OID $ pubkeyalgOID sig, dsaseq ], BitString 0 bits ]
+asn1Container ty l = [Start ty] ++ l ++ [End ty]
+
+encodeDN :: [ (OID, ASN1String) ] -> [ASN1]
+encodeDN dn = asn1Container Sequence $ concatMap dnSet dn
 	where
-		dsaseq = Sequence [ IntVal p, IntVal q, IntVal g ]
-		bits   = encodeASN1 $ IntVal pub
+		dnSet (oid, stringy) = asn1Container Set (asn1Container Sequence [OID oid, encodeAsn1String stringy])
 
-encodePK (PubKey sig (PubKeyUnknown l))           = Sequence [ Sequence [ OID $ pubkeyalgOID sig, Null ], BitString 0 (L.pack l) ]
+encodePK :: PubKey -> [ASN1]
+encodePK (PubKey sig (PubKeyRSA (_, modulus, e))) =
+	asn1Container Sequence (asn1Container Sequence [ OID $ pubkeyalgOID sig, Null ] ++ [BitString 0 bits])
+	where
+		(Right bits) = encodeASN1Stream $ asn1Container Sequence [IntVal modulus, IntVal e]
 
-encodeCertificateHeader :: Certificate -> [ASN1t]
+encodePK (PubKey sig (PubKeyDSA (pub, p, q, g)))  =
+	asn1Container Sequence (asn1Container Sequence ([OID $ pubkeyalgOID sig] ++ dsaseq) ++ [BitString 0 bits])
+	where
+		dsaseq       = asn1Container Sequence [IntVal p,IntVal q,IntVal g]
+		(Right bits) = encodeASN1Stream [IntVal pub]
+
+encodePK (PubKey sig (PubKeyUnknown l))           = 
+	asn1Container Sequence (asn1Container Sequence [OID $ pubkeyalgOID sig, Null] ++ [BitString 0 $ L.pack l])
+
+encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
-	[ eVer, eSerial, eAlgId, eIssuer, eValidity, eSubject, epkinfo ] ++ others
+	eVer ++ eSerial ++ eAlgId ++ eIssuer ++ eValidity ++ eSubject ++ epkinfo ++ eexts
 	where
-		eVer      = Container Context 0 [ IntVal (fromIntegral $ certVersion cert) ]
-		eSerial   = IntVal $ certSerial cert
-		eAlgId    = Sequence [ OID (sigOID $ certSignatureAlg cert), Null ]
+		eVer      = asn1Container (Container Context 0) [IntVal (fromIntegral $ certVersion cert)]
+		eSerial   = [IntVal $ certSerial cert]
+		eAlgId    = asn1Container Sequence [OID (sigOID $ certSignatureAlg cert), Null]
 		eIssuer   = encodeDN $ certIssuerDN cert
 		(t1, t2)  = certValidity cert
-		eValidity = Sequence [ UTCTime t1, UTCTime t2 ]
+		eValidity = asn1Container Sequence [UTCTime t1, UTCTime t2]
 		eSubject  = encodeDN $ certSubjectDN cert
 		epkinfo   = encodePK $ certPubKey cert
-		others    = []
+		eexts     = [] -- FIXME encode extensions
 
 {-| encode a X509 certificate to a bytestring -}
 encodeCertificate :: X509 -> L.ByteString
-encodeCertificate (X509 cert sigalg sigbits) = encodeASN1 rootSeq
+encodeCertificate (X509 cert sigalg sigbits) = case encodeASN1Stream rootSeq of
+		Right x  -> x
+		Left err -> error (show err)
 	where
-		esigalg           = Sequence [ OID (sigOID sigalg), Null ]
-		esig              = BitString 0 $ L.pack sigbits
-		header            = Sequence $ encodeCertificateHeader cert
-		rootSeq           = Sequence [ header, esigalg, esig ]
+		esigalg   = asn1Container Sequence [OID (sigOID sigalg), Null]
+		esig      = BitString 0 $ L.pack sigbits
+		header    = asn1Container Sequence $ encodeCertificateHeader cert
+		rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])
