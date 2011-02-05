@@ -167,7 +167,7 @@ parse_ECDSA bits =
 		Left x  -> PubKeyUnknown $ map (fromIntegral . fromEnum) $ show x
 
 newtype ParseCert a = P { runP :: ErrorT String (State [ASN1t]) a }
-	deriving (Monad, MonadError String)
+	deriving (Functor, Monad, MonadError String)
 
 runParseCert :: ParseCert a -> [ASN1t] -> Either String a
 runParseCert f s =
