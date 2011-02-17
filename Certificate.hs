@@ -5,7 +5,7 @@ import qualified Data.ByteString.Lazy.Char8 as LC
 import qualified Data.ByteString as B
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (decodeUtf8)
-import Data.Certificate.X509
+import qualified Data.Certificate.X509 as X509
 import Data.Certificate.KeyRSA as KeyRSA
 import Data.Certificate.KeyDSA as KeyDSA
 import Data.Certificate.PEM
@@ -28,19 +28,19 @@ showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ T.unpa
 
 showExts e = putStrLn $ show e
 
-showCert :: X509 -> IO ()
-showCert (X509 cert _ sigalg sigbits) = do
-	putStrLn ("version: " ++ show (certVersion cert))
-	putStrLn ("serial:  " ++ show (certSerial cert))
-	putStrLn ("sigalg:  " ++ show (certSignatureAlg cert))
+showCert :: X509.X509 -> IO ()
+showCert (X509.X509 cert _ sigalg sigbits) = do
+	putStrLn ("version: " ++ show (X509.certVersion cert))
+	putStrLn ("serial:  " ++ show (X509.certSerial cert))
+	putStrLn ("sigalg:  " ++ show (X509.certSignatureAlg cert))
 	putStrLn "issuer:"
-	showDN $ certIssuerDN cert
+	showDN $ X509.certIssuerDN cert
 	putStrLn "subject:"
-	showDN $ certSubjectDN cert
-	putStrLn ("valid:  " ++ show (certValidity cert))
-	putStrLn ("pk:     " ++ show (certPubKey cert))
+	showDN $ X509.certSubjectDN cert
+	putStrLn ("valid:  " ++ show (X509.certValidity cert))
+	putStrLn ("pk:     " ++ show (X509.certPubKey cert))
 	putStrLn "exts:"
-	showExts $ certExtensions cert
+	showExts $ X509.certExtensions cert
 	putStrLn ("sigAlg: " ++ show sigalg)
 	putStrLn ("sig:    " ++ show sigbits)
 
@@ -109,14 +109,14 @@ showASN1 = prettyPrint 0 where
 	p (Other tc tn x)        = putStr "other"
 
 doMain :: CertMainOpts -> IO ()
-doMain opts@(X509Opt _ _ _ _) = do
+doMain opts@(X509 _ _ _ _) = do
 	cert <- maybe (error "cannot read PEM certificate") (id) . parsePEMCert <$> B.readFile (head $ files opts)
 
 	when (raw opts) $ putStrLn $ hexdump $ L.fromChunks [cert]
 	when (asn1 opts) $ case decodeASN1Stream $ L.fromChunks [cert] of
 		Left err   -> error ("decoding ASN1 failed: " ++ show err)
 		Right asn1 -> showASN1 asn1
-	when (text opts || not (or [asn1 opts,raw opts])) $ case decodeCertificate $ L.fromChunks [cert] of
+	when (text opts || not (or [asn1 opts,raw opts])) $ case X509.decodeCertificate $ L.fromChunks [cert] of
 		Left err   -> error ("decoding certificate failed: " ++ show err)
 		Right c    -> showCert c
 	exitSuccess
@@ -141,7 +141,7 @@ doMain (Key files) = do
 			putStrLn "no recognized private key found"
 
 data CertMainOpts =
-	  X509Opt
+	  X509
 		{ files :: [FilePath]
 		, asn1  :: Bool
 		, text  :: Bool
@@ -152,7 +152,7 @@ data CertMainOpts =
 		}
 	deriving (Show,Data,Typeable)
 
-x509Opts = X509Opt
+x509Opts = X509
 	{ files = def &= args &= typFile
 	, asn1  = def
 	, text  = def
