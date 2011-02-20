@@ -51,12 +51,15 @@ data PubKeyALG =
 	  PubKeyALG_RSA
 	| PubKeyALG_DSA
 	| PubKeyALG_ECDSA
+	| PubKeyALG_DH
 	| PubKeyALG_Unknown OID
 	deriving (Show,Eq)
 
 data PubKeyDesc =
 	  PubKeyRSA (Int, Integer, Integer)              -- ^ RSA format with (len modulus, modulus, e)
 	| PubKeyDSA (Integer, Integer, Integer, Integer) -- ^ DSA format with (pub, p, q, g)
+	| PubKeyDH (Integer, Integer,Integer, Maybe Integer, ([Word8], Integer))
+	                                                 -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
 	| PubKeyECDSA [ASN1]                             -- ^ ECDSA format not done yet FIXME
 	| PubKeyUnknown [Word8]                          -- ^ unrecognized format
 	deriving (Show,Eq)
@@ -154,6 +157,7 @@ pk_table =
 	[ ([1,2,840,113549,1,1,1], PubKeyALG_RSA)
 	, ([1,2,840,10040,4,1],    PubKeyALG_DSA)
 	, ([1,2,840,10045,2,1],    PubKeyALG_ECDSA)
+	, ([1,2,840,10046,2,1],    PubKeyALG_DH)
 	]
 
 oidSig :: OID -> SignatureALG
