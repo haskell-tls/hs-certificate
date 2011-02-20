@@ -14,6 +14,14 @@ import Control.Monad
 import Control.Applicative ((<$>))
 import Data.Maybe
 import System.Exit
+import System.Certificate.X509 as SysCert
+
+-- for signing/verifying certificate
+import qualified Crypto.Hash.SHA1 as SHA1
+import qualified Crypto.Hash.MD2 as MD2
+import qualified Crypto.Hash.MD5 as MD5
+import qualified Crypto.Cipher.RSA as RSA
+import qualified Crypto.Cipher.DSA as DSA
 
 import Data.ASN1.DER (decodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
 import Numeric
@@ -116,10 +124,56 @@ doMain opts@(X509 _ _ _ _ _) = do
 	when (asn1 opts) $ case decodeASN1Stream $ L.fromChunks [cert] of
 		Left err   -> error ("decoding ASN1 failed: " ++ show err)
 		Right asn1 -> showASN1 asn1
-	when (text opts || not (or [asn1 opts,raw opts])) $ case X509.decodeCertificate $ L.fromChunks [cert] of
+
+	let x509o = X509.decodeCertificate $ L.fromChunks [cert]
+	let x509  = case x509o of
 		Left err   -> error ("decoding certificate failed: " ++ show err)
-		Right c    -> showCert c
+		Right c    -> c
+	when (text opts || not (or [asn1 opts,raw opts])) $ showCert x509
+	when (verify opts) $ verifyCert x509
 	exitSuccess
+	where
+		verifyCert x509@(X509.X509 cert _ sigalg sig) = do
+			sysx509 <- SysCert.findCertificate (matchsysX509 cert)
+			case sysx509 of
+				Nothing                        -> putStrLn "couldn't find signing certificate"
+				Just (X509.X509 syscert _ _ _) -> do
+					verifyAlg (B.concat $ L.toChunks $ X509.getSigningData x509)
+					          (B.pack sig)
+					          sigalg
+					          (X509.certPubKey syscert)
+
+		rsaVerify h hdesc pk a b = either (Left . show) (Right) $ RSA.verify h hdesc pk a b
+
+		verifyF X509.SignatureALG_md2WithRSAEncryption (X509.PubKeyRSA rsakey) =
+			rsaVerify MD2.hash (B.pack [0x30,0x20,0x30,0x0c,0x06,0x08,0x2a,0x86,0x48,0x86,0xf7,0x0d,0x02,0x05,0x05,0x00,0x04,0x10]) (mkRSA rsakey)
+
+		verifyF X509.SignatureALG_md5WithRSAEncryption (X509.PubKeyRSA rsakey) =
+			rsaVerify MD5.hash (B.pack [0x30,0x20,0x30,0x0c,0x06,0x08,0x2a,0x86,0x48,0x86,0xf7,0x0d,0x02,0x05,0x05,0x00,0x04,0x10]) (mkRSA rsakey)
+
+		verifyF X509.SignatureALG_sha1WithRSAEncryption (X509.PubKeyRSA rsakey) =
+			rsaVerify SHA1.hash (B.pack [0x30,0x20,0x30,0x0c,0x06,0x08,0x2a,0x86,0x48,0x86,0xf7,0x0d,0x02,0x05,0x05,0x00,0x04,0x10]) (mkRSA rsakey)
+
+		verifyF X509.SignatureALG_dsaWithSHA1 (X509.PubKeyDSA (pub,p,q,g)) =
+			(\_ _ -> Left "unimplemented DSA checking")
+
+		verifyF _ _ =
+			(\_ _ -> Left "unexpected/wrong signature")
+
+		mkRSA (lenmodulus, modulus, e) =
+			RSA.PublicKey { RSA.public_sz = lenmodulus, RSA.public_n = modulus, RSA.public_e = e }
+
+		verifyAlg toSign expectedSig sigalg pk =
+			let f = verifyF sigalg pk in
+			case f toSign expectedSig of
+				Left err    -> putStrLn ("certificate couldn't be verified: something happened: " ++ show err)
+				Right True  -> putStrLn "certificate verified"
+				Right False -> putStrLn "certificate not verified"
+
+		matchsysX509 cert (X509.X509 syscert _ _ _) = do
+			let x = X509.certSubjectDN syscert
+			let y = X509.certIssuerDN cert
+			x == y
 	
 doMain (Key files) = do
 	content <- B.readFile $ head files

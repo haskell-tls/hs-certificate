@@ -46,7 +46,11 @@ Executable           certificate
   Main-Is:           Certificate.hs
   if flag(executable)
     Buildable:       True
-    Build-depends:   cmdargs, text >= 0.11
+    Build-depends:   cmdargs
+                   , text >= 0.11
+                   , cryptohash
+                   , cryptocipher >= 0.2.4
+                   , directory
   else
     Buildable:       False
 
