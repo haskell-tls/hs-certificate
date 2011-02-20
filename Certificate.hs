@@ -109,7 +109,7 @@ showASN1 = prettyPrint 0 where
 	p (Other tc tn x)        = putStr "other"
 
 doMain :: CertMainOpts -> IO ()
-doMain opts@(X509 _ _ _ _) = do
+doMain opts@(X509 _ _ _ _ _) = do
 	cert <- maybe (error "cannot read PEM certificate") (id) . parsePEMCert <$> B.readFile (head $ files opts)
 
 	when (raw opts) $ putStrLn $ hexdump $ L.fromChunks [cert]
@@ -142,10 +142,11 @@ doMain (Key files) = do
 
 data CertMainOpts =
 	  X509
-		{ files :: [FilePath]
-		, asn1  :: Bool
-		, text  :: Bool
-		, raw   :: Bool
+		{ files  :: [FilePath]
+		, asn1   :: Bool
+		, text   :: Bool
+		, raw    :: Bool
+		, verify :: Bool
 		}
 	| Key
 		{ files :: [FilePath]
@@ -153,10 +154,11 @@ data CertMainOpts =
 	deriving (Show,Data,Typeable)
 
 x509Opts = X509
-	{ files = def &= args &= typFile
-	, asn1  = def
-	, text  = def
-	, raw   = def
+	{ files  = def &= args &= typFile
+	, asn1   = def
+	, text   = def
+	, raw    = def
+	, verify = def
 	} &= help "x509 certificate related commands"
 
 keyOpts = Key
