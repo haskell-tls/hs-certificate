@@ -37,10 +37,9 @@ checkCert name rawCert (X509 c mraw sigalg sigbits) = do
 		checkSigAlg (SignatureALG_Unknown oid) = ["unknown signature algorithm " ++ show oid]
 		checkSigAlg _                          = []
 
-		checkPubKey (PubKey (PubKeyALG_Unknown oid) _) = ["unknown public key alg " ++ show (certPubKey c)]
-		checkPubKey (PubKey _ (PubKeyUnknown l))       = ["unknown public key " ++ show (certPubKey c)]
-		checkPubKey (PubKey _ (PubKeyECDSA x))         = ["unknown public ECDSA key " ++ show x]
-		checkPubKey _                                  = []
+		checkPubKey (PubKeyUnknown oid _) = ["unknown public key alg " ++ show (certPubKey c)]
+		checkPubKey (PubKeyECDSA x)       = ["unknown public ECDSA key " ++ show x]
+		checkPubKey _                     = []
 
 		checkBodyRaw x Nothing  = []
 		checkBodyRaw x (Just y) = if findsubstring y x then [] else ["cannot find body cert in original raw file"]

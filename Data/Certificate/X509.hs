@@ -15,7 +15,6 @@ module Data.Certificate.X509
 	-- * Data Structure (reexported from X509Cert)
 	, SignatureALG(..)
 	, PubKeyALG(..)
-	, PubKeyDesc(..)
 	, PubKey(..)
 	, ASN1StringType(..)
 	, ASN1String

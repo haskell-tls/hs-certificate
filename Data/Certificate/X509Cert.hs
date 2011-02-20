@@ -3,7 +3,6 @@ module Data.Certificate.X509Cert
 	-- * Data Structure
 	  SignatureALG(..)
 	, PubKeyALG(..)
-	, PubKeyDesc(..)
 	, PubKey(..)
 	, ASN1StringType(..)
 	, ASN1String
@@ -55,16 +54,13 @@ data PubKeyALG =
 	| PubKeyALG_Unknown OID
 	deriving (Show,Eq)
 
-data PubKeyDesc =
-	  PubKeyRSA (Int, Integer, Integer)              -- ^ RSA format with (len modulus, modulus, e)
-	| PubKeyDSA (Integer, Integer, Integer, Integer) -- ^ DSA format with (pub, p, q, g)
-	| PubKeyDH (Integer, Integer,Integer, Maybe Integer, ([Word8], Integer))
+data PubKey =
+	  PubKeyRSA (Int,Integer,Integer)                -- ^ RSA format with (len modulus, modulus, e)
+	| PubKeyDSA (Integer,Integer,Integer,Integer)    -- ^ DSA format with (pub, p, q, g)
+	| PubKeyDH (Integer,Integer,Integer,Maybe Integer,([Word8], Integer))
 	                                                 -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
 	| PubKeyECDSA [ASN1]                             -- ^ ECDSA format not done yet FIXME
-	| PubKeyUnknown [Word8]                          -- ^ unrecognized format
-	deriving (Show,Eq)
-
-data PubKey = PubKey PubKeyALG PubKeyDesc -- OID RSA|DSA|rawdata
+	| PubKeyUnknown OID [Word8]                      -- ^ unrecognized format
 	deriving (Show,Eq)
 
 -- FIXME use a proper standard type for representing time.
@@ -112,21 +108,22 @@ oidOrganizationUnit = [2,5,4,11]
 
 {- | parse a RSA pubkeys from ASN1 encoded bits.
  - return PubKeyRSA (len-modulus, modulus, e) if successful -}
-parse_RSA :: ByteString -> PubKeyDesc
+parse_RSA :: ByteString -> ParseASN1 PubKey
 parse_RSA bits =
 	case decodeASN1Stream $ bits of
 		Right [Start Sequence, IntVal modulus, IntVal pubexp, End Sequence] ->
-			PubKeyRSA (calculate_modulus modulus 1, modulus, pubexp)
+			return $ PubKeyRSA (calculate_modulus modulus 1, modulus, pubexp)
 		_ ->
-			PubKeyUnknown $ L.unpack bits
+			throwError ("bad RSA format")
 	where
 		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
 
-parse_ECDSA :: ByteString -> PubKeyDesc
+parse_ECDSA :: ByteString -> ParseASN1 PubKey
 parse_ECDSA bits =
 	case decodeASN1Stream bits of
-		Right l -> PubKeyECDSA l
-		Left x  -> PubKeyUnknown $ map (fromIntegral . fromEnum) $ show x
+		Right l -> return $ PubKeyECDSA l
+		Left _  -> return $ PubKeyUnknown (pubkeyalgOID PubKeyALG_ECDSA) (L.unpack bits)
+
 parseCertHeaderVersion :: ParseASN1 Int
 parseCertHeaderVersion = do
 	v <- onNextContainerMaybe (Container Context 0) $ do
@@ -173,6 +170,13 @@ sigOID sig = maybe [] fst $ find ((==) sig . snd) sig_table
 pubkeyalgOID :: PubKeyALG -> OID
 pubkeyalgOID (PubKeyALG_Unknown oid) = oid
 pubkeyalgOID sig = maybe [] fst $ find ((==) sig . snd) pk_table
+
+pubkeyToAlg :: PubKey -> PubKeyALG
+pubkeyToAlg (PubKeyRSA _)         = PubKeyALG_RSA
+pubkeyToAlg (PubKeyDSA _)         = PubKeyALG_DSA
+pubkeyToAlg (PubKeyDH _)          = PubKeyALG_DH
+pubkeyToAlg (PubKeyECDSA _)       = PubKeyALG_ECDSA
+pubkeyToAlg (PubKeyUnknown oid _) = PubKeyALG_Unknown oid
 
 parseCertHeaderAlgorithmID :: ParseASN1 SignatureALG
 parseCertHeaderAlgorithmID = do
@@ -228,23 +232,21 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
 	l <- getNextContainer Sequence
 	bits <- getNextBitString
 	case l of
-		[OID pkalg,Null]                                                   -> do
+		[OID pkalg,Null] -> do
 			let sig = oidPubKey pkalg
-			let desc = case sig of
+			case sig of
 				PubKeyALG_RSA -> parse_RSA bits
-				_             -> PubKeyUnknown $ L.unpack bits
-			return $ PubKey sig desc
-		[OID pkalg,OID pkalg2]                                            -> do
+				_             -> return $ PubKeyUnknown pkalg $ L.unpack bits
+		[OID pkalg,OID _] -> do
 			let sig = oidPubKey pkalg
-			let desc = case sig of
+			case sig of
 				PubKeyALG_ECDSA  -> parse_ECDSA bits
-				_                -> PubKeyUnknown $ L.unpack bits
-			return $ PubKey sig desc
+				_                -> return $ PubKeyUnknown pkalg $ L.unpack bits
 		[OID pkalg,Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] -> do
 			let sig = oidPubKey pkalg
 			case decodeASN1Stream bits of
-				Right [IntVal dsapub] -> return $ PubKey sig (PubKeyDSA (dsapub, p, q, g))
-				_                     -> throwError "unrecognized DSA pub format"
+				Right [IntVal dsapub] -> return $ PubKeyDSA (dsapub, p, q, g)
+				_                     -> return $ PubKeyUnknown pkalg $ L.unpack bits
 		n ->
 			throwError ("subject public key bad format : " ++ show n)
 
@@ -353,19 +355,23 @@ encodeDN dn = asn1Container Sequence $ concatMap dnSet dn
 		dnSet (oid, stringy) = asn1Container Set (asn1Container Sequence [OID oid, encodeAsn1String stringy])
 
 encodePK :: PubKey -> [ASN1]
-encodePK (PubKey sig (PubKeyRSA (_, modulus, e))) =
-	asn1Container Sequence (asn1Container Sequence [ OID $ pubkeyalgOID sig, Null ] ++ [BitString 0 bits])
+encodePK k@(PubKeyRSA (_, modulus, e)) =
+	asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString 0 bits])
 	where
+		pkalg        = OID $ pubkeyalgOID $ pubkeyToAlg k
 		(Right bits) = encodeASN1Stream $ asn1Container Sequence [IntVal modulus, IntVal e]
 
-encodePK (PubKey sig (PubKeyDSA (pub, p, q, g)))  =
-	asn1Container Sequence (asn1Container Sequence ([OID $ pubkeyalgOID sig] ++ dsaseq) ++ [BitString 0 bits])
+encodePK k@(PubKeyDSA (pub, p, q, g)) =
+	asn1Container Sequence (asn1Container Sequence ([pkalg] ++ dsaseq) ++ [BitString 0 bits])
 	where
+		pkalg        = OID $ pubkeyalgOID $ pubkeyToAlg k
 		dsaseq       = asn1Container Sequence [IntVal p,IntVal q,IntVal g]
 		(Right bits) = encodeASN1Stream [IntVal pub]
 
-encodePK (PubKey sig (PubKeyUnknown l))           = 
-	asn1Container Sequence (asn1Container Sequence [OID $ pubkeyalgOID sig, Null] ++ [BitString 0 $ L.pack l])
+encodePK k@(PubKeyUnknown _ l) =
+	asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString 0 $ L.pack l])
+	where
+		pkalg = OID $ pubkeyalgOID $ pubkeyToAlg k
 
 encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
