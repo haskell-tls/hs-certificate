@@ -21,6 +21,9 @@ module Data.Certificate.X509
 	, Certificate(..)
 	, CertificateExts(..)
 
+	-- * helper for signing/veryfing certificate
+	, getSigningData
+
 	-- * serialization from ASN1 bytestring
 	, decodeCertificate
 	, encodeCertificate
@@ -37,6 +40,15 @@ import Data.Certificate.X509Cert
 
 data X509 = X509 Certificate (Maybe L.ByteString) SignatureALG [Word8]
 	deriving (Show,Eq)
+
+{- | get signing data related to a X509 message,
+ - which is either the cached data or the encoded certificate -}
+getSigningData :: X509 -> L.ByteString
+getSigningData (X509 _ (Just e) _ _)   = e
+getSigningData (X509 cert Nothing _ _) = e
+	where
+		(Right e) = encodeASN1Stream header
+		header    = asn1Container Sequence $ encodeCertificateHeader cert
 
 {- | decode an X509 from a bytestring
  - the structure is the following:
