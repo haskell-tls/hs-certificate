@@ -79,7 +79,7 @@ data CertKeyUsage =
 	| CertKeyUsageDecipherOnly
 	deriving (Show, Eq)
 
-data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 deriving (Show,Eq)
+data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq)
 type ASN1String = (ASN1StringType, Text)
 
 data Certificate = Certificate
@@ -184,6 +184,7 @@ asn1String (UTF8String x)      = (UTF8, x)
 asn1String (UniversalString x) = (Univ, x)
 asn1String (BMPString x)       = (BMP, x)
 asn1String (IA5String x)       = (IA5, x)
+asn1String (T61String x)       = (IA5, x)
 asn1String x                   = error ("not a print string " ++ show x)
 
 encodeAsn1String :: ASN1String -> ASN1
@@ -192,6 +193,7 @@ encodeAsn1String (UTF8, x)      = UTF8String x
 encodeAsn1String (Univ, x)      = UniversalString x
 encodeAsn1String (BMP, x)       = BMPString x
 encodeAsn1String (IA5, x)       = IA5String x
+encodeAsn1String (T61, x)       = T61String x
 
 parseCertHeaderDN :: ParseASN1 [ (OID, ASN1String) ]
 parseCertHeaderDN = do
