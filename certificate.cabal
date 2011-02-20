@@ -37,6 +37,7 @@ Library
                      Data.Certificate.PEM,
                      Data.Certificate.KeyDSA
                      Data.Certificate.KeyRSA
+                     System.Certificate.X509
   Other-modules:     Data.Certificate.X509Internal
   ghc-options:       -Wall
 
