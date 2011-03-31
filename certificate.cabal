@@ -41,6 +41,10 @@ Library
                      System.Certificate.X509
   Other-modules:     Data.Certificate.X509Internal
   ghc-options:       -Wall
+  if os(windows)
+     cpp-options: -DWINDOWS
+  if os(OSX)
+     cpp-options: -DMACOSX
 
 Executable           certificate
   Main-Is:           Certificate.hs
