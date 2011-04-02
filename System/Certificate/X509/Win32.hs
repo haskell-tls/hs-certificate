@@ -8,11 +8,13 @@ import System.Win32.Registry
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 
+import Data.Bits
+
 defaultSystemPath :: FilePath
 defaultSystemPath = "SOFTWARE\\Microsoft\\SystemCertificates\\CA\\Certificates"
 
 listSubDirectories path = bracket openKey regCloseKey regEnumKeys
-	where openKey = regOpenKeyEx hKEY_LOCAL_MACHINE path kEY_ALL_ACCESS
+	where openKey = regOpenKeyEx hKEY_LOCAL_MACHINE path (kEY_ENUMERATE_SUB_KEYS .|. kEY_READ)
 
 openValue path key toByteS = bracket openKey regCloseKey $ \hkey -> allocaBytes 4096 $ \mem -> do
 		regQueryValueEx hkey key mem 4096 >>= toByteS mem
