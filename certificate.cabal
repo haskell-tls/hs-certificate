@@ -43,6 +43,7 @@ Library
   ghc-options:       -Wall
   if os(windows)
      cpp-options: -DWINDOWS
+     Build-Depends:  Win32
   if os(OSX)
      cpp-options: -DMACOSX
 

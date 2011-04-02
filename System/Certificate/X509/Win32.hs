@@ -1,12 +1,21 @@
 module System.Certificate.X509.Win32
-	( getSystemPath
-	, readAll
-	, findCertificate
+	( findCertificate
 	) where
 
+import Foreign.Marshal.Alloc (allocaBytes)
+import Foreign.Ptr (castPtr)
+
+import Control.Exception (bracket, IOException)
+import Control.Applicative ((<$>))
+
 import System.Win32.Registry
+
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Lazy as L
+
+import Data.Certificate.X509
+import Data.Certificate.X509Cert
 
 import Data.Bits
 
@@ -22,15 +31,30 @@ openValue path key toByteS = bracket openKey regCloseKey $ \hkey -> allocaBytes 
 
 fromBlob mem ty
 	| ty == rEG_BINARY = do
-		len <- B.c_strlen mem
-		B.create len (\bptr -> B.memcpy bptr mem len)
+		len <- B.c_strlen (castPtr mem)
+		B.create (fromIntegral len) (\bptr -> B.memcpy bptr mem len)
 	| otherwise        = error "certificate blob have unexpected type"
 
 getSystemPath :: IO FilePath
 getSystemPath = undefined
 
-readAll :: IO [Either ReadErr X509]
-readAll = undefined
+data ReadErr =
+	  Exception IOException
+	| CertError String
+	deriving (Show,Eq)
 
 findCertificate :: (X509 -> Bool) -> IO (Maybe X509)
-findCertificate f = undefined
+findCertificate f = do
+	hashes <- listSubDirectories defaultSystemPath
+	loop hashes
+	where
+		readCertificate path = do
+			b <- openValue path "Blob" fromBlob
+			return $ decodeCertificate $ L.fromChunks [b]
+
+		loop []     = return Nothing
+		loop (x:xs) = do
+			cert <- readCertificate (defaultSystemPath ++ "\\" ++ x)
+			case cert of
+				Left _ -> loop xs
+				Right x509 -> if f x509 then return $ Just x509 else loop xs
