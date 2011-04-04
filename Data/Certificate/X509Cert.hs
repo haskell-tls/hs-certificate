@@ -29,7 +29,6 @@ import Data.List (find)
 import Data.ASN1.DER
 import Data.Maybe
 import Data.ByteString.Lazy (ByteString)
-import Data.Text.Lazy (Text)
 import qualified Data.ByteString.Lazy as L
 import Control.Monad.State
 import Control.Monad.Error
@@ -79,7 +78,7 @@ data CertKeyUsage =
 	deriving (Show, Eq)
 
 data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq)
-type ASN1String = (ASN1StringType, Text)
+type ASN1String = (ASN1StringType, String)
 
 data Certificate = Certificate
 	{ certVersion      :: Int                   -- ^ Certificate Version

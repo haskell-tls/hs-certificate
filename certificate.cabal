@@ -28,9 +28,8 @@ Flag executable
 Library
   Build-Depends:     base >= 3 && < 5
                    , bytestring
-                   , text >= 0.11
                    , mtl
-                   , asn1-data >= 0.4.6 && < 0.5
+                   , asn1-data >= 0.5.0 && < 0.6
                    , base64-bytestring
                    , directory
   Exposed-modules:   Data.Certificate.X509,

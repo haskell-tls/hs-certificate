@@ -32,7 +32,7 @@ hexdump bs = concatMap hex $ L.unpack bs
 		| n > 0xa   = showHex n ""
 		| otherwise = "0" ++ showHex n ""
 
-showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ T.unpack t)) dn
+showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ t)) dn
 
 showExts e = putStrLn $ show e
 
@@ -94,7 +94,7 @@ showASN1 = prettyPrint 0 where
 	p (OID is)               = putStr ("OID: " ++ show is)
 	p (Real d)               = putStr "real"
 	p (Enumerated)           = putStr "enum"
-	p (UTF8String t)         = putStr ("utf8string:" ++ T.unpack t)
+	p (UTF8String t)         = putStr ("utf8string:" ++ t)
 	p (Start Sequence)       = putStr "sequence"
 	p (End Sequence)         = putStr "end-sequence"
 	p (Start Set)            = putStr "set"
@@ -102,7 +102,7 @@ showASN1 = prettyPrint 0 where
 	p (Start _)              = putStr "container"
 	p (End _)                = putStr "end-container"
 	p (NumericString bs)     = putStr "numericstring:"
-	p (PrintableString t)    = putStr ("printablestring: " ++ T.unpack t)
+	p (PrintableString t)    = putStr ("printablestring: " ++ t)
 	p (T61String bs)         = putStr "t61string:"
 	p (VideoTexString bs)    = putStr "videotexstring:"
 	p (IA5String bs)         = putStr "ia5string:"
@@ -111,9 +111,9 @@ showASN1 = prettyPrint 0 where
 	p (GraphicString bs)     = putStr "graphicstring:"
 	p (VisibleString bs)     = putStr "visiblestring:"
 	p (GeneralString bs)     = putStr "generalstring:"
-	p (UniversalString t)    = putStr ("universalstring:" ++ T.unpack t)
+	p (UniversalString t)    = putStr ("universalstring:" ++ t)
 	p (CharacterString bs)   = putStr "characterstring:"
-	p (BMPString t)          = putStr ("bmpstring: " ++ T.unpack t)
+	p (BMPString t)          = putStr ("bmpstring: " ++ t)
 	p (Other tc tn x)        = putStr "other"
 
 doMain :: CertMainOpts -> IO ()
