@@ -22,7 +22,7 @@ readAllSystemCertificates = do
 			Nothing -> return acc
 			Just x  -> return ((certfile, x) : acc)
 
-checkCert name rawCert (X509 c mraw sigalg sigbits) = do
+checkCert name (X509 c mraw rawCert sigalg sigbits) = do
 	let errs =
 		(checkSigAlg $ certSignatureAlg c) ++
 		(checkPubKey $ certPubKey c) ++
@@ -41,8 +41,8 @@ checkCert name rawCert (X509 c mraw sigalg sigbits) = do
 		checkPubKey (PubKeyECDSA x)       = ["unknown public ECDSA key " ++ show x]
 		checkPubKey _                     = []
 
-		checkBodyRaw x Nothing  = []
-		checkBodyRaw x (Just y) = if findsubstring y x then [] else ["cannot find body cert in original raw file"]
+		checkBodyRaw _ _  = []
+		checkBodyRaw (Just x) (Just y) = if findsubstring y x then [] else ["cannot find body cert in original raw file"]
 
 		findsubstring a b
 			| L.null b        = False
@@ -56,5 +56,5 @@ runTests = do
 		let rawCert = L.fromChunks [cert]
 		case decodeCertificate rawCert of
 			Left err -> putStrLn ("cannot decode certificate " ++ name ++ " " ++ show err)
-			Right c  -> checkCert name rawCert c
+			Right c  -> checkCert name c
 	return ()

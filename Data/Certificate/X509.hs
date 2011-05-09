@@ -38,14 +38,14 @@ import qualified Data.ByteString.Lazy as L
 import Data.Certificate.X509Internal
 import Data.Certificate.X509Cert
 
-data X509 = X509 Certificate (Maybe L.ByteString) SignatureALG [Word8]
+data X509 = X509 Certificate (Maybe L.ByteString) (Maybe L.ByteString) SignatureALG [Word8]
 	deriving (Show,Eq)
 
 {- | get signing data related to a X509 message,
  - which is either the cached data or the encoded certificate -}
 getSigningData :: X509 -> L.ByteString
-getSigningData (X509 _ (Just e) _ _)   = e
-getSigningData (X509 cert Nothing _ _) = e
+getSigningData (X509 _    (Just e) _ _ _)   = e
+getSigningData (X509 cert Nothing _ _ _) = e
 	where
 		(Right e) = encodeASN1Stream header
 		header    = asn1Container Sequence $ encodeCertificateHeader cert
@@ -72,7 +72,7 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1StreamRepr
 					(Right c, [BitString _ b]) ->
 						let certevs = toBytes $ concatMap snd certrepr in
 						let sigalg  = onContainer sigalgseq (parseSigAlg . map fst) in
-						Right $ X509 c (Just certevs) sigalg (L.unpack b)
+						Right $ X509 c (Just certevs) (Just by) sigalg (L.unpack b)
 					(Left err, _) -> Left $ ("certificate error: " ++ show err)
 					_             -> Left $ "certificate structure error"
 			where
@@ -89,7 +89,8 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1StreamRepr
 
 {-| encode a X509 certificate to a bytestring -}
 encodeCertificate :: X509 -> L.ByteString
-encodeCertificate (X509 cert _ sigalg sigbits) = case encodeASN1Stream rootSeq of
+encodeCertificate (X509 _    _ (Just lbs) _      _      ) = lbs
+encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = case encodeASN1Stream rootSeq of
 		Right x  -> x
 		Left err -> error (show err)
 	where

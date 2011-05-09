@@ -37,7 +37,7 @@ showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ t)) dn
 showExts e = putStrLn $ show e
 
 showCert :: X509.X509 -> IO ()
-showCert (X509.X509 cert _ sigalg sigbits) = do
+showCert (X509.X509 cert _ _ sigalg sigbits) = do
 	putStrLn ("version: " ++ show (X509.certVersion cert))
 	putStrLn ("serial:  " ++ show (X509.certSerial cert))
 	putStrLn ("sigalg:  " ++ show (X509.certSignatureAlg cert))
@@ -133,11 +133,11 @@ doMain opts@(X509 _ _ _ _ _) = do
 	when (verify opts) $ verifyCert x509
 	exitSuccess
 	where
-		verifyCert x509@(X509.X509 cert _ sigalg sig) = do
+		verifyCert x509@(X509.X509 cert _ _ sigalg sig) = do
 			sysx509 <- SysCert.findCertificate (matchsysX509 cert)
 			case sysx509 of
 				Nothing                        -> putStrLn "couldn't find signing certificate"
-				Just (X509.X509 syscert _ _ _) -> do
+				Just (X509.X509 syscert _ _ _ _) -> do
 					verifyAlg (B.concat $ L.toChunks $ X509.getSigningData x509)
 					          (B.pack sig)
 					          sigalg
@@ -170,7 +170,7 @@ doMain opts@(X509 _ _ _ _ _) = do
 				Right True  -> putStrLn "certificate verified"
 				Right False -> putStrLn "certificate not verified"
 
-		matchsysX509 cert (X509.X509 syscert _ _ _) = do
+		matchsysX509 cert (X509.X509 syscert _ _ _ _) = do
 			let x = X509.certSubjectDN syscert
 			let y = X509.certIssuerDN cert
 			x == y
