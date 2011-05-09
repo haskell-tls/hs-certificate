@@ -39,12 +39,15 @@ Library
                      Data.Certificate.KeyRSA
                      System.Certificate.X509
   Other-modules:     Data.Certificate.X509Internal
+                     System.Certificate.X509.Unix
   ghc-options:       -Wall
   if os(windows)
      cpp-options: -DWINDOWS
      Build-Depends:  Win32
+     Other-modules:  System.Certificate.X509.Win32
   if os(OSX)
      cpp-options: -DMACOSX
+     Other-modules:  System.Certificate.X509.MacOS
 
 Executable           certificate
   Main-Is:           Certificate.hs
