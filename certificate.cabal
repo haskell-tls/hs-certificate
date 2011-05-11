@@ -32,6 +32,7 @@ Library
                    , asn1-data >= 0.5.0 && < 0.6
                    , base64-bytestring
                    , directory
+                   , time
   Exposed-modules:   Data.Certificate.X509,
                      Data.Certificate.X509Cert,
                      Data.Certificate.PEM,
