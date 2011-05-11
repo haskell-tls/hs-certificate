@@ -28,6 +28,8 @@ import Data.Word
 import Data.List (find)
 import Data.ASN1.DER
 import Data.Maybe
+import Data.Time.Calendar
+import Data.Time.Clock (DiffTime, secondsToDiffTime)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 import Control.Monad.State
@@ -62,8 +64,7 @@ data PubKey =
 	| PubKeyUnknown OID [Word8]                      -- ^ unrecognized format
 	deriving (Show,Eq)
 
--- FIXME use a proper standard type for representing time.
-type Time = (Int, Int, Int, Int, Int, Int, Bool)
+type Time = (Day, DiffTime, Bool)
 
 data CertKeyUsage =
 	  CertKeyUsageDigitalSignature
@@ -223,8 +224,12 @@ parseCertHeaderValidity :: ParseASN1 (Time, Time)
 parseCertHeaderValidity = do
 	n <- getNextContainer Sequence
 	case n of
-		[ UTCTime t1, UTCTime t2 ] -> return (t1, t2)
+		[ UTCTime t1, UTCTime t2 ] -> return (convertTime t1, convertTime t2)
 		_                          -> throwError "bad validity format"
+	where convertTime (y,m,d,h,mi,s,u) =
+		let day = fromGregorian (fromIntegral y) m d in
+		let dtime = secondsToDiffTime (fromIntegral h * 3600 + fromIntegral mi * 60 + fromIntegral s) in
+		(day, dtime, u)
 
 parseCertHeaderSubjectPK :: ParseASN1 PubKey
 parseCertHeaderSubjectPK = onNextContainer Sequence $ do
@@ -381,7 +386,15 @@ encodeCertificateHeader cert =
 		eAlgId    = asn1Container Sequence [OID (sigOID $ certSignatureAlg cert), Null]
 		eIssuer   = encodeDN $ certIssuerDN cert
 		(t1, t2)  = certValidity cert
-		eValidity = asn1Container Sequence [UTCTime t1, UTCTime t2]
+		eValidity = asn1Container Sequence [UTCTime $ unconvertTime t1, UTCTime $ unconvertTime t2]
 		eSubject  = encodeDN $ certSubjectDN cert
 		epkinfo   = encodePK $ certPubKey cert
 		eexts     = [] -- FIXME encode extensions
+
+		unconvertTime (day, difftime, z) =
+			let (y, m, d) = toGregorian day in
+			let seconds = floor $ toRational difftime in
+			let h = seconds `div` 3600 in
+			let mi = (seconds `div` 60) `mod` 60 in
+			let s  = seconds `mod` 60 in
+			(fromIntegral y,m,d,h,mi,s,z)
