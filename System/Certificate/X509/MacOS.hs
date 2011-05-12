@@ -3,9 +3,17 @@ module System.Certificate.X509.MacOS
 	, readAll
 	, findCertificate
 	) where
+import Data.Certificate.X509
+import Control.Exception
 
 getSystemPath :: IO FilePath
 getSystemPath = undefined
+
+data ReadErr =
+	  Exception IOException
+	| CertError String
+	deriving (Show,Eq)
+
 
 readAll :: IO [Either ReadErr X509]
 readAll = undefined
