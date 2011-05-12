@@ -1,14 +1,9 @@
 module System.Certificate.X509.MacOS
-	( getSystemPath
-	, readAll
-	, findCertificate
+	( findCertificate
 	) where
 
-getSystemPath :: IO FilePath
-getSystemPath = undefined
-
-readAll :: IO [Either ReadErr X509]
-readAll = undefined
+import Data.Certificate.X509
+import Data.Certificate.PEM
 
 findCertificate :: (X509 -> Bool) -> IO (Maybe X509)
 findCertificate f = undefined
