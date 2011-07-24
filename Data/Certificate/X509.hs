@@ -19,7 +19,7 @@ module Data.Certificate.X509
 	, ASN1StringType(..)
 	, ASN1String
 	, Certificate(..)
-	, CertificateExts(..)
+	, CertificateExt
 
 	-- * helper for signing/veryfing certificate
 	, getSigningData

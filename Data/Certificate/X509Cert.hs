@@ -6,8 +6,8 @@ module Data.Certificate.X509Cert
 	, PubKey(..)
 	, ASN1StringType(..)
 	, ASN1String
+	, CertificateExt
 	, Certificate(..)
-	, CertificateExts(..)
 
 	-- various OID
 	, oidCommonName
@@ -32,6 +32,7 @@ import Data.Time.Calendar
 import Data.Time.Clock (DiffTime, secondsToDiffTime)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
+import Control.Applicative ((<$>))
 import Control.Monad.State
 import Control.Monad.Error
 import Data.Certificate.X509Internal
@@ -81,23 +82,17 @@ data CertKeyUsage =
 data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq)
 type ASN1String = (ASN1StringType, String)
 
-data Certificate = Certificate
-	{ certVersion      :: Int                   -- ^ Certificate Version
-	, certSerial       :: Integer               -- ^ Certificate Serial number
-	, certSignatureAlg :: SignatureALG          -- ^ Certificate Signature algorithm
-	, certIssuerDN     :: [ (OID, ASN1String) ] -- ^ Certificate Issuer DN
-	, certSubjectDN    :: [ (OID, ASN1String) ] -- ^ Certificate Subject DN
-	, certValidity     :: (Time, Time)          -- ^ Certificate Validity period
-	, certPubKey       :: PubKey                -- ^ Certificate Public key
-	, certExtensions   :: Maybe CertificateExts -- ^ Certificate Extensions
-	} deriving (Show,Eq)
+type CertificateExt = (OID, Bool, [ASN1])
 
-data CertificateExts = CertificateExts
-	{ certExtKeyUsage             :: Maybe (Bool, [CertKeyUsage])
-	, certExtBasicConstraints     :: Maybe (Bool, Bool)
-	, certExtSubjectKeyIdentifier :: Maybe (Bool, [Word8])
-	, certExtPolicies             :: Maybe (Bool)
-	, certExtOthers               :: [ (OID, Bool, [ASN1]) ]
+data Certificate = Certificate
+	{ certVersion      :: Int                    -- ^ Certificate Version
+	, certSerial       :: Integer                -- ^ Certificate Serial number
+	, certSignatureAlg :: SignatureALG           -- ^ Certificate Signature algorithm
+	, certIssuerDN     :: [ (OID, ASN1String) ]  -- ^ Certificate Issuer DN
+	, certSubjectDN    :: [ (OID, ASN1String) ]  -- ^ Certificate Subject DN
+	, certValidity     :: (Time, Time)           -- ^ Certificate Validity period
+	, certPubKey       :: PubKey                 -- ^ Certificate Public key
+	, certExtensions   :: Maybe [CertificateExt] -- ^ Certificate Extensions
 	} deriving (Show,Eq)
 
 oidCommonName, oidCountry, oidOrganization, oidOrganizationUnit :: OID
@@ -259,59 +254,45 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
 		_                -> throwError "expecting bitstring"
 
 -- RFC 5280
-parseCertExtensionHelper :: [[ASN1]] -> State CertificateExts ()
-parseCertExtensionHelper l = do
-	forM_ (mapMaybe extractStruct l) $ \e -> case e of
-		([2,5,29,14], critical, Right [OctetString x]) ->
-			modify (\s -> s { certExtSubjectKeyIdentifier = Just (critical, L.unpack x) })
-		{-
-		([2,5,29,15], critical, Right (BitString _ _)) ->
-			all the flags:
-			digitalSignature        (0),
-			nonRepudiation          (1), -- recent editions of X.509 have renamed this bit to contentCommitment
-			keyEncipherment         (2),
-			dataEncipherment        (3),
-			keyAgreement            (4),
-			keyCertSign             (5),
-			cRLSign                 (6),
-			encipherOnly            (7),
-			decipherOnly            (8) }
+{-
+	([2,5,29,14], critical, Right [OctetString x]) ->
+		modify (\s -> s { certExtSubjectKeyIdentifier = Just (critical, L.unpack x) })
+	([2,5,29,15], critical, Right (BitString _ _)) ->
+		all the flags:
+		digitalSignature        (0),
+		nonRepudiation          (1), -- recent editions of X.509 have renamed this bit to contentCommitment
+		keyEncipherment         (2),
+		dataEncipherment        (3),
+		keyAgreement            (4),
+		keyCertSign             (5),
+		cRLSign                 (6),
+		encipherOnly            (7),
+		decipherOnly            (8) }
+	([2,5,29,19], -- basic contraints
+	([2,5,29,31] -- distributions points
+	([2,5,29,32] -- policies
+	([2,5,29,33] -- policies mapping
+	([2,5,29,35], critical, obj) -> -- authority key identifer
+-}
 
-			return ()
-		-}
-		([2,5,29,19], critical, Right [Start Sequence, Boolean True, End Sequence]) ->
-			modify (\s -> s { certExtBasicConstraints = Just (critical, True) })
-		{-
-		([2,5,29,31], critical, obj) -> -- distributions points
-			return ()
-		([2,5,29,32], critical, obj) -> -- policies
-			return ()
-		([2,5,29,33], critical, obj) -> -- policies mapping
-			return ()
-		([2,5,29,35], critical, obj) -> -- authority key identifer
-			return ()
-		-}
-		(oid, critical, Right obj)    ->
-			modify (\s -> s { certExtOthers = (oid, critical, obj) : certExtOthers s })
-		(_, True, Left _)             -> fail "critical extension not understood"
-		(_, False, Left _)            -> return ()
-	where
-		extractStruct [OID oid,Boolean True,OctetString obj] = Just (oid, True, decodeASN1Stream obj)
-		extractStruct [OID oid,OctetString obj]              = Just (oid, False, decodeASN1Stream obj)
-		extractStruct _                                      = Nothing
+--extGetDistributionPoint :: [CertificateExt] -> 
 
-parseCertExtensions :: ParseASN1 (Maybe CertificateExts)
+parseCertExtensions :: ParseASN1 (Maybe [CertificateExt])
 parseCertExtensions = do
-	onNextContainerMaybe (Container Context 3) $ do
-		let def = CertificateExts
-			{ certExtKeyUsage             = Nothing
-			, certExtBasicConstraints     = Nothing
-			, certExtSubjectKeyIdentifier = Nothing
-			, certExtPolicies             = Nothing
-			, certExtOthers               = []
-			}
-		l <- getNextContainer Sequence
-		return $ execState (parseCertExtensionHelper $ makeASN1Sequence l) def
+	onNextContainerMaybe (Container Context 3) (mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
+	where
+		getSequences = do
+			n <- hasNext
+			if n
+				then getNextContainer Sequence >>= \sq -> liftM (sq :) getSequences
+				else return []
+		extractExtension [OID oid,Boolean True,OctetString obj] = case decodeASN1Stream obj of
+			Left _  -> Nothing
+			Right r -> Just (oid, True, r)
+		extractExtension [OID oid,OctetString obj]              = case decodeASN1Stream obj of
+			Left _  -> Nothing
+			Right r -> Just (oid, False, r)
+		extractExtension _                                      = Nothing
 
 {- | parse header structure of a x509 certificate. the structure the following:
 	Version
@@ -377,6 +358,13 @@ encodePK k@(PubKeyUnknown _ l) =
 	where
 		pkalg = OID $ pubkeyalgOID $ pubkeyToAlg k
 
+encodeExts :: Maybe [CertificateExt] -> [ASN1]
+encodeExts Nothing  = []
+encodeExts (Just l) = asn1Container (Container Context 3) $ concatMap encodeExt l
+	where encodeExt (oid, critical, asn1) = case encodeASN1Stream asn1 of
+		Left _   -> error "cannot encode asn1 extension"
+		Right bs -> asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString bs])
+
 encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
 	eVer ++ eSerial ++ eAlgId ++ eIssuer ++ eValidity ++ eSubject ++ epkinfo ++ eexts
@@ -389,7 +377,7 @@ encodeCertificateHeader cert =
 		eValidity = asn1Container Sequence [UTCTime $ unconvertTime t1, UTCTime $ unconvertTime t2]
 		eSubject  = encodeDN $ certSubjectDN cert
 		epkinfo   = encodePK $ certPubKey cert
-		eexts     = [] -- FIXME encode extensions
+		eexts     = encodeExts $ certExtensions cert
 
 		unconvertTime (day, difftime, z) =
 			let (y, m, d) = toGregorian day in

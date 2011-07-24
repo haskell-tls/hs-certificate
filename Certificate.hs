@@ -24,6 +24,7 @@ import qualified Crypto.Cipher.RSA as RSA
 import qualified Crypto.Cipher.DSA as DSA
 
 import Data.ASN1.DER (decodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
+import Text.Printf
 import Numeric
 
 hexdump :: L.ByteString -> String
@@ -34,7 +35,7 @@ hexdump bs = concatMap hex $ L.unpack bs
 
 showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ t)) dn
 
-showExts e = putStrLn $ show e
+showExts e = mapM_ (putStrLn . ("  " ++) . show) e
 
 showCert :: X509.X509 -> IO ()
 showCert (X509.X509 cert _ _ sigalg sigbits) = do
@@ -47,8 +48,11 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 	showDN $ X509.certSubjectDN cert
 	putStrLn ("valid:  " ++ show (X509.certValidity cert))
 	putStrLn ("pk:     " ++ show (X509.certPubKey cert))
-	putStrLn "exts:"
-	showExts $ X509.certExtensions cert
+	case X509.certExtensions cert of
+		Nothing -> return ()
+		Just es -> do
+			putStrLn "extensions:"
+			showExts es
 	putStrLn ("sigAlg: " ++ show sigalg)
 	putStrLn ("sig:    " ++ show sigbits)
 
