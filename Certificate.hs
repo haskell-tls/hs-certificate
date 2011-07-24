@@ -47,7 +47,20 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 	putStrLn "subject:"
 	showDN $ X509.certSubjectDN cert
 	putStrLn ("valid:  " ++ show (X509.certValidity cert))
-	putStrLn ("pk:     " ++ show (X509.certPubKey cert))
+	case X509.certPubKey cert of
+		X509.PubKeyRSA (len,modulus,e) -> do
+			putStrLn "public key RSA:"
+			printf "  len    : %d\n" len
+			printf "  modulus: %x\n" modulus
+			printf "  e      : %x\n" e
+		X509.PubKeyDSA (pub,p,q,g)     -> do
+			putStrLn "public key SSA:"
+			printf "  pub    : %x\n" pub
+			printf "  p      : %d\n" p
+			printf "  q      : %x\n" q
+			printf "  g      : %x\n" g
+		pk                        ->
+			printf "public key: %s" (show pk)
 	case X509.certExtensions cert of
 		Nothing -> return ()
 		Just es -> do
