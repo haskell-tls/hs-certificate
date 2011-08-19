@@ -59,6 +59,12 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 			printf "  p      : %d\n" p
 			printf "  q      : %x\n" q
 			printf "  g      : %x\n" g
+		X509.PubKeyUnknown oid ws -> do
+			printf "public key unknown: %s\n" (show oid)
+			printf "  raw bytes: %s\n" (show ws)
+			case decodeASN1Stream $ L.pack ws of
+				Left err -> printf "  asn1 decoding failed: %s\n" (show err)
+				Right l  -> printf "  asn1 decoding:\n" >> showASN1 4 l
 		pk                        ->
 			printf "public key: %s\n" (show pk)
 	case X509.certExtensions cert of
