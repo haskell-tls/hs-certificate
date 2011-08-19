@@ -54,7 +54,7 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 			printf "  modulus: %x\n" modulus
 			printf "  e      : %x\n" e
 		X509.PubKeyDSA (pub,p,q,g)     -> do
-			putStrLn "public key SSA:"
+			putStrLn "public key DSA:"
 			printf "  pub    : %x\n" pub
 			printf "  p      : %d\n" p
 			printf "  q      : %x\n" q
