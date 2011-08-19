@@ -41,8 +41,8 @@ checkCert name (X509 c mraw rawCert sigalg sigbits) = do
 		checkPubKey (PubKeyECDSA x)       = ["unknown public ECDSA key " ++ show x]
 		checkPubKey _                     = []
 
-		checkBodyRaw _ _  = []
 		checkBodyRaw (Just x) (Just y) = if findsubstring y x then [] else ["cannot find body cert in original raw file"]
+		checkBodyRaw _ _  = []
 
 		findsubstring a b
 			| L.null b        = False
