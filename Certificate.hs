@@ -94,8 +94,8 @@ showDSAKey key = unlines
 	, "g:       " ++ (show $ KeyDSA.g key)
 	]
 
-showASN1 :: [ASN1] -> IO ()
-showASN1 = prettyPrint 0 where
+showASN1 :: Int -> [ASN1] -> IO ()
+showASN1 at = prettyPrint at where
 	indent n = putStr (replicate n ' ')
 
 	prettyPrint n []                 = return ()
@@ -140,7 +140,7 @@ doMain opts@(X509 _ _ _ _ _) = do
 	when (raw opts) $ putStrLn $ hexdump $ L.fromChunks [cert]
 	when (asn1 opts) $ case decodeASN1Stream $ L.fromChunks [cert] of
 		Left err   -> error ("decoding ASN1 failed: " ++ show err)
-		Right asn1 -> showASN1 asn1
+		Right asn1 -> showASN1 0 asn1
 
 	let x509o = X509.decodeCertificate $ L.fromChunks [cert]
 	let x509  = case x509o of
