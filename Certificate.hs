@@ -162,16 +162,16 @@ doMain opts@(X509 _ _ _ _ _) = do
 
 		rsaVerify h hdesc pk a b = either (Left . show) (Right) $ RSA.verify h hdesc pk a b
 
-		verifyF X509.SignatureALG_md2WithRSAEncryption (X509.PubKeyRSA rsak) = rsaVerify MD2.hash asn1 (mkRSA rsak)
-			where asn1 = "\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x02\x10"
+		verifyF (X509.SignatureALG hash X509.PubKeyALG_RSA) (X509.PubKeyRSA rsak) =
+			let (f, asn1) = case hash of
+				X509.HashMD2  -> (MD2.hash, "\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x02\x10")
+				X509.HashMD5  -> (MD5.hash, "\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10")
+				X509.HashSHA1 -> (SHA1.hash, "\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14")
+				_             -> error ("unsupported hash in RSA: " ++ show hash)
+				in
+			rsaVerify f asn1 (mkRSA rsak)
 
-		verifyF X509.SignatureALG_md5WithRSAEncryption (X509.PubKeyRSA rsak) = rsaVerify MD5.hash asn1 (mkRSA rsak)
-			where asn1 = "\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10"
-
-		verifyF X509.SignatureALG_sha1WithRSAEncryption (X509.PubKeyRSA rsak) = rsaVerify SHA1.hash asn1 (mkRSA rsak)
-			where asn1 = "\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14"
-
-		verifyF X509.SignatureALG_dsaWithSHA1 (X509.PubKeyDSA (pub,p,q,g)) =
+		verifyF (X509.SignatureALG _ X509.PubKeyALG_DSA) (X509.PubKeyDSA (pub,p,q,g)) =
 			(\_ _ -> Left "unimplemented DSA checking")
 
 		verifyF _ _ =

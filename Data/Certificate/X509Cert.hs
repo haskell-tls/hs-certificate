@@ -2,6 +2,7 @@ module Data.Certificate.X509Cert
 	( 
 	-- * Data Structure
 	  SignatureALG(..)
+	, HashALG(..)
 	, PubKeyALG(..)
 	, PubKey(..)
 	, ASN1StringType(..)
@@ -39,14 +40,15 @@ import Data.Certificate.X509Internal
 
 type OID = [Integer]
 
-data SignatureALG =
-	  SignatureALG_md5WithRSAEncryption
-	| SignatureALG_md2WithRSAEncryption
-	| SignatureALG_sha1WithRSAEncryption
-	| SignatureALG_dsaWithSHA1
-	| SignatureALG_ecdsaWithSHA384
-	| SignatureALG_Unknown OID
-	deriving (Show, Eq)
+data HashALG =
+	  HashMD2
+	| HashMD5
+	| HashSHA1
+	| HashSHA224
+	| HashSHA256
+	| HashSHA384
+	| HashSHA512
+	deriving (Show,Eq)
 
 data PubKeyALG =
 	  PubKeyALG_RSA
@@ -54,6 +56,11 @@ data PubKeyALG =
 	| PubKeyALG_ECDSA
 	| PubKeyALG_DH
 	| PubKeyALG_Unknown OID
+	deriving (Show,Eq)
+
+data SignatureALG =
+	  SignatureALG HashALG PubKeyALG
+	| SignatureALG_Unknown OID
 	deriving (Show,Eq)
 
 data PubKey =
@@ -137,11 +144,15 @@ parseCertHeaderSerial = do
 
 sig_table :: [ (OID, SignatureALG) ]
 sig_table =
-	[ ([1,2,840,113549,1,1,5], SignatureALG_sha1WithRSAEncryption)
-	, ([1,2,840,113549,1,1,4], SignatureALG_md5WithRSAEncryption)
-	, ([1,2,840,113549,1,1,2], SignatureALG_md2WithRSAEncryption)
-	, ([1,2,840,10040,4,3],    SignatureALG_dsaWithSHA1)
-	, ([1,2,840,10045,4,3,3],  SignatureALG_ecdsaWithSHA384)
+	[ ([1,2,840,113549,1,1,5], SignatureALG HashSHA1 PubKeyALG_RSA)
+	, ([1,2,840,113549,1,1,4], SignatureALG HashMD5 PubKeyALG_RSA)
+	, ([1,2,840,113549,1,1,2], SignatureALG HashMD2 PubKeyALG_RSA)
+	, ([1,2,840,113549,1,1,11], SignatureALG HashSHA256 PubKeyALG_RSA)
+	, ([1,2,840,10040,4,3],    SignatureALG HashSHA1 PubKeyALG_DSA)
+	, ([1,2,840,10045,4,3,1],  SignatureALG HashSHA224 PubKeyALG_ECDSA)
+	, ([1,2,840,10045,4,3,2],  SignatureALG HashSHA256 PubKeyALG_ECDSA)
+	, ([1,2,840,10045,4,3,3],  SignatureALG HashSHA384 PubKeyALG_ECDSA)
+	, ([1,2,840,10045,4,3,4],  SignatureALG HashSHA512 PubKeyALG_ECDSA)
 	]
 
 pk_table :: [ (OID, PubKeyALG) ]
@@ -153,10 +164,10 @@ pk_table =
 	]
 
 oidSig :: OID -> SignatureALG
-oidSig oid = maybe (SignatureALG_Unknown oid) snd $ find ((==) oid . fst) sig_table
+oidSig oid = maybe (SignatureALG_Unknown oid) id $ lookup oid sig_table
 
 oidPubKey :: OID -> PubKeyALG
-oidPubKey oid = maybe (PubKeyALG_Unknown oid) snd $ find ((==) oid . fst) pk_table
+oidPubKey oid = maybe (PubKeyALG_Unknown oid) id $ lookup oid pk_table
 
 sigOID :: SignatureALG -> OID
 sigOID (SignatureALG_Unknown oid) = oid
