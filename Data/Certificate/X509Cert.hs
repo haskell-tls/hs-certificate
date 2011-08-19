@@ -205,9 +205,7 @@ parseCertHeaderDN = do
 		getDNs = do
 			n <- hasNext
 			if n
-				then do
-					dn <- parseDNOne
-					liftM (dn :) getDNs
+				then liftM2 (:) parseDNOne getDNs
 				else return []
 		parseDNOne = onNextContainer Set $ do
 			s <- getNextContainer Sequence
