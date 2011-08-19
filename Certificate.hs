@@ -60,7 +60,7 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 			printf "  q      : %x\n" q
 			printf "  g      : %x\n" g
 		pk                        ->
-			printf "public key: %s" (show pk)
+			printf "public key: %s\n" (show pk)
 	case X509.certExtensions cert of
 		Nothing -> return ()
 		Just es -> do
