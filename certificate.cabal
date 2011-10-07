@@ -33,6 +33,8 @@ Library
                    , base64-bytestring
                    , directory
                    , time
+  if os(OSX)
+     Build-Depends:  process
   Exposed-modules:   Data.Certificate.X509
                      Data.Certificate.X509.Cert
                      Data.Certificate.PEM
