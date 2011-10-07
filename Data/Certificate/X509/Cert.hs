@@ -1,4 +1,4 @@
-module Data.Certificate.X509Cert
+module Data.Certificate.X509.Cert
 	( 
 	-- * Data Structure
 	  SignatureALG(..)
@@ -36,7 +36,7 @@ import qualified Data.ByteString.Lazy as L
 import Control.Applicative ((<$>))
 import Control.Monad.State
 import Control.Monad.Error
-import Data.Certificate.X509Internal
+import Data.Certificate.X509.Internal
 
 type OID = [Integer]
 

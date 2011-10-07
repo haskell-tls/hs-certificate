@@ -36,8 +36,8 @@ import Data.ASN1.Stream (getConstructedEndRepr)
 import Data.ASN1.Raw (toBytes)
 import qualified Data.ByteString.Lazy as L
 
-import Data.Certificate.X509Internal
-import Data.Certificate.X509Cert
+import Data.Certificate.X509.Internal
+import Data.Certificate.X509.Cert
 
 data X509 = X509 Certificate (Maybe L.ByteString) (Maybe L.ByteString) SignatureALG [Word8]
 	deriving (Show,Eq)

@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Data.Certificate.X509Internal
+module Data.Certificate.X509.Internal
 	( ParseASN1
 	, runParseASN1
 	, onNextContainer
