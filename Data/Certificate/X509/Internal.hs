@@ -11,12 +11,15 @@ module Data.Certificate.X509.Internal
 	, hasNext
 	, makeASN1Sequence
 	, asn1Container
+	, OID
 	) where
 
 import Data.ASN1.DER
 import Data.ASN1.Stream (getConstructedEnd)
 import Control.Monad.State
 import Control.Monad.Error
+
+type OID = [Integer]
 
 newtype ParseASN1 a = P { runP :: ErrorT String (State [ASN1]) a }
 	deriving (Functor, Monad, MonadError String)

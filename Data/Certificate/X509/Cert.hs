@@ -37,8 +37,7 @@ import Control.Applicative ((<$>))
 import Control.Monad.State
 import Control.Monad.Error
 import Data.Certificate.X509.Internal
-
-type OID = [Integer]
+import Data.Certificate.X509.Ext
 
 data HashALG =
 	  HashMD2
@@ -88,8 +87,6 @@ data CertKeyUsage =
 
 data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq)
 type ASN1String = (ASN1StringType, String)
-
-type CertificateExt = (OID, Bool, [ASN1])
 
 data Certificate = Certificate
 	{ certVersion      :: Int                    -- ^ Certificate Version
@@ -261,30 +258,6 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
 	where getNextBitString = getNext >>= \bs -> case bs of
 		BitString _ bits -> return bits
 		_                -> throwError "expecting bitstring"
-
--- RFC 5280
-{-
-	([2,5,29,14], critical, Right [OctetString x]) ->
-		modify (\s -> s { certExtSubjectKeyIdentifier = Just (critical, L.unpack x) })
-	([2,5,29,15], critical, Right (BitString _ _)) ->
-		all the flags:
-		digitalSignature        (0),
-		nonRepudiation          (1), -- recent editions of X.509 have renamed this bit to contentCommitment
-		keyEncipherment         (2),
-		dataEncipherment        (3),
-		keyAgreement            (4),
-		keyCertSign             (5),
-		cRLSign                 (6),
-		encipherOnly            (7),
-		decipherOnly            (8) }
-	([2,5,29,19], -- basic contraints
-	([2,5,29,31] -- distributions points
-	([2,5,29,32] -- policies
-	([2,5,29,33] -- policies mapping
-	([2,5,29,35], critical, obj) -> -- authority key identifer
--}
-
---extGetDistributionPoint :: [CertificateExt] -> 
 
 parseCertExtensions :: ParseASN1 (Maybe [CertificateExt])
 parseCertExtensions = do
