@@ -33,8 +33,6 @@ Library
                    , base64-bytestring
                    , directory
                    , time
-  if os(OSX)
-     Build-Depends:  process
   Exposed-modules:   Data.Certificate.X509
                      Data.Certificate.X509.Cert
                      Data.Certificate.PEM
@@ -50,6 +48,7 @@ Library
      Other-modules:  System.Certificate.X509.Win32
   if os(OSX)
      cpp-options: -DMACOSX
+     Build-Depends:  process
      Other-modules:  System.Certificate.X509.MacOS
 
 Executable           certificate
