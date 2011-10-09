@@ -21,6 +21,8 @@ module Data.Certificate.X509
 	, ASN1String
 	, Certificate(..)
 	, CertificateExt
+	, Ext(..)
+	, extDecode
 
 	-- * helper for signing/veryfing certificate
 	, getSigningData
@@ -34,10 +36,12 @@ import Data.Word
 import Data.ASN1.DER
 import Data.ASN1.Stream (getConstructedEndRepr)
 import Data.ASN1.Raw (toBytes)
+import Data.ASN1.BitArray
 import qualified Data.ByteString.Lazy as L
 
 import Data.Certificate.X509.Internal
 import Data.Certificate.X509.Cert
+import Data.Certificate.X509.Ext
 
 data X509 = X509 Certificate (Maybe L.ByteString) (Maybe L.ByteString) SignatureALG [Word8]
 	deriving (Show,Eq)
@@ -70,10 +74,10 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1StreamRepr
 				let (sigseq,_)       = getConstructedEndRepr rem2 in
 				let cert = onContainer certrepr (runParseASN1 parseCertificate . map fst) in
 				case (cert, map fst sigseq) of
-					(Right c, [BitString _ b]) ->
+					(Right c, [BitString b]) ->
 						let certevs = toBytes $ concatMap snd certrepr in
 						let sigalg  = onContainer sigalgseq (parseSigAlg . map fst) in
-						Right $ X509 c (Just certevs) (Just by) sigalg (L.unpack b)
+						Right $ X509 c (Just certevs) (Just by) sigalg (L.unpack $ bitArrayGetData b)
 					(Left err, _) -> Left $ ("certificate error: " ++ show err)
 					_             -> Left $ "certificate structure error"
 			where
@@ -96,6 +100,6 @@ encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = case encodeASN1Strea
 		Left err -> error (show err)
 	where
 		esigalg   = asn1Container Sequence [OID (sigOID sigalg), Null]
-		esig      = BitString 0 $ L.pack sigbits
+		esig      = BitString $ toBitArray (L.pack sigbits) 0
 		header    = asn1Container Sequence $ encodeCertificateHeader cert
 		rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])

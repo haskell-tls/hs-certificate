@@ -28,6 +28,7 @@ module Data.Certificate.X509.Cert
 import Data.Word
 import Data.List (find)
 import Data.ASN1.DER
+import Data.ASN1.BitArray
 import Data.Maybe
 import Data.Time.Calendar
 import Data.Time.Clock (DiffTime, secondsToDiffTime)
@@ -256,8 +257,8 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
 			throwError ("subject public key bad format : " ++ show n)
 
 	where getNextBitString = getNext >>= \bs -> case bs of
-		BitString _ bits -> return bits
-		_                -> throwError "expecting bitstring"
+		BitString bits -> return $ bitArrayGetData bits
+		_              -> throwError "expecting bitstring"
 
 parseCertExtensions :: ParseASN1 (Maybe [CertificateExt])
 parseCertExtensions = do
@@ -323,20 +324,20 @@ encodeDN dn = asn1Container Sequence $ concatMap dnSet dn
 
 encodePK :: PubKey -> [ASN1]
 encodePK k@(PubKeyRSA (_, modulus, e)) =
-	asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString 0 bits])
+	asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray bits 0])
 	where
 		pkalg        = OID $ pubkeyalgOID $ pubkeyToAlg k
 		(Right bits) = encodeASN1Stream $ asn1Container Sequence [IntVal modulus, IntVal e]
 
 encodePK k@(PubKeyDSA (pub, p, q, g)) =
-	asn1Container Sequence (asn1Container Sequence ([pkalg] ++ dsaseq) ++ [BitString 0 bits])
+	asn1Container Sequence (asn1Container Sequence ([pkalg] ++ dsaseq) ++ [BitString $ toBitArray bits 0])
 	where
 		pkalg        = OID $ pubkeyalgOID $ pubkeyToAlg k
 		dsaseq       = asn1Container Sequence [IntVal p,IntVal q,IntVal g]
 		(Right bits) = encodeASN1Stream [IntVal pub]
 
 encodePK k@(PubKeyUnknown _ l) =
-	asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString 0 $ L.pack l])
+	asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray (L.pack l) 0])
 	where
 		pkalg = OID $ pubkeyalgOID $ pubkeyToAlg k
 

@@ -24,6 +24,7 @@ import qualified Crypto.Cipher.RSA as RSA
 import qualified Crypto.Cipher.DSA as DSA
 
 import Data.ASN1.DER (decodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
+import Data.ASN1.BitArray
 import Text.Printf
 import Numeric
 
@@ -35,7 +36,8 @@ hexdump bs = concatMap hex $ L.unpack bs
 
 showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ t)) dn
 
-showExts e = mapM_ (putStrLn . ("  " ++) . show) e
+showExts es = mapM_ (putStrLn . ("  " ++) . showExt) es
+	where showExt e = maybe ("unknown: " ++ show e) show $ X509.extDecode e
 
 showCert :: X509.X509 -> IO ()
 showCert (X509.X509 cert _ _ sigalg sigbits) = do
@@ -111,7 +113,7 @@ showASN1 at = prettyPrint at where
 
 	p (Boolean b)            = putStr ("bool: " ++ show b)
 	p (IntVal i)             = putStr ("int: " ++ showHex i "")
-	p (BitString i bs)       = putStr ("bitstring: " ++ hexdump bs)
+	p (BitString bits)       = putStr ("bitstring: " ++ (hexdump $ bitArrayGetData bits))
 	p (OctetString bs)       = putStr ("octetstring: " ++ hexdump bs)
 	p (Null)                 = putStr "null"
 	p (OID is)               = putStr ("OID: " ++ show is)
