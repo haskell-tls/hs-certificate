@@ -14,6 +14,7 @@ module Data.Certificate.X509.Ext
 	, extDecode
 	) where
 
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.ASN1.DER
 import Data.ASN1.BitArray
@@ -48,12 +49,14 @@ data Ext =
 	  ExtBasicConstraints Bool
 	| ExtKeyUsage [ExtKeyUsageFlag]
 	| ExtSubjectKeyId L.ByteString
+	| ExtAuthorityKeyId B.ByteString
 	deriving (Show,Eq)
 
 extDecode :: CertificateExt -> Maybe Ext
 extDecode (oid, _, asn1)
 	| oid == oidBasicConstraints = decodeBasicConstraints asn1
 	| oid == oidSubjectKeyId     = decodeSubjectKeyId asn1
+	| oid == oidAuthorityKeyId   = decodeAuthorityKeyId asn1
 	| oid == oidKeyUsage         = decodeKeyUsage asn1
 	| otherwise                  = Nothing
 	where
@@ -68,6 +71,9 @@ extDecode (oid, _, asn1)
 		-- key usage
 		decodeKeyUsage [BitString bits] = Just $ ExtKeyUsage $ bitsToFlags bits
 		decodeKeyUsage _ = Nothing
+
+		decodeAuthorityKeyId [Start Sequence,Other Context 0 keyid,End Sequence] = Just $ ExtAuthorityKeyId keyid
+		decodeAuthorityKeyId _ = Nothing
 
 		bitsToFlags bits =
 			let nb = bitArrayLength bits in
