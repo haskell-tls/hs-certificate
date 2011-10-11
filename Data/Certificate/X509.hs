@@ -22,6 +22,7 @@ module Data.Certificate.X509
 	, Certificate(..)
 	, CertificateExt
 	, Ext(..)
+	, ExtKeyUsageFlag(..)
 	, extDecode
 
 	-- * helper for signing/veryfing certificate
