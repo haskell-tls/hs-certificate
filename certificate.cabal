@@ -35,6 +35,7 @@ Library
                    , time
   Exposed-modules:   Data.Certificate.X509
                      Data.Certificate.X509.Cert
+                     Data.Certificate.X509.Ext
                      Data.Certificate.PEM
                      Data.Certificate.KeyDSA
                      Data.Certificate.KeyRSA
