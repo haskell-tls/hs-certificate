@@ -22,6 +22,7 @@ import Data.Certificate.X509.Internal
 
 type CertificateExt = (OID, Bool, [ASN1])
 
+-- | key usage flag that is found in the key usage extension field.
 data ExtKeyUsageFlag =
 	  KeyUsage_digitalSignature -- (0)
 	| KeyUsage_nonRepudiation   -- (1) recent X.509 ver have renamed this bit to contentCommitment
@@ -45,6 +46,7 @@ oidPolicies           = [2,5,29,32]
 oidPoliciesMapping    = [2,5,29,33]
 oidAuthorityKeyId     = [2,5,29,35]
 
+-- | known X509v3 extensions
 data Ext =
 	  ExtBasicConstraints Bool
 	| ExtKeyUsage [ExtKeyUsageFlag]
@@ -52,6 +54,7 @@ data Ext =
 	| ExtAuthorityKeyId B.ByteString
 	deriving (Show,Eq)
 
+-- | try decoding a certificateExt tuple into a known extension.
 extDecode :: CertificateExt -> Maybe Ext
 extDecode (oid, _, asn1)
 	| oid == oidBasicConstraints = decodeBasicConstraints asn1
