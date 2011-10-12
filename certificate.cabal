@@ -1,5 +1,5 @@
 Name:                certificate
-Version:             0.9.3
+Version:             0.9.4
 Description:
     Certificates and Key reader/writer
     .
@@ -29,7 +29,7 @@ Library
   Build-Depends:     base >= 3 && < 5
                    , bytestring
                    , mtl
-                   , asn1-data >= 0.6.0 && < 0.7
+                   , asn1-data >= 0.6.1 && < 0.7
                    , base64-bytestring
                    , directory
                    , time
