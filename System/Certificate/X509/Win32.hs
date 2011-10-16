@@ -15,7 +15,7 @@ import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Lazy as L
 
 import Data.Certificate.X509
-import Data.Certificate.X509Cert
+import Data.Certificate.X509.Cert
 
 import Data.Bits
 
