@@ -31,6 +31,7 @@ Library
                    , mtl
                    , asn1-data >= 0.6.1 && < 0.7
                    , base64-bytestring
+                   , crypto-pubkey-types
                    , directory
                    , time
   Exposed-modules:   Data.Certificate.X509

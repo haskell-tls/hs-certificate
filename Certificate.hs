@@ -50,14 +50,15 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 	showDN $ X509.certSubjectDN cert
 	putStrLn ("valid:  " ++ show (X509.certValidity cert))
 	case X509.certPubKey cert of
-		X509.PubKeyRSA (len,modulus,e) -> do
+		X509.PubKeyRSA pubkey -> do
 			putStrLn "public key RSA:"
-			printf "  len    : %d\n" len
-			printf "  modulus: %x\n" modulus
-			printf "  e      : %x\n" e
-		X509.PubKeyDSA (pub,p,q,g)     -> do
+			printf "  len    : %d\n" (RSA.public_size pubkey)
+			printf "  modulus: %x\n" (RSA.public_n pubkey)
+			printf "  e      : %x\n" (RSA.public_e pubkey)
+		X509.PubKeyDSA pubkey -> do
+			let (p,q,g) = DSA.public_params pubkey
 			putStrLn "public key DSA:"
-			printf "  pub    : %x\n" pub
+			printf "  pub    : %x\n" (DSA.public_y pubkey)
 			printf "  p      : %d\n" p
 			printf "  q      : %x\n" q
 			printf "  g      : %x\n" g
@@ -78,18 +79,17 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 	putStrLn ("sig:    " ++ show sigbits)
 
 
-showRSAKey :: KeyRSA.Private -> String
-showRSAKey key = unlines
-	[ "version:          " ++ (show $ KeyRSA.version key)
-	, "len-modulus:      " ++ (show $ KeyRSA.lenmodulus key)
-	, "modulus:          " ++ (show $ KeyRSA.modulus key)
-	, "public exponant:  " ++ (show $ KeyRSA.public_exponant key)
-	, "private exponant: " ++ (show $ KeyRSA.private_exponant key)
-	, "p1:               " ++ (show $ KeyRSA.p1 key)
-	, "p2:               " ++ (show $ KeyRSA.p2 key)
-	, "exp1:             " ++ (show $ KeyRSA.exp1 key)
-	, "exp2:             " ++ (show $ KeyRSA.exp2 key)
-	, "coefficient:      " ++ (show $ KeyRSA.coef key)
+showRSAKey :: (RSA.PublicKey,RSA.PrivateKey) -> String
+showRSAKey (pubkey,privkey) = unlines
+	[ "len-modulus:      " ++ (show $ RSA.public_size pubkey)
+	, "modulus:          " ++ (show $ RSA.public_n pubkey)
+	, "public exponant:  " ++ (show $ RSA.public_e pubkey)
+	, "private exponant: " ++ (show $ RSA.private_d privkey)
+	, "p1:               " ++ (show $ RSA.private_p privkey)
+	, "p2:               " ++ (show $ RSA.private_q privkey)
+	, "exp1:             " ++ (show $ RSA.private_dP privkey)
+	, "exp2:             " ++ (show $ RSA.private_dQ privkey)
+	, "coefficient:      " ++ (show $ RSA.private_qinv privkey)
 	]
 
 showDSAKey :: KeyDSA.Private -> String
@@ -177,16 +177,13 @@ doMain opts@(X509 _ _ _ _ _) = do
 				X509.HashSHA1 -> (SHA1.hash, "\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14")
 				_             -> error ("unsupported hash in RSA: " ++ show hash)
 				in
-			rsaVerify f asn1 (mkRSA rsak)
+			rsaVerify f asn1 rsak
 
-		verifyF (X509.SignatureALG _ X509.PubKeyALG_DSA) (X509.PubKeyDSA (pub,p,q,g)) =
+		verifyF (X509.SignatureALG _ X509.PubKeyALG_DSA) (X509.PubKeyDSA dsak) =
 			(\_ _ -> Left "unimplemented DSA checking")
 
 		verifyF _ _ =
 			(\_ _ -> Left "unexpected/wrong signature")
-
-		mkRSA (lenmodulus, modulus, e) =
-			RSA.PublicKey { RSA.public_sz = lenmodulus, RSA.public_n = modulus, RSA.public_e = e }
 
 		verifyAlg toSign expectedSig sigalg pk =
 			let f = verifyF sigalg pk in
@@ -209,8 +206,8 @@ doMain (Key files) = do
 		(Just x, _) -> do
 			let rsaKey = KeyRSA.decodePrivate $ L.fromChunks [x]
 			case rsaKey of
-				Left err   -> error err
-				Right k -> putStrLn $ showRSAKey k
+				Left err -> error err
+				Right k  -> putStrLn $ showRSAKey k
 		(_, Just x) -> do
 			let rsaKey = KeyDSA.decodePrivate $ L.fromChunks [x]
 			case rsaKey of

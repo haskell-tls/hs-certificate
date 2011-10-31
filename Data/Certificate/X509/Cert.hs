@@ -39,6 +39,8 @@ import Control.Monad.State
 import Control.Monad.Error
 import Data.Certificate.X509.Internal
 import Data.Certificate.X509.Ext
+import qualified Crypto.Types.PubKey.RSA as RSA
+import qualified Crypto.Types.PubKey.DSA as DSA
 
 data HashALG =
 	  HashMD2
@@ -64,8 +66,8 @@ data SignatureALG =
 	deriving (Show,Eq)
 
 data PubKey =
-	  PubKeyRSA (Int,Integer,Integer)                -- ^ RSA format with (len modulus, modulus, e)
-	| PubKeyDSA (Integer,Integer,Integer,Integer)    -- ^ DSA format with (pub, p, q, g)
+	  PubKeyRSA RSA.PublicKey -- ^ RSA public key
+	| PubKeyDSA DSA.PublicKey -- ^ DSA public key
 	| PubKeyDH (Integer,Integer,Integer,Maybe Integer,([Word8], Integer))
 	                                                 -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
 	| PubKeyECDSA [ASN1]                             -- ^ ECDSA format not done yet FIXME
@@ -112,7 +114,11 @@ parse_RSA :: ByteString -> ParseASN1 PubKey
 parse_RSA bits =
 	case decodeASN1Stream $ bits of
 		Right [Start Sequence, IntVal modulus, IntVal pubexp, End Sequence] ->
-			return $ PubKeyRSA (calculate_modulus modulus 1, modulus, pubexp)
+			return $ PubKeyRSA $ RSA.PublicKey
+				{ RSA.public_size = calculate_modulus modulus 1
+				, RSA.public_n    = modulus
+				, RSA.public_e    = pubexp
+				}
 		_ ->
 			throwError ("bad RSA format")
 	where
@@ -251,7 +257,8 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
 		[OID pkalg,Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] -> do
 			let sig = oidPubKey pkalg
 			case decodeASN1Stream bits of
-				Right [IntVal dsapub] -> return $ PubKeyDSA (dsapub, p, q, g)
+				Right [IntVal dsapub] -> return $ PubKeyDSA $ DSA.PublicKey
+					{ DSA.public_params = (p, q, g), DSA.public_y = dsapub }
 				_                     -> return $ PubKeyUnknown pkalg $ L.unpack bits
 		n ->
 			throwError ("subject public key bad format : " ++ show n)
@@ -323,18 +330,19 @@ encodeDN dn = asn1Container Sequence $ concatMap dnSet dn
 		dnSet (oid, stringy) = asn1Container Set (asn1Container Sequence [OID oid, encodeAsn1String stringy])
 
 encodePK :: PubKey -> [ASN1]
-encodePK k@(PubKeyRSA (_, modulus, e)) =
+encodePK k@(PubKeyRSA pubkey) =
 	asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray bits 0])
 	where
 		pkalg        = OID $ pubkeyalgOID $ pubkeyToAlg k
-		(Right bits) = encodeASN1Stream $ asn1Container Sequence [IntVal modulus, IntVal e]
+		(Right bits) = encodeASN1Stream $ asn1Container Sequence [IntVal (RSA.public_n pubkey), IntVal (RSA.public_e pubkey)]
 
-encodePK k@(PubKeyDSA (pub, p, q, g)) =
+encodePK k@(PubKeyDSA pubkey) =
 	asn1Container Sequence (asn1Container Sequence ([pkalg] ++ dsaseq) ++ [BitString $ toBitArray bits 0])
 	where
 		pkalg        = OID $ pubkeyalgOID $ pubkeyToAlg k
 		dsaseq       = asn1Container Sequence [IntVal p,IntVal q,IntVal g]
-		(Right bits) = encodeASN1Stream [IntVal pub]
+		(p,q,g)      = DSA.public_params pubkey
+		(Right bits) = encodeASN1Stream [IntVal $ DSA.public_y pubkey]
 
 encodePK k@(PubKeyUnknown _ l) =
 	asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray (L.pack l) 0])
