@@ -44,8 +44,14 @@ import Data.Certificate.X509.Internal
 import Data.Certificate.X509.Cert
 import Data.Certificate.X509.Ext
 
-data X509 = X509 Certificate (Maybe L.ByteString) (Maybe L.ByteString) SignatureALG [Word8]
-	deriving (Show,Eq)
+data X509 = X509
+	{ x509Cert              :: Certificate          -- ^ the certificate part of a X509 structure
+	, x509CachedSigningData :: (Maybe L.ByteString) -- ^ a cache of the raw representation of the x509 part for signing
+                                                        -- since encoding+decoding might not result in the same data being signed.
+	, x509CachedData        :: (Maybe L.ByteString) -- ^ a cache of the raw represenation of the whole x509.
+	, x509SignatureALG      :: SignatureALG         -- ^ the signature algorithm used.
+	, x509Signature         :: [Word8]              -- ^ the signature.
+	} deriving (Show,Eq)
 
 {- | get signing data related to a X509 message,
  - which is either the cached data or the encoded certificate -}
