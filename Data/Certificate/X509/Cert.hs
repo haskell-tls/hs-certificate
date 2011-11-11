@@ -69,9 +69,9 @@ data PubKey =
 	  PubKeyRSA RSA.PublicKey -- ^ RSA public key
 	| PubKeyDSA DSA.PublicKey -- ^ DSA public key
 	| PubKeyDH (Integer,Integer,Integer,Maybe Integer,([Word8], Integer))
-	                                                 -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
-	| PubKeyECDSA [ASN1]                             -- ^ ECDSA format not done yet FIXME
-	| PubKeyUnknown OID [Word8]                      -- ^ unrecognized format
+	                            -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
+	| PubKeyECDSA [ASN1]        -- ^ ECDSA format not done yet FIXME
+	| PubKeyUnknown OID [Word8] -- ^ unrecognized format
 	deriving (Show,Eq)
 
 type Time = (Day, DiffTime, Bool)
