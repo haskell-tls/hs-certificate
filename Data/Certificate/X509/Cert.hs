@@ -26,7 +26,7 @@ module Data.Certificate.X509.Cert
 	) where
 
 import Data.Word
-import Data.List (find)
+import Data.List (find, sortBy)
 import Data.ASN1.DER
 import Data.ASN1.BitArray
 import Data.Maybe
@@ -213,20 +213,19 @@ encodeAsn1String (BMP, x)       = BMPString x
 encodeAsn1String (IA5, x)       = IA5String x
 encodeAsn1String (T61, x)       = T61String x
 
-parseCertHeaderDN :: ParseASN1 [ (OID, ASN1String) ]
-parseCertHeaderDN = do
-	onNextContainer Sequence getDNs
-	where
-		getDNs = do
-			n <- hasNext
-			if n
-				then liftM2 (:) parseDNOne getDNs
-				else return []
-		parseDNOne = onNextContainer Set $ do
-			s <- getNextContainer Sequence
-			case s of
-				[OID oid, val] -> return (oid, asn1String val)
-				_              -> throwError "expecting sequence"
+parseCertHeaderDN :: ParseASN1 [(OID, ASN1String)]
+parseCertHeaderDN = sortByOID <$> onNextContainer Sequence getDNs where
+	sortByOID = sortBy (\a b -> fst a `compare` fst b)
+	getDNs = do
+		n <- hasNext
+		if n
+			then liftM2 (:) parseDNOne getDNs
+			else return []
+	parseDNOne = onNextContainer Set $ do
+		s <- getNextContainer Sequence
+		case s of
+			[OID oid, val] -> return (oid, asn1String val)
+			_              -> throwError "expecting sequence"
 
 parseCertHeaderValidity :: ParseASN1 (Time, Time)
 parseCertHeaderValidity = do
