@@ -267,9 +267,9 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
 		_              -> throwError "expecting bitstring"
 
 parseCertExtensions :: ParseASN1 (Maybe [CertificateExt])
-parseCertExtensions = do
-	onNextContainerMaybe (Container Context 3) (mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
+parseCertExtensions = onNextContainerMaybe (Container Context 3) (sortByOID . mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
 	where
+		sortByOID = sortBy (\(a,_,_) (b,_,_) -> a `compare` b)
 		getSequences = do
 			n <- hasNext
 			if n
