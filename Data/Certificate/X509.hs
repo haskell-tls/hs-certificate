@@ -48,7 +48,7 @@ data X509 = X509
 	{ x509Cert              :: Certificate          -- ^ the certificate part of a X509 structure
 	, x509CachedSigningData :: (Maybe L.ByteString) -- ^ a cache of the raw representation of the x509 part for signing
                                                         -- since encoding+decoding might not result in the same data being signed.
-	, x509CachedData        :: (Maybe L.ByteString) -- ^ a cache of the raw represenation of the whole x509.
+	, x509CachedData        :: (Maybe L.ByteString) -- ^ a cache of the raw representation of the whole x509.
 	, x509SignatureALG      :: SignatureALG         -- ^ the signature algorithm used.
 	, x509Signature         :: [Word8]              -- ^ the signature.
 	} deriving (Show,Eq)
@@ -56,8 +56,8 @@ data X509 = X509
 {- | get signing data related to a X509 message,
  - which is either the cached data or the encoded certificate -}
 getSigningData :: X509 -> L.ByteString
-getSigningData (X509 _    (Just e) _ _ _)   = e
-getSigningData (X509 cert Nothing _ _ _) = e
+getSigningData (X509 _    (Just e) _ _ _) = e
+getSigningData (X509 cert Nothing _ _ _)  = e
 	where
 		(Right e) = encodeASN1Stream header
 		header    = asn1Container Sequence $ encodeCertificateHeader cert
