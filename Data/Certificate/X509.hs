@@ -51,7 +51,13 @@ data X509 = X509
 	, x509CachedData        :: (Maybe L.ByteString) -- ^ a cache of the raw representation of the whole x509.
 	, x509SignatureALG      :: SignatureALG         -- ^ the signature algorithm used.
 	, x509Signature         :: [Word8]              -- ^ the signature.
-	} deriving (Show,Eq)
+	} deriving (Show)
+
+instance Eq X509 where
+	x1 == x2 =
+		(x509Cert x1         == x509Cert x2)         &&
+		(x509SignatureALG x1 == x509SignatureALG x2) &&
+		(x509Signature x1    == x509Signature x2)
 
 {- | get signing data related to a X509 message,
  - which is either the cached data or the encoded certificate -}
