@@ -8,7 +8,7 @@
 -- extension processing module.
 --
 module Data.Certificate.X509.Ext
-	( CertificateExt
+	( ExtensionRaw
 	, Ext(..)
 	, ExtKeyUsageFlag(..)
 	, extDecode
@@ -20,7 +20,7 @@ import Data.ASN1.DER
 import Data.ASN1.BitArray
 import Data.Certificate.X509.Internal
 
-type CertificateExt = (OID, Bool, [ASN1])
+type ExtensionRaw = (OID, Bool, [ASN1])
 
 -- | key usage flag that is found in the key usage extension field.
 data ExtKeyUsageFlag =

@@ -7,7 +7,6 @@ module Data.Certificate.X509.Cert
 	, PubKey(..)
 	, ASN1StringType(..)
 	, ASN1String
-	, CertificateExt
 	, Certificate(..)
 
 	-- various OID
@@ -23,6 +22,9 @@ module Data.Certificate.X509.Cert
 	-- * certificate to/from asn1
 	, parseCertificate
 	, encodeCertificateHeader
+
+	-- * extensions
+	, module Data.Certificate.X509.Ext
 	) where
 
 import Data.Word
@@ -99,7 +101,7 @@ data Certificate = Certificate
 	, certSubjectDN    :: [ (OID, ASN1String) ]  -- ^ Certificate Subject DN
 	, certValidity     :: (Time, Time)           -- ^ Certificate Validity period
 	, certPubKey       :: PubKey                 -- ^ Certificate Public key
-	, certExtensions   :: Maybe [CertificateExt] -- ^ Certificate Extensions
+	, certExtensions   :: Maybe [ExtensionRaw]   -- ^ Certificate Extensions
 	} deriving (Show,Eq)
 
 oidCommonName, oidCountry, oidOrganization, oidOrganizationUnit :: OID
@@ -267,7 +269,7 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
 		BitString bits -> return $ bitArrayGetData bits
 		_              -> throwError "expecting bitstring"
 
-parseCertExtensions :: ParseASN1 (Maybe [CertificateExt])
+parseCertExtensions :: ParseASN1 (Maybe [ExtensionRaw])
 parseCertExtensions = onNextContainerMaybe (Container Context 3) (sortByOID . mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
 	where
 		sortByOID = sortBy (\(a,_,_) (b,_,_) -> a `compare` b)
@@ -349,7 +351,7 @@ encodePK k@(PubKeyUnknown _ l) =
 	where
 		pkalg = OID $ pubkeyalgOID $ pubkeyToAlg k
 
-encodeExts :: Maybe [CertificateExt] -> [ASN1]
+encodeExts :: Maybe [ExtensionRaw] -> [ASN1]
 encodeExts Nothing  = []
 encodeExts (Just l) = asn1Container (Container Context 3) $ concatMap encodeExt l
 	where encodeExt (oid, critical, asn1) = case encodeASN1Stream asn1 of
