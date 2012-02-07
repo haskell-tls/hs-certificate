@@ -22,6 +22,7 @@ module Data.Certificate.X509.Ext
 	) where
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as L
 import Data.ASN1.DER
 import Data.ASN1.BitArray
@@ -91,7 +92,7 @@ instance Extension ExtSubjectKeyId where
 	extDecode [OctetString o] = Right $ ExtSubjectKeyId o
 	extDecode _ = Left "unknown sequence"
 
-data ExtSubjectAltName = ExtSubjectAltName [B.ByteString]
+data ExtSubjectAltName = ExtSubjectAltName [String]
 	deriving (Show,Eq)
 
 instance Extension ExtSubjectAltName where
@@ -101,7 +102,7 @@ instance Extension ExtSubjectAltName where
 		parse = do
 			c <- getNextContainer Sequence
 			return $ ExtSubjectAltName $ map toStringy c
-		toStringy (Other Context 2 b) = b
+		toStringy (Other Context 2 b) = BC.unpack b
 		toStringy b                   = error ("not coping with anything else " ++ show b)
 
 data ExtAuthorityKeyId = ExtAuthorityKeyId B.ByteString
