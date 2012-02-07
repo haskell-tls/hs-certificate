@@ -36,8 +36,20 @@ hexdump bs = concatMap hex $ L.unpack bs
 
 showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ t)) dn
 
-showExts es = mapM_ (putStrLn . ("  " ++) . showExt) es
-	where showExt e = maybe ("unknown: " ++ show e) show $ X509.extDecode e
+showExts es = do
+	mapM_ showExt es
+	putStrLn "known extensions decoded: "
+	showKnownExtension (X509.extensionGet es :: Maybe X509.ExtBasicConstraints)
+	showKnownExtension (X509.extensionGet es :: Maybe X509.ExtKeyUsage)
+	showKnownExtension (X509.extensionGet es :: Maybe X509.ExtSubjectKeyId)
+	showKnownExtension (X509.extensionGet es :: Maybe X509.ExtSubjectAltName)
+	showKnownExtension (X509.extensionGet es :: Maybe X509.ExtAuthorityKeyId)
+	where
+		showExt (oid,critical,asn1) = do
+			putStrLn ("  OID:  " ++ show oid ++ " critical: " ++ show critical)
+			putStrLn ("        " ++ show asn1)
+		showKnownExtension Nothing  = return ()
+		showKnownExtension (Just e) = putStrLn ("  " ++ show e)
 
 showCert :: X509.X509 -> IO ()
 showCert (X509.X509 cert _ _ sigalg sigbits) = do
