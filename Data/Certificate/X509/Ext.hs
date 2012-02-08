@@ -79,7 +79,7 @@ data ExtKeyUsage = ExtKeyUsage [ExtKeyUsageFlag]
 
 instance Extension ExtKeyUsage where
 	extOID = const [2,5,29,15]
-	extEncode (ExtKeyUsage _) = undefined
+	extEncode (ExtKeyUsage flags) = [BitString $ flagsToBits flags]
 	extDecode [BitString bits] = Right $ ExtKeyUsage $ bitsToFlags bits
 	extDecode _ = Left "unknown sequence"
 
@@ -88,7 +88,7 @@ data ExtSubjectKeyId = ExtSubjectKeyId L.ByteString
 
 instance Extension ExtSubjectKeyId where
 	extOID = const [2,5,29,14]
-	extEncode (ExtSubjectKeyId _) = undefined
+	extEncode (ExtSubjectKeyId o) = [OctetString o]
 	extDecode [OctetString o] = Right $ ExtSubjectKeyId o
 	extDecode _ = Left "unknown sequence"
 
@@ -97,7 +97,10 @@ data ExtSubjectAltName = ExtSubjectAltName [String]
 
 instance Extension ExtSubjectAltName where
 	extOID = const [2,5,29,17]
-	extEncode (ExtSubjectAltName _) = undefined
+	extEncode (ExtSubjectAltName names) =
+		[Start Sequence]
+		++ map (Other Context 2 . BC.pack) names
+		++ [End Sequence]
 	extDecode l = runParseASN1 parse l where
 		parse = do
 			c <- getNextContainer Sequence
@@ -110,7 +113,8 @@ data ExtAuthorityKeyId = ExtAuthorityKeyId B.ByteString
 
 instance Extension ExtAuthorityKeyId where
 	extOID _ = [2,5,29,35]
-	extEncode (ExtAuthorityKeyId _) = undefined
+	extEncode (ExtAuthorityKeyId keyid) =
+		[Start Sequence,Other Context 0 keyid,End Sequence]
 	extDecode [Start Sequence,Other Context 0 keyid,End Sequence] =
 		Right $ ExtAuthorityKeyId keyid
 	extDecode _ = Left "unknown sequence"
@@ -119,3 +123,7 @@ bitsToFlags :: Enum a => BitArray -> [a]
 bitsToFlags bits = concat $ flip map [0..(bitArrayLength bits-1)] $ \i -> do
 	let isSet = bitArrayGetBit bits i
 	if isSet then [toEnum $ fromIntegral i] else []
+
+flagsToBits :: Enum a => [a] -> BitArray
+flagsToBits flags = foldl bitArraySetBit bitArrayEmpty $ map (fromIntegral . fromEnum) flags
+	where bitArrayEmpty = BitArray 2 (L.pack [0,0])
