@@ -10,26 +10,19 @@ import Control.Exception
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Certificate.X509
-import Data.Certificate.PEM
 import Data.List (isPrefixOf)
 
-readAllSystemCertificates = do
-	certfiles <- filter (not . isPrefixOf ".") <$> getDirectoryContents "/etc/ssl/certs"
-	foldM getCertData [] certfiles 
-	where getCertData acc certfile = do
-		certdata <- try (B.readFile ("/etc/ssl/certs/" ++ certfile)) :: IO (Either IOException B.ByteString)
-		case either (const Nothing) (parsePEMCert) $ certdata of
-			Nothing -> return acc
-			Just x  -> return ((certfile, x) : acc)
+-- FIXME : make unit tests portable to run on osX and windows
+import System.Certificate.X509.Unix (readAll)
 
-checkCert name (X509 c mraw rawCert sigalg sigbits) = do
+checkCert (X509 c mraw rawCert sigalg sigbits) = do
 	let errs =
 		(checkSigAlg $ certSignatureAlg c) ++
 		(checkPubKey $ certPubKey c) ++
 		(checkExtensions $ certExtensions c) ++
 		(checkBodyRaw rawCert mraw)
 	when (errs /= []) $ do
-		putStrLn ("error decoding " ++ name)
+		putStrLn ("error decoding")
 		mapM_ (putStrLn . ("  " ++))  errs
 	where
 		checkExtensions ext = []
@@ -50,11 +43,4 @@ checkCert name (X509 c mraw rawCert sigalg sigbits) = do
 			| otherwise          = findsubstring a (L.drop 1 b)
 
 runTests :: IO ()
-runTests = do
-	certs <- readAllSystemCertificates
-	forM certs $ \(name, cert) -> do
-		let rawCert = L.fromChunks [cert]
-		case decodeCertificate rawCert of
-			Left err -> putStrLn ("cannot decode certificate " ++ name ++ " " ++ show err)
-			Right c  -> checkCert name c
-	return ()
+runTests = readAll >>= mapM_ (\x509 -> checkCert x509)

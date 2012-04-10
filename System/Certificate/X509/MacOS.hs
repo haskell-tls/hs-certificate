@@ -3,7 +3,6 @@ module System.Certificate.X509.MacOS
 	) where
 
 import Data.Certificate.X509
-import Data.Certificate.PEM
 import System.Process
 import Data.ByteString hiding (filter, map)
 import qualified Data.ByteString.Lazy as LBS

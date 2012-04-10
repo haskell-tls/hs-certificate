@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable, OverloadedStrings #-}
 
+import Data.Either
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as LC
 import qualified Data.ByteString as B
@@ -8,7 +9,8 @@ import Data.Text.Lazy.Encoding (decodeUtf8)
 import qualified Data.Certificate.X509 as X509
 import Data.Certificate.KeyRSA as KeyRSA
 import Data.Certificate.KeyDSA as KeyDSA
-import Data.Certificate.PEM
+import Data.List (find)
+import Data.PEM (pemParseBS, pemContent, pemName)
 import System.Console.CmdArgs
 import Control.Monad
 import Control.Applicative ((<$>))
@@ -153,22 +155,17 @@ showASN1 at = prettyPrint at where
 	p (BMPString t)          = putStr ("bmpstring: " ++ t)
 	p (Other tc tn x)        = putStr "other"
 
-doMain :: CertMainOpts -> IO ()
-doMain opts@(X509 _ _ _ _ _) = do
-	cert <- maybe (error "cannot read PEM certificate") (id) . parsePEMCert <$> B.readFile (head $ files opts)
+parsePEMCert = either (const []) (rights . map getCert) . pemParseBS
+    where getCert pem = either Left (\x -> Right (pemContent pem,x)) $ X509.decodeCertificate $ L.fromChunks [pemContent pem]
 
+processCert opts (cert, x509) = do
 	when (raw opts) $ putStrLn $ hexdump $ L.fromChunks [cert]
 	when (asn1 opts) $ case decodeASN1Stream $ L.fromChunks [cert] of
 		Left err   -> error ("decoding ASN1 failed: " ++ show err)
 		Right asn1 -> showASN1 0 asn1
 
-	let x509o = X509.decodeCertificate $ L.fromChunks [cert]
-	let x509  = case x509o of
-		Left err   -> error ("decoding certificate failed: " ++ show err)
-		Right c    -> c
 	when (text opts || not (or [asn1 opts,raw opts])) $ showCert x509
 	when (verify opts) $ verifyCert x509
-	exitSuccess
 	where
 		verifyCert x509@(X509.X509 cert _ _ sigalg sig) = do
 			sysx509 <- SysCert.findCertificate (matchsysX509 cert)
@@ -208,20 +205,22 @@ doMain opts@(X509 _ _ _ _ _) = do
 			let x = X509.certSubjectDN syscert
 			let y = X509.certIssuerDN cert
 			x == y
+
+doMain :: CertMainOpts -> IO ()
+doMain opts@(X509 {}) = B.readFile (head $ files opts) >>= mapM_ (processCert opts) . parsePEMCert
 	
 doMain (Key files) = do
-	content <- B.readFile $ head files
-	let pems = parsePEMs content
-	let rsadata = findPEM "RSA PRIVATE KEY" pems
-	let dsadata = findPEM "DSA PRIVATE KEY" pems
+	pems <- either error id . pemParseBS <$> B.readFile (head files)
+	let rsadata = find ((== "RSA PRIVATE KEY") . pemName) pems
+	let dsadata = find ((== "DSA PRIVATE KEY") . pemName) pems
 	case (rsadata, dsadata) of
 		(Just x, _) -> do
-			let rsaKey = KeyRSA.decodePrivate $ L.fromChunks [x]
+			let rsaKey = KeyRSA.decodePrivate $ L.fromChunks [pemContent x]
 			case rsaKey of
 				Left err -> error err
 				Right k  -> putStrLn $ showRSAKey k
 		(_, Just x) -> do
-			let rsaKey = KeyDSA.decodePrivate $ L.fromChunks [x]
+			let rsaKey = KeyDSA.decodePrivate $ L.fromChunks [pemContent x]
 			case rsaKey of
 				Left err   -> error err
 				Right k -> putStrLn $ showDSAKey k
