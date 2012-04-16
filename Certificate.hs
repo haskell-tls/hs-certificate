@@ -106,15 +106,15 @@ showRSAKey (pubkey,privkey) = unlines
 	, "coefficient:      " ++ (show $ RSA.private_qinv privkey)
 	]
 
-showDSAKey :: KeyDSA.Private -> String
-showDSAKey key = unlines
-	[ "version: " ++ (show $ KeyDSA.version key)
-	, "priv     " ++ (show $ KeyDSA.priv key)
-	, "pub:     " ++ (show $ KeyDSA.pub key)
-	, "p:       " ++ (show $ KeyDSA.p key)
-	, "q:       " ++ (show $ KeyDSA.q key)
-	, "g:       " ++ (show $ KeyDSA.g key)
+showDSAKey :: (DSA.PublicKey,DSA.PrivateKey) -> String
+showDSAKey (pubkey,privkey) = unlines
+	[ "priv     " ++ (show $ DSA.private_x privkey)
+	, "pub:     " ++ (show $ DSA.public_y pubkey)
+	, "p:       " ++ (show p)
+	, "q:       " ++ (show g)
+	, "g:       " ++ (show q)
 	]
+    where (p,g,q) = DSA.private_params privkey
 
 showASN1 :: Int -> [ASN1] -> IO ()
 showASN1 at = prettyPrint at where
