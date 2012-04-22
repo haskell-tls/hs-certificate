@@ -17,6 +17,7 @@ module Data.Certificate.KeyRSA
 import Data.ASN1.DER (encodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
 import Data.ASN1.BER (decodeASN1Stream)
 import Data.ASN1.BitArray
+import Data.Certificate.X509.Cert
 import qualified Data.ByteString.Lazy as L
 import qualified Crypto.Types.PubKey.RSA as RSA
 
@@ -24,21 +25,11 @@ parsePublic :: [ASN1] -> Either String RSA.PublicKey
 parsePublic
 	[ Start Sequence
 	, Start Sequence
-	, OID [1,2,840,113549,1,1,1] -- stands for RSA crypto method?
+	, OID [1,2,840,113549,1,1,1] -- PubKeyALG_RSA
 	, Null
 	, End Sequence
 	, BitString (BitArray _ as1n)
-	, End Sequence ] = case (decodeASN1Stream as1n) of
-		Left _ -> Left "could not decode inner ASN1 stream"
-		Right   [ Start Sequence
-			, IntVal p_modulus
-			, IntVal p_exponent
-			, End Sequence ] -> Right $
-				RSA.PublicKey
-				{ RSA.public_size = calculate_modulus p_modulus 1
-				, RSA.public_n = p_modulus
-				, RSA.public_e = p_exponent }
-		Right _ -> Left "stream does not contain an RSA public key"
+	, End Sequence ] = parse_RSA as1n
 parsePublic _ = Left "unexpected format"
 
 decodePublic :: L.ByteString -> Either String RSA.PublicKey
@@ -67,6 +58,9 @@ parsePrivate
 			, RSA.public_n    = p_modulus
 			, RSA.public_e    = pub_exp
 			}
+		calculate_modulus n i = if (2 ^ (i * 8)) > n
+			then i
+			else calculate_modulus n (i+1)
 parsePrivate (Start Sequence : IntVal n : _)
 	| n == 0    = Left "RSA key format: not recognized"
 	| otherwise = Left ("RSA key format: unknown version " ++ show n)
@@ -93,7 +87,3 @@ encodePrivate (pubkey, privkey) =
 		, IntVal $ fromIntegral $ RSA.private_qinv privkey
 		, End Sequence
 		]
-
-calculate_modulus n i = if (2 ^ (i * 8)) > n
-	then i
-	else calculate_modulus n (i+1)
