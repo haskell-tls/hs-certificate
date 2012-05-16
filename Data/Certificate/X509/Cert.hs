@@ -23,9 +23,6 @@ module Data.Certificate.X509.Cert
 	, parseCertificate
 	, encodeCertificateHeader
 
-	-- public key parser
-	, parse_RSA
-
 	-- * extensions
 	, module Data.Certificate.X509.Ext
 	) where
@@ -46,6 +43,8 @@ import Data.Certificate.X509.Internal
 import Data.Certificate.X509.Ext
 import qualified Crypto.Types.PubKey.RSA as RSA
 import qualified Crypto.Types.PubKey.DSA as DSA
+
+import Data.Certificate.KeyRSA (parse_RSA)
 
 data HashALG =
 	  HashMD2
@@ -112,21 +111,6 @@ oidCommonName       = [2,5,4,3]
 oidCountry          = [2,5,4,6]
 oidOrganization     = [2,5,4,10]
 oidOrganizationUnit = [2,5,4,11]
-
-{- | parse a RSA pubkeys from ASN1 encoded bits.
- - return RSA.PublicKey (len-modulus, modulus, e) if successful -}
-parse_RSA :: ByteString -> Either String RSA.PublicKey
-parse_RSA bits =
-	case decodeASN1Stream $ bits of
-		Right [Start Sequence, IntVal modulus, IntVal pubexp, End Sequence] ->
-			Right $ RSA.PublicKey
-				{ RSA.public_size = calculate_modulus modulus 1
-				, RSA.public_n    = modulus
-				, RSA.public_e    = pubexp
-				}
-		_ -> Left "bad RSA format"
-	where
-		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
 
 parse_ECDSA :: ByteString -> ParseASN1 PubKey
 parse_ECDSA bits =

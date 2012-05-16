@@ -12,12 +12,12 @@ module Data.Certificate.KeyRSA
 	( decodePublic
 	, decodePrivate
 	, encodePrivate
+	, parse_RSA
 	) where
 
 import Data.ASN1.DER (encodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
 import Data.ASN1.BER (decodeASN1Stream)
 import Data.ASN1.BitArray
-import Data.Certificate.X509.Cert
 import qualified Data.ByteString.Lazy as L
 import qualified Crypto.Types.PubKey.RSA as RSA
 
@@ -87,3 +87,18 @@ encodePrivate (pubkey, privkey) =
 		, IntVal $ fromIntegral $ RSA.private_qinv privkey
 		, End Sequence
 		]
+
+{- | parse a RSA pubkeys from ASN1 encoded bits.
+ - return RSA.PublicKey (len-modulus, modulus, e) if successful -}
+parse_RSA :: L.ByteString -> Either String RSA.PublicKey
+parse_RSA bits =
+	case decodeASN1Stream $ bits of
+		Right [Start Sequence, IntVal modulus, IntVal pubexp, End Sequence] ->
+			Right $ RSA.PublicKey
+				{ RSA.public_size = calculate_modulus modulus 1
+				, RSA.public_n    = modulus
+				, RSA.public_e    = pubexp
+				}
+		_ -> Left "bad RSA format"
+	where
+		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
