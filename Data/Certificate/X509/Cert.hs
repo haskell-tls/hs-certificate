@@ -23,6 +23,9 @@ module Data.Certificate.X509.Cert
 	, parseCertificate
 	, encodeCertificateHeader
 
+	-- public key parser
+	, parse_RSA
+
 	-- * extensions
 	, module Data.Certificate.X509.Ext
 	) where
@@ -111,18 +114,17 @@ oidOrganization     = [2,5,4,10]
 oidOrganizationUnit = [2,5,4,11]
 
 {- | parse a RSA pubkeys from ASN1 encoded bits.
- - return PubKeyRSA (len-modulus, modulus, e) if successful -}
-parse_RSA :: ByteString -> ParseASN1 PubKey
+ - return RSA.PublicKey (len-modulus, modulus, e) if successful -}
+parse_RSA :: ByteString -> Either String RSA.PublicKey
 parse_RSA bits =
 	case decodeASN1Stream $ bits of
 		Right [Start Sequence, IntVal modulus, IntVal pubexp, End Sequence] ->
-			return $ PubKeyRSA $ RSA.PublicKey
+			Right $ RSA.PublicKey
 				{ RSA.public_size = calculate_modulus modulus 1
 				, RSA.public_n    = modulus
 				, RSA.public_e    = pubexp
 				}
-		_ ->
-			throwError ("bad RSA format")
+		_ -> Left "bad RSA format"
 	where
 		calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
 
@@ -249,7 +251,7 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
 		[OID pkalg,Null] -> do
 			let sig = oidPubKey pkalg
 			case sig of
-				PubKeyALG_RSA -> parse_RSA bits
+				PubKeyALG_RSA -> either (throwError) (return . PubKeyRSA) (parse_RSA bits)
 				_             -> return $ PubKeyUnknown pkalg $ L.unpack bits
 		[OID pkalg,OID _] -> do
 			let sig = oidPubKey pkalg

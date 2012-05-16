@@ -9,14 +9,31 @@
 --
 
 module Data.Certificate.KeyRSA
-	( decodePrivate
+	( decodePublic
+	, decodePrivate
 	, encodePrivate
 	) where
 
 import Data.ASN1.DER (encodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
 import Data.ASN1.BER (decodeASN1Stream)
+import Data.ASN1.BitArray
+import Data.Certificate.X509.Cert
 import qualified Data.ByteString.Lazy as L
 import qualified Crypto.Types.PubKey.RSA as RSA
+
+parsePublic :: [ASN1] -> Either String RSA.PublicKey
+parsePublic
+	[ Start Sequence
+	, Start Sequence
+	, OID [1,2,840,113549,1,1,1] -- PubKeyALG_RSA
+	, Null
+	, End Sequence
+	, BitString (BitArray _ as1n)
+	, End Sequence ] = parse_RSA as1n
+parsePublic _ = Left "unexpected format"
+
+decodePublic :: L.ByteString -> Either String RSA.PublicKey
+decodePublic dat = either (Left . show) parsePublic $ decodeASN1Stream dat
 
 parsePrivate :: [ASN1] -> Either String (RSA.PublicKey, RSA.PrivateKey)
 parsePrivate
