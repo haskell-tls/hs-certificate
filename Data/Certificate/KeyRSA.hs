@@ -5,12 +5,13 @@
 -- Stability   : experimental
 -- Portability : unknown
 --
--- Read/Write Private RSA Key
+-- Read/Write Private/Public RSA Key
 --
 
 module Data.Certificate.KeyRSA
 	( decodePublic
 	, decodePrivate
+	, encodePublic
 	, encodePrivate
 	, parse_RSA
 	) where
@@ -34,6 +35,27 @@ parsePublic _ = Left "unexpected format"
 
 decodePublic :: L.ByteString -> Either String RSA.PublicKey
 decodePublic dat = either (Left . show) parsePublic $ decodeASN1Stream dat
+
+encodePublic :: RSA.PublicKey -> L.ByteString
+encodePublic p =
+	let innerSeq = encodeASN1Stream
+		[ Start Sequence
+		, IntVal $ RSA.public_n p
+		, IntVal $ RSA.public_e p
+		, End Sequence
+		]
+	in case innerSeq of
+		Left err -> error $ show err
+		Right bs -> case encodeASN1Stream
+				[ Start Sequence
+				, Start Sequence
+				, OID [1,2,840,113549,1,1,1] -- PubKeyALG_RSA
+				, Null
+				, End Sequence
+				, BitString $ toBitArray bs 0
+				, End Sequence ] of
+				Left err  -> error $ show err
+				Right ibs -> ibs
 
 parsePrivate :: [ASN1] -> Either String (RSA.PublicKey, RSA.PrivateKey)
 parsePrivate
