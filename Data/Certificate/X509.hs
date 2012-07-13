@@ -17,6 +17,7 @@ module Data.Certificate.X509
 	, HashALG(..)
 	, PubKeyALG(..)
 	, PubKey(..)
+        , OID
 	, ASN1StringType(..)
 	, ASN1String
 	, Certificate(..)
@@ -28,6 +29,10 @@ module Data.Certificate.X509
 	-- * serialization from ASN1 bytestring
 	, decodeCertificate
 	, encodeCertificate
+
+        -- * serialization from ASN1 bytestring
+	, decodeDN
+	, encodeDN
 	) where
 
 import Data.Word
@@ -38,7 +43,8 @@ import Data.ASN1.BitArray
 import qualified Data.ByteString.Lazy as L
 
 import Data.Certificate.X509.Internal
-import Data.Certificate.X509.Cert
+import Data.Certificate.X509.Cert hiding (encodeDN)
+import qualified  Data.Certificate.X509.Cert as Cert
 import Data.Certificate.X509.Ext
 
 data X509 = X509
@@ -113,3 +119,9 @@ encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = case encodeASN1Strea
 		esig      = BitString $ toBitArray (L.pack sigbits) 0
 		header    = asn1Container Sequence $ encodeCertificateHeader cert
 		rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])
+
+decodeDN :: L.ByteString -> Either String [(OID, ASN1String)]
+decodeDN by = either (Left . show) (runParseASN1 parseDN) $ decodeASN1Stream by
+
+encodeDN :: [(OID, ASN1String)] -> Either String L.ByteString
+encodeDN dn = either (Left . show) Right $ encodeASN1Stream $ Cert.encodeDN dn

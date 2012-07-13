@@ -208,16 +208,19 @@ encodeAsn1String (IA5, x)       = IA5String x
 encodeAsn1String (T61, x)       = T61String x
 
 parseCertHeaderDN :: ParseASN1 [(OID, ASN1String)]
-parseCertHeaderDN = sortByOID <$> onNextContainer Sequence getDNs where
+parseCertHeaderDN = parseDN
+
+parseDN :: ParseASN1 [(OID, ASN1String)]
+parseDN = sortByOID <$> onNextContainer Sequence getDNs where
 	sortByOID = sortBy (\a b -> fst a `compare` fst b)
 	getDNs = do
 		n <- hasNext
 		if n
-			then liftM2 (:) parseDN getDNs
+			then liftM2 (:) parseOneDN getDNs
 			else return []
 
-parseDN :: ParseASN1 (OID, ASN1String)
-parseDN = onNextContainer Set $ do
+parseOneDN :: ParseASN1 (OID, ASN1String)
+parseOneDN = onNextContainer Set $ do
 	s <- getNextContainer Sequence
 	case s of
 		[OID oid, val] -> return (oid, asn1String val)
