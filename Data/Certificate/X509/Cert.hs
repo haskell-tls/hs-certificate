@@ -1,5 +1,5 @@
 module Data.Certificate.X509.Cert
-	( 
+	(
 	-- * Data Structure
 	  SignatureALG(..)
 	, HashALG(..)
@@ -8,6 +8,7 @@ module Data.Certificate.X509.Cert
 	, ASN1StringType(..)
 	, ASN1String
 	, Certificate(..)
+        , OID
 
 	-- various OID
 	, oidCommonName
@@ -22,6 +23,10 @@ module Data.Certificate.X509.Cert
 	-- * certificate to/from asn1
 	, parseCertificate
 	, encodeCertificateHeader
+
+        -- * Parse and encode a single distinguished name
+        , parseDN
+        , encodeDN
 
 	-- * extensions
 	, module Data.Certificate.X509.Ext
@@ -208,13 +213,15 @@ parseCertHeaderDN = sortByOID <$> onNextContainer Sequence getDNs where
 	getDNs = do
 		n <- hasNext
 		if n
-			then liftM2 (:) parseDNOne getDNs
+			then liftM2 (:) parseDN getDNs
 			else return []
-	parseDNOne = onNextContainer Set $ do
-		s <- getNextContainer Sequence
-		case s of
-			[OID oid, val] -> return (oid, asn1String val)
-			_              -> throwError "expecting sequence"
+
+parseDN :: ParseASN1 (OID, ASN1String)
+parseDN = onNextContainer Set $ do
+	s <- getNextContainer Sequence
+	case s of
+		[OID oid, val] -> return (oid, asn1String val)
+		_              -> throwError "expecting sequence"
 
 parseCertHeaderValidity :: ParseASN1 (Time, Time)
 parseCertHeaderValidity = do
