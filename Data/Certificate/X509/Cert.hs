@@ -25,7 +25,7 @@ module Data.Certificate.X509.Cert
 	, encodeCertificateHeader
 
         -- * Parse and encode a single distinguished name
-        , parseDN
+        , parseDNnoSort
         , encodeDN
 
 	-- * extensions
@@ -213,6 +213,14 @@ parseCertHeaderDN = parseDN
 parseDN :: ParseASN1 [(OID, ASN1String)]
 parseDN = sortByOID <$> onNextContainer Sequence getDNs where
 	sortByOID = sortBy (\a b -> fst a `compare` fst b)
+	getDNs = do
+		n <- hasNext
+		if n
+			then liftM2 (:) parseOneDN getDNs
+			else return []
+
+parseDNnoSort :: ParseASN1 [(OID, ASN1String)]
+parseDNnoSort = onNextContainer Sequence getDNs where
 	getDNs = do
 		n <- hasNext
 		if n

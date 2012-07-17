@@ -33,6 +33,7 @@ module Data.Certificate.X509
         -- * serialization from ASN1 bytestring
 	, decodeDN
 	, encodeDN
+	, encodeDNnoSort
 	) where
 
 import Data.Word
@@ -122,6 +123,9 @@ encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = case encodeASN1Strea
 
 decodeDN :: L.ByteString -> Either String [(OID, ASN1String)]
 decodeDN by = either (Left . show) (runParseASN1 parseDN) $ decodeASN1Stream by
+
+decodeDNnoSort :: L.ByteString -> Either String [(OID, ASN1String)]
+decodeDNnoSort by = either (Left . show) (runParseASN1 parseDNnoSort) $ decodeASN1Stream by
 
 encodeDN :: [(OID, ASN1String)] -> Either String L.ByteString
 encodeDN dn = either (Left . show) Right $ encodeASN1Stream $ Cert.encodeDN dn
