@@ -25,6 +25,7 @@ module Data.Certificate.X509.Cert
 	, encodeCertificateHeader
 
         -- * Parse and encode a single distinguished name
+        , parseDN
         , parseDNnoSort
         , encodeDN
 

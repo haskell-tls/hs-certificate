@@ -32,8 +32,8 @@ module Data.Certificate.X509
 
         -- * serialization from ASN1 bytestring
 	, decodeDN
+	, decodeDNnoSort
 	, encodeDN
-	, encodeDNnoSort
 	) where
 
 import Data.Word
