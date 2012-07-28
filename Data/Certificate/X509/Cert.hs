@@ -26,7 +26,6 @@ module Data.Certificate.X509.Cert
 
         -- * Parse and encode a single distinguished name
         , parseDN
-        , parseDNnoSort
         , encodeDN
 
         -- * extensions
@@ -212,16 +211,7 @@ parseCertHeaderDN :: ParseASN1 [(OID, ASN1String)]
 parseCertHeaderDN = parseDN
 
 parseDN :: ParseASN1 [(OID, ASN1String)]
-parseDN = sortByOID <$> onNextContainer Sequence getDNs where
-        sortByOID = sortBy (\a b -> fst a `compare` fst b)
-        getDNs = do
-                n <- hasNext
-                if n
-                        then liftM2 (:) parseOneDN getDNs
-                        else return []
-
-parseDNnoSort :: ParseASN1 [(OID, ASN1String)]
-parseDNnoSort = onNextContainer Sequence getDNs where
+parseDN = onNextContainer Sequence getDNs where
         getDNs = do
                 n <- hasNext
                 if n
@@ -324,12 +314,14 @@ parseCertificate = do
                 { certVersion      = version
                 , certSerial       = serial
                 , certSignatureAlg = sigalg
-                , certIssuerDN     = issuer
-                , certSubjectDN    = subject
+                , certIssuerDN     = sortByOID issuer
+                , certSubjectDN    = sortByOID subject
                 , certValidity     = validity
                 , certPubKey       = pk
                 , certExtensions   = exts
                 }
+    where sortByOID = sortBy (\a b -> fst a `compare` fst b)
+
 
 encodeDN :: [ (OID, ASN1String) ] -> [ASN1]
 encodeDN dn = asn1Container Sequence $ concatMap dnSet dn
