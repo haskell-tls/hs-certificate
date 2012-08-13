@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- |
 -- Module      : System.Certificate.X509
 -- License     : BSD-style
@@ -30,9 +31,10 @@ import qualified Data.ByteString.Lazy as L
 
 import Control.Applicative ((<$>))
 import Control.Exception
-import Control.Monad
 
+#if !MIN_VERSION_base(4,6,0)
 import Prelude hiding (catch)
+#endif
 
 defaultSystemPath :: FilePath
 defaultSystemPath = "/etc/ssl/certs/"
