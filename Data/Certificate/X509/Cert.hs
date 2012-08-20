@@ -8,6 +8,7 @@ module Data.Certificate.X509.Cert
         , ASN1StringType(..)
         , ASN1String
         , Certificate(..)
+        , DistinguishedName
         , OID
 
         -- various OID
@@ -100,12 +101,14 @@ data CertKeyUsage =
 data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq)
 type ASN1String = (ASN1StringType, String)
 
+type DistinguishedName = [(OID, ASN1String)]
+
 data Certificate = Certificate
         { certVersion      :: Int                    -- ^ Certificate Version
         , certSerial       :: Integer                -- ^ Certificate Serial number
         , certSignatureAlg :: SignatureALG           -- ^ Certificate Signature algorithm
-        , certIssuerDN     :: [ (OID, ASN1String) ]  -- ^ Certificate Issuer DN
-        , certSubjectDN    :: [ (OID, ASN1String) ]  -- ^ Certificate Subject DN
+        , certIssuerDN     :: DistinguishedName      -- ^ Certificate Issuer DN
+        , certSubjectDN    :: DistinguishedName      -- ^ Certificate Subject DN
         , certValidity     :: (Time, Time)           -- ^ Certificate Validity period
         , certPubKey       :: PubKey                 -- ^ Certificate Public key
         , certExtensions   :: Maybe [ExtensionRaw]   -- ^ Certificate Extensions

@@ -20,6 +20,7 @@ module Data.Certificate.X509
         , OID
         , ASN1StringType(..)
         , ASN1String
+        , DistinguishedName
         , Certificate(..)
         , module Data.Certificate.X509.Ext
 
@@ -120,8 +121,8 @@ encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = case encodeASN1Strea
                 header    = asn1Container Sequence $ encodeCertificateHeader cert
                 rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])
 
-decodeDN :: L.ByteString -> Either String [(OID, ASN1String)]
+decodeDN :: L.ByteString -> Either String DistinguishedName
 decodeDN by = either (Left . show) (runParseASN1 parseDN) $ decodeASN1Stream by
 
-encodeDN :: [(OID, ASN1String)] -> Either String L.ByteString
+encodeDN :: DistinguishedName -> Either String L.ByteString
 encodeDN dn = either (Left . show) Right $ encodeASN1Stream $ Cert.encodeDN dn
