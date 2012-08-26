@@ -35,7 +35,9 @@ module Data.Certificate.X509.Cert
 
 import Data.Word
 import Data.List (find, sortBy)
-import Data.ASN1.DER
+import Data.ASN1.Stream
+import Data.ASN1.Encoding
+import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
 import Data.Maybe
 import Data.Time.Calendar
@@ -122,7 +124,7 @@ oidOrganizationUnit = [2,5,4,11]
 
 parse_ECDSA :: ByteString -> ParseASN1 PubKey
 parse_ECDSA bits =
-        case decodeASN1Stream bits of
+        case decodeASN1 BER bits of
                 Right l -> return $ PubKeyECDSA l
                 Left _  -> return $ PubKeyUnknown (pubkeyalgOID PubKeyALG_ECDSA) (L.unpack bits)
 
@@ -256,7 +258,7 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
                                 _                -> return $ PubKeyUnknown pkalg $ L.unpack bits
                 [OID pkalg,Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] -> do
                         let sig = oidPubKey pkalg
-                        case decodeASN1Stream bits of
+                        case decodeASN1 BER bits of
                                 Right [IntVal dsapub] -> return $ PubKeyDSA $ DSA.PublicKey
                                         { DSA.public_params = (p, q, g), DSA.public_y = dsapub }
                                 _                     -> return $ PubKeyUnknown pkalg $ L.unpack bits
@@ -276,10 +278,10 @@ parseCertExtensions = onNextContainerMaybe (Container Context 3) (sortByOID . ma
                         if n
                                 then getNextContainer Sequence >>= \sq -> liftM (sq :) getSequences
                                 else return []
-                extractExtension [OID oid,Boolean True,OctetString obj] = case decodeASN1Stream obj of
+                extractExtension [OID oid,Boolean True,OctetString obj] = case decodeASN1 BER obj of
                         Left _  -> Nothing
                         Right r -> Just (oid, True, r)
-                extractExtension [OID oid,OctetString obj]              = case decodeASN1Stream obj of
+                extractExtension [OID oid,OctetString obj]              = case decodeASN1 BER obj of
                         Left _  -> Nothing
                         Right r -> Just (oid, False, r)
                 extractExtension _                                      = Nothing
@@ -335,16 +337,16 @@ encodePK :: PubKey -> [ASN1]
 encodePK k@(PubKeyRSA pubkey) =
         asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray bits 0])
         where
-                pkalg        = OID $ pubkeyalgOID $ pubkeyToAlg k
-                (Right bits) = encodeASN1Stream $ asn1Container Sequence [IntVal (RSA.public_n pubkey), IntVal (RSA.public_e pubkey)]
+                pkalg = OID $ pubkeyalgOID $ pubkeyToAlg k
+                bits  = encodeASN1 DER $ asn1Container Sequence [IntVal (RSA.public_n pubkey), IntVal (RSA.public_e pubkey)]
 
 encodePK k@(PubKeyDSA pubkey) =
         asn1Container Sequence (asn1Container Sequence ([pkalg] ++ dsaseq) ++ [BitString $ toBitArray bits 0])
         where
-                pkalg        = OID $ pubkeyalgOID $ pubkeyToAlg k
-                dsaseq       = asn1Container Sequence [IntVal p,IntVal q,IntVal g]
-                (p,q,g)      = DSA.public_params pubkey
-                (Right bits) = encodeASN1Stream [IntVal $ DSA.public_y pubkey]
+                pkalg   = OID $ pubkeyalgOID $ pubkeyToAlg k
+                dsaseq  = asn1Container Sequence [IntVal p,IntVal q,IntVal g]
+                (p,q,g) = DSA.public_params pubkey
+                bits    = encodeASN1 DER [IntVal $ DSA.public_y pubkey]
 
 encodePK k@(PubKeyUnknown _ l) =
         asn1Container Sequence (asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray (L.pack l) 0])
@@ -354,9 +356,9 @@ encodePK k@(PubKeyUnknown _ l) =
 encodeExts :: Maybe [ExtensionRaw] -> [ASN1]
 encodeExts Nothing  = []
 encodeExts (Just l) = asn1Container (Container Context 3) $ concatMap encodeExt l
-        where encodeExt (oid, critical, asn1) = case encodeASN1Stream asn1 of
-                Left _   -> error "cannot encode asn1 extension"
-                Right bs -> asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString bs])
+        where encodeExt (oid, critical, asn1) =
+                let bs = encodeASN1 DER asn1
+                 in asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString bs])
 
 encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =

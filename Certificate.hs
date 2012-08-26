@@ -25,7 +25,9 @@ import qualified Crypto.Hash.MD5 as MD5
 import qualified Crypto.Cipher.RSA as RSA
 import qualified Crypto.Cipher.DSA as DSA
 
-import Data.ASN1.DER (decodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
+import Data.ASN1.Encoding
+import Data.ASN1.BinaryEncoding
+import Data.ASN1.Stream
 import Data.ASN1.BitArray
 import Text.Printf
 import Numeric
@@ -79,7 +81,7 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 		X509.PubKeyUnknown oid ws -> do
 			printf "public key unknown: %s\n" (show oid)
 			printf "  raw bytes: %s\n" (show ws)
-			case decodeASN1Stream $ L.pack ws of
+			case decodeASN1 BER $ L.pack ws of
 				Left err -> printf "  asn1 decoding failed: %s\n" (show err)
 				Right l  -> printf "  asn1 decoding:\n" >> showASN1 4 l
 		pk                        ->
@@ -160,7 +162,7 @@ parsePEMCert = either (const []) (rights . map getCert) . pemParseBS
 
 processCert opts (cert, x509) = do
 	when (raw opts) $ putStrLn $ hexdump $ L.fromChunks [cert]
-	when (asn1 opts) $ case decodeASN1Stream $ L.fromChunks [cert] of
+	when (asn1 opts) $ case decodeASN1' BER cert of
 		Left err   -> error ("decoding ASN1 failed: " ++ show err)
 		Right asn1 -> showASN1 0 asn1
 

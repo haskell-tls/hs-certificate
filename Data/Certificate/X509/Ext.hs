@@ -24,7 +24,8 @@ module Data.Certificate.X509.Ext
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as L
-import Data.ASN1.DER
+import Data.ASN1.Types
+import Data.ASN1.Stream
 import Data.ASN1.BitArray
 import Data.Certificate.X509.Internal
 

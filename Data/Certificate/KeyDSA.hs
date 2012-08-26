@@ -13,8 +13,9 @@ module Data.Certificate.KeyDSA
         , encodePrivate
         ) where
 
-import Data.ASN1.DER (encodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
-import Data.ASN1.BER (decodeASN1Stream)
+import Data.ASN1.Stream
+import Data.ASN1.Encoding
+import Data.ASN1.BinaryEncoding
 import qualified Data.ByteString.Lazy as L
 import qualified Crypto.Types.PubKey.DSA as DSA
 
@@ -34,13 +35,10 @@ parsePrivate (Start Sequence : IntVal n : _)
 parsePrivate _ = Left "unexpected format"
 
 decodePrivate :: L.ByteString -> Either String (DSA.PublicKey, DSA.PrivateKey)
-decodePrivate dat = either (Left . show) parsePrivate $ decodeASN1Stream dat
+decodePrivate dat = either (Left . show) parsePrivate $ decodeASN1 BER dat
 
 encodePrivate :: (DSA.PublicKey, DSA.PrivateKey) -> L.ByteString
-encodePrivate (pubkey, privkey) =
-        case encodeASN1Stream pkseq of
-                Left err  -> error $ show err
-                Right lbs -> lbs
+encodePrivate (pubkey, privkey) = encodeASN1 DER pkseq
         where pkseq =
                 [ Start Sequence
                 , IntVal 0

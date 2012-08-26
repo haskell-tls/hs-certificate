@@ -37,9 +37,10 @@ module Data.Certificate.X509
         ) where
 
 import Data.Word
-import Data.ASN1.DER
-import Data.ASN1.Stream (getConstructedEndRepr)
-import Data.ASN1.Raw (toBytes)
+import Data.ASN1.Encoding
+import Data.ASN1.BinaryEncoding
+import qualified Data.ASN1.BinaryEncoding.Raw as Raw (toLazyByteString)
+import Data.ASN1.Stream
 import Data.ASN1.BitArray
 import qualified Data.ByteString.Lazy as L
 
@@ -67,10 +68,8 @@ instance Eq X509 where
  - which is either the cached data or the encoded certificate -}
 getSigningData :: X509 -> L.ByteString
 getSigningData (X509 _    (Just e) _ _ _) = e
-getSigningData (X509 cert Nothing _ _ _)  = e
-        where
-                (Right e) = encodeASN1Stream header
-                header    = asn1Container Sequence $ encodeCertificateHeader cert
+getSigningData (X509 cert Nothing _ _ _)  = encodeASN1 DER header
+        where header    = asn1Container Sequence $ encodeCertificateHeader cert
 
 {- | decode an X509 from a bytestring
  - the structure is the following:
@@ -79,7 +78,7 @@ getSigningData (X509 cert Nothing _ _ _)  = e
  -   Certificate Signature
 -}
 decodeCertificate :: L.ByteString -> Either String X509
-decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1StreamRepr by
+decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr BER by
         where
                 {- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
                  - * the header
@@ -92,7 +91,7 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1StreamRepr
                                 let cert = onContainer certrepr (runParseASN1 parseCertificate . map fst) in
                                 case (cert, map fst sigseq) of
                                         (Right c, [BitString b]) ->
-                                                let certevs = toBytes $ concatMap snd certrepr in
+                                                let certevs = Raw.toLazyByteString $ concatMap snd certrepr in
                                                 let sigalg  = onContainer sigalgseq (parseSigAlg . map fst) in
                                                 Right $ X509 c (Just certevs) (Just by) sigalg (L.unpack $ bitArrayGetData b)
                                         (Left err, _) -> Left $ ("certificate error: " ++ show err)
@@ -112,9 +111,7 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1StreamRepr
 {-| encode a X509 certificate to a bytestring -}
 encodeCertificate :: X509 -> L.ByteString
 encodeCertificate (X509 _    _ (Just lbs) _      _      ) = lbs
-encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = case encodeASN1Stream rootSeq of
-                Right x  -> x
-                Left err -> error (show err)
+encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = encodeASN1 DER rootSeq
         where
                 esigalg   = asn1Container Sequence [OID (sigOID sigalg), Null]
                 esig      = BitString $ toBitArray (L.pack sigbits) 0
@@ -122,7 +119,7 @@ encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = case encodeASN1Strea
                 rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])
 
 decodeDN :: L.ByteString -> Either String DistinguishedName
-decodeDN by = either (Left . show) (runParseASN1 parseDN) $ decodeASN1Stream by
+decodeDN by = either (Left . show) (runParseASN1 parseDN) $ decodeASN1 BER by
 
-encodeDN :: DistinguishedName -> Either String L.ByteString
-encodeDN dn = either (Left . show) Right $ encodeASN1Stream $ Cert.encodeDN dn
+encodeDN :: DistinguishedName -> L.ByteString
+encodeDN dn = encodeASN1 DER $ Cert.encodeDN dn

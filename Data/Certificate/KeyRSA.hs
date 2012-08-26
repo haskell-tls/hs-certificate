@@ -16,8 +16,9 @@ module Data.Certificate.KeyRSA
         , parse_RSA
         ) where
 
-import Data.ASN1.DER (encodeASN1Stream, ASN1(..), ASN1ConstructionType(..))
-import Data.ASN1.BER (decodeASN1Stream)
+import Data.ASN1.Stream
+import Data.ASN1.Encoding
+import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
 import qualified Data.ByteString.Lazy as L
 import qualified Crypto.Types.PubKey.RSA as RSA
@@ -34,28 +35,22 @@ parsePublic
 parsePublic _ = Left "unexpected format"
 
 decodePublic :: L.ByteString -> Either String RSA.PublicKey
-decodePublic dat = either (Left . show) parsePublic $ decodeASN1Stream dat
+decodePublic dat = either (Left . show) parsePublic $ decodeASN1 BER dat
 
 encodePublic :: RSA.PublicKey -> L.ByteString
-encodePublic p =
-        let innerSeq = encodeASN1Stream
+encodePublic p = encodeASN1 DER
                 [ Start Sequence
-                , IntVal $ RSA.public_n p
-                , IntVal $ RSA.public_e p
+                , Start Sequence
+                , OID [1,2,840,113549,1,1,1] -- PubKeyALG_RSA
+                , Null
                 , End Sequence
-                ]
-        in case innerSeq of
-                Left err -> error $ show err
-                Right bs -> case encodeASN1Stream
-                                [ Start Sequence
-                                , Start Sequence
-                                , OID [1,2,840,113549,1,1,1] -- PubKeyALG_RSA
-                                , Null
-                                , End Sequence
-                                , BitString $ toBitArray bs 0
-                                , End Sequence ] of
-                                Left err  -> error $ show err
-                                Right ibs -> ibs
+                , BitString $ toBitArray innerSeq 0
+                , End Sequence ]
+    where innerSeq = encodeASN1 DER [ Start Sequence
+                                    , IntVal $ RSA.public_n p
+                                    , IntVal $ RSA.public_e p
+                                    , End Sequence
+                                    ]
 
 parsePrivate :: [ASN1] -> Either String (RSA.PublicKey, RSA.PrivateKey)
 parsePrivate
@@ -89,13 +84,10 @@ parsePrivate (Start Sequence : IntVal n : _)
 parsePrivate _ = Left "unexpected format"
 
 decodePrivate :: L.ByteString -> Either String (RSA.PublicKey, RSA.PrivateKey)
-decodePrivate dat = either (Left . show) parsePrivate $ decodeASN1Stream dat
+decodePrivate dat = either (Left . show) parsePrivate $ decodeASN1 BER dat
 
 encodePrivate :: (RSA.PublicKey, RSA.PrivateKey) -> L.ByteString
-encodePrivate (pubkey, privkey) =
-        case encodeASN1Stream pkseq of
-                Left err  -> error $ show err
-                Right lbs -> lbs
+encodePrivate (pubkey, privkey) = encodeASN1 DER pkseq
         where pkseq =
                 [ Start Sequence
                 , IntVal 0
@@ -114,7 +106,7 @@ encodePrivate (pubkey, privkey) =
  - return RSA.PublicKey (len-modulus, modulus, e) if successful -}
 parse_RSA :: L.ByteString -> Either String RSA.PublicKey
 parse_RSA bits =
-        case decodeASN1Stream $ bits of
+        case decodeASN1 BER bits of
                 Right [Start Sequence, IntVal modulus, IntVal pubexp, End Sequence] ->
                         Right $ RSA.PublicKey
                                 { RSA.public_size = calculate_modulus modulus 1
