@@ -231,15 +231,15 @@ parseOneDN = onNextContainer Set $ do
                 _              -> throwError "expecting sequence"
 
 parseCertHeaderValidity :: ParseASN1 (Time, Time)
-parseCertHeaderValidity = do
-        n <- getNextContainer Sequence
-        case n of
-                [ UTCTime t1, UTCTime t2 ] -> return (convertTime t1, convertTime t2)
-                _                          -> throwError "bad validity format"
-        where convertTime (y,m,d,h,mi,s,u) =
-                let day = fromGregorian (fromIntegral y) m d in
-                let dtime = secondsToDiffTime (fromIntegral h * 3600 + fromIntegral mi * 60 + fromIntegral s) in
-                (day, dtime, u)
+parseCertHeaderValidity = getNextContainer Sequence >>= toTimeBound
+    where toTimeBound [ UTCTime t1, UTCTime t2 ]                 = return (convertTime t1, convertTime t2)
+          toTimeBound [ GeneralizedTime t1, GeneralizedTime t2 ] = return (convertTime t1, convertTime t2)
+          toTimeBound _                                          = throwError "bad validity format"
+
+          convertTime (y,m,d,h,mi,s,u) =
+              let day   = fromGregorian (fromIntegral y) m d
+                  dtime = secondsToDiffTime (fromIntegral h * 3600 + fromIntegral mi * 60 + fromIntegral s)
+               in (day, dtime, u)
 
 parseCertHeaderSubjectPK :: ParseASN1 PubKey
 parseCertHeaderSubjectPK = onNextContainer Sequence $ do
