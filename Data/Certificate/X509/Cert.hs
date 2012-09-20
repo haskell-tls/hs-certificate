@@ -42,7 +42,6 @@ import Data.ASN1.BitArray
 import Data.Maybe
 import Data.Time.Calendar
 import Data.Time.Clock (DiffTime, secondsToDiffTime)
-import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 import Control.Applicative ((<$>))
 import Control.Monad.State
@@ -77,12 +76,15 @@ data SignatureALG =
         | SignatureALG_Unknown OID
         deriving (Show,Eq)
 
+data ECDSA_Hash = ECDSA_Hash_SHA384
+                deriving (Show,Eq)
+
 data PubKey =
           PubKeyRSA RSA.PublicKey -- ^ RSA public key
         | PubKeyDSA DSA.PublicKey -- ^ DSA public key
         | PubKeyDH (Integer,Integer,Integer,Maybe Integer,([Word8], Integer))
                                     -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
-        | PubKeyECDSA [ASN1]        -- ^ ECDSA format not done yet FIXME
+        | PubKeyECDSA ECDSA_Hash L.ByteString -- ^ ECDSA format not done yet FIXME
         | PubKeyUnknown OID [Word8] -- ^ unrecognized format
         deriving (Show,Eq)
 
@@ -121,12 +123,6 @@ oidCommonName       = [2,5,4,3]
 oidCountry          = [2,5,4,6]
 oidOrganization     = [2,5,4,10]
 oidOrganizationUnit = [2,5,4,11]
-
-parse_ECDSA :: ByteString -> ParseASN1 PubKey
-parse_ECDSA bits =
-        case decodeASN1 BER bits of
-                Right l -> return $ PubKeyECDSA l
-                Left _  -> return $ PubKeyUnknown (pubkeyalgOID PubKeyALG_ECDSA) (L.unpack bits)
 
 parseCertHeaderVersion :: ParseASN1 Int
 parseCertHeaderVersion = do
@@ -184,7 +180,7 @@ pubkeyToAlg :: PubKey -> PubKeyALG
 pubkeyToAlg (PubKeyRSA _)         = PubKeyALG_RSA
 pubkeyToAlg (PubKeyDSA _)         = PubKeyALG_DSA
 pubkeyToAlg (PubKeyDH _)          = PubKeyALG_DH
-pubkeyToAlg (PubKeyECDSA _)       = PubKeyALG_ECDSA
+pubkeyToAlg (PubKeyECDSA _ _)     = PubKeyALG_ECDSA
 pubkeyToAlg (PubKeyUnknown oid _) = PubKeyALG_Unknown oid
 
 parseCertHeaderAlgorithmID :: ParseASN1 SignatureALG
@@ -243,29 +239,27 @@ parseCertHeaderValidity = getNextContainer Sequence >>= toTimeBound
 
 parseCertHeaderSubjectPK :: ParseASN1 PubKey
 parseCertHeaderSubjectPK = onNextContainer Sequence $ do
-        l <- getNextContainer Sequence
-        bits <- getNextBitString
-        case l of
-                [OID pkalg,Null] -> do
-                        let sig = oidPubKey pkalg
-                        case sig of
-                                PubKeyALG_RSA -> either (throwError) (return . PubKeyRSA) (parse_RSA bits)
-                                _             -> return $ PubKeyUnknown pkalg $ L.unpack bits
-                [OID pkalg,OID _] -> do
-                        let sig = oidPubKey pkalg
-                        case sig of
-                                PubKeyALG_ECDSA  -> parse_ECDSA bits
-                                _                -> return $ PubKeyUnknown pkalg $ L.unpack bits
-                [OID pkalg,Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] -> do
-                        let sig = oidPubKey pkalg
-                        case decodeASN1 BER bits of
-                                Right [IntVal dsapub] -> return $ PubKeyDSA $ DSA.PublicKey
-                                        { DSA.public_params = (p, q, g), DSA.public_y = dsapub }
-                                _                     -> return $ PubKeyUnknown pkalg $ L.unpack bits
-                n ->
-                        throwError ("subject public key bad format : " ++ show n)
+    l <- getNextContainer Sequence
+    bits <- getNextBitString
+    case l of
+        (OID pkalg):xs -> toKey (oidPubKey pkalg) xs bits
+        _              -> throwError ("subject public unknown key format : " ++ show l)
+    where toKey PubKeyALG_RSA _ bits = do
+                either (throwError) (return . PubKeyRSA) (parse_RSA bits)
+          toKey PubKeyALG_ECDSA xs bits = do
+                case xs of
+                    [(OID [1,3,132,0,34])] -> return $ PubKeyECDSA ECDSA_Hash_SHA384 bits
+                    _                      -> return $ PubKeyUnknown (pubkeyalgOID PubKeyALG_ECDSA) $ L.unpack bits
+          toKey PubKeyALG_DSA [Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] bits = do
+                case decodeASN1 BER bits of
+                     Right [IntVal dsapub] -> return $ PubKeyDSA $ DSA.PublicKey
+                                                                     { DSA.public_params = (p, q, g)
+                                                                     , DSA.public_y = dsapub }
+                     _                     -> return $ PubKeyUnknown (pubkeyalgOID PubKeyALG_DSA) $ L.unpack bits
+          toKey (PubKeyALG_Unknown oid) _ bits = return $ PubKeyUnknown oid $ L.unpack bits
+          toKey other _ bits = return $ PubKeyUnknown (pubkeyalgOID other) $ L.unpack bits
 
-        where getNextBitString = getNext >>= \bs -> case bs of
+          getNextBitString = getNext >>= \bs -> case bs of
                 BitString bits -> return $ bitArrayGetData bits
                 _              -> throwError "expecting bitstring"
 
