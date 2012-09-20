@@ -5,6 +5,7 @@ module Data.Certificate.X509.Cert
         , HashALG(..)
         , PubKeyALG(..)
         , PubKey(..)
+        , ECDSA_Hash(..)
         , ASN1StringType(..)
         , ASN1String
         , Certificate(..)
