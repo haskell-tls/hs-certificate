@@ -213,9 +213,6 @@ encodeAsn1String (BMP, x)       = BMPString x
 encodeAsn1String (IA5, x)       = IA5String x
 encodeAsn1String (T61, x)       = T61String x
 
-parseCertHeaderDN :: ParseASN1 [(OID, ASN1String)]
-parseCertHeaderDN = parseDN
-
 parseDN :: ParseASN1 [(OID, ASN1String)]
 parseDN = onNextContainer Sequence getDNs where
         getDNs = do
@@ -306,9 +303,9 @@ parseCertificate = do
         version  <- parseCertHeaderVersion
         serial   <- parseCertHeaderSerial
         sigalg   <- parseCertHeaderAlgorithmID
-        issuer   <- parseCertHeaderDN
+        issuer   <- parseDN
         validity <- parseCertHeaderValidity
-        subject  <- parseCertHeaderDN
+        subject  <- parseDN
         pk       <- parseCertHeaderSubjectPK
         exts     <- parseCertExtensions
         hnext    <- hasNext
