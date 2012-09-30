@@ -42,6 +42,7 @@ import Data.ASN1.BinaryEncoding
 import qualified Data.ASN1.BinaryEncoding.Raw as Raw (toLazyByteString)
 import Data.ASN1.Stream
 import Data.ASN1.BitArray
+import Data.ASN1.Object
 import qualified Data.ByteString.Lazy as L
 
 import Data.Certificate.X509.Internal
@@ -69,7 +70,7 @@ instance Eq X509 where
 getSigningData :: X509 -> L.ByteString
 getSigningData (X509 _    (Just e) _ _ _) = e
 getSigningData (X509 cert Nothing _ _ _)  = encodeASN1 DER header
-        where header    = asn1Container Sequence $ encodeCertificateHeader cert
+        where header    = asn1Container Sequence $ toASN1 cert
 
 {- | decode an X509 from a bytestring
  - the structure is the following:
@@ -88,7 +89,7 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr BER b
                                 let (certrepr,rem1)  = getConstructedEndRepr l2 in
                                 let (sigalgseq,rem2) = getConstructedEndRepr rem1 in
                                 let (sigseq,_)       = getConstructedEndRepr rem2 in
-                                let cert = onContainer certrepr (runParseASN1 parseCertificate . map fst) in
+                                let cert = onContainer certrepr (either Left (Right . fst) . fromASN1 . map fst) in
                                 case (cert, map fst sigseq) of
                                         (Right c, [BitString b]) ->
                                                 let certevs = Raw.toLazyByteString $ concatMap snd certrepr in
@@ -115,7 +116,7 @@ encodeCertificate (X509 cert _ Nothing    sigalg sigbits) = encodeASN1 DER rootS
         where
                 esigalg   = asn1Container Sequence [OID (sigOID sigalg), Null]
                 esig      = BitString $ toBitArray (L.pack sigbits) 0
-                header    = asn1Container Sequence $ encodeCertificateHeader cert
+                header    = asn1Container Sequence $ toASN1 cert
                 rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])
 
 decodeDN :: L.ByteString -> Either String DistinguishedName

@@ -119,6 +119,10 @@ data Certificate = Certificate
         , certExtensions   :: Maybe [ExtensionRaw]   -- ^ Certificate Extensions
         } deriving (Show,Eq)
 
+instance ASN1Object Certificate where
+    toASN1   certificate = encodeCertificateHeader certificate
+    fromASN1 s           = runParseASN1State parseCertificate s
+
 oidCommonName, oidCountry, oidOrganization, oidOrganizationUnit :: OID
 oidCommonName       = [2,5,4,3]
 oidCountry          = [2,5,4,6]
