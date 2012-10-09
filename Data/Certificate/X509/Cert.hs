@@ -130,13 +130,10 @@ oidOrganization     = [2,5,4,10]
 oidOrganizationUnit = [2,5,4,11]
 
 parseCertHeaderVersion :: ParseASN1 Int
-parseCertHeaderVersion = do
-        v <- onNextContainerMaybe (Container Context 0) $ do
-                n <- getNext
-                case n of
-                        IntVal v -> return $ fromIntegral v
-                        _        -> throwError "unexpected type for version"
-        return $ maybe 1 id v
+parseCertHeaderVersion =
+    maybe 1 id <$> onNextContainerMaybe (Container Context 0) (getNext >>= getVer)
+    where getVer (IntVal v) = return $ fromIntegral v
+          getVer _          = throwError "unexpected type for version"
 
 parseCertHeaderSerial :: ParseASN1 Integer
 parseCertHeaderSerial = do
