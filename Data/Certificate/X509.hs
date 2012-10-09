@@ -20,7 +20,7 @@ module Data.Certificate.X509
         , OID
         , ASN1StringType(..)
         , ASN1String
-        , DistinguishedName
+        , DistinguishedName(..)
         , Certificate(..)
         , module Data.Certificate.X509.Ext
 
@@ -31,7 +31,7 @@ module Data.Certificate.X509
         , decodeCertificate
         , encodeCertificate
 
-        -- * serialization from ASN1 bytestring
+        -- * Distinguished names related function
         , decodeDN
         , encodeDN
         ) where

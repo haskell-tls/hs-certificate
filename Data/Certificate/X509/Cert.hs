@@ -9,7 +9,7 @@ module Data.Certificate.X509.Cert
         , ASN1StringType(..)
         , ASN1String
         , Certificate(..)
-        , DistinguishedName
+        , DistinguishedName(..)
         , OID
 
         -- various OID
@@ -22,12 +22,9 @@ module Data.Certificate.X509.Cert
         , oidSig
         , sigOID
 
-        -- * certificate to/from asn1
-        , parseCertificate
-        , encodeCertificateHeader
-
         -- * Parse and encode a single distinguished name
         , parseDN
+        , encodeDNinner
         , encodeDN
 
         -- * extensions
@@ -35,15 +32,18 @@ module Data.Certificate.X509.Cert
         ) where
 
 import Data.Word
+import Data.Monoid
 import Data.List (find, sortBy)
 import Data.ASN1.Stream
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
+import Data.ASN1.Object
 import Data.Maybe
 import Data.Time.Calendar
 import Data.Time.Clock (DiffTime, secondsToDiffTime)
 import qualified Data.ByteString.Lazy as L
+import Control.Arrow (second)
 import Control.Applicative ((<$>))
 import Control.Monad.State
 import Control.Monad.Error
@@ -106,7 +106,12 @@ data CertKeyUsage =
 data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq)
 type ASN1String = (ASN1StringType, String)
 
-type DistinguishedName = [(OID, ASN1String)]
+newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1String)] }
+    deriving (Show,Eq)
+
+instance Monoid DistinguishedName where
+    mempty  = DistinguishedName []
+    mappend (DistinguishedName l1) (DistinguishedName l2) = DistinguishedName (l1++l2)
 
 data Certificate = Certificate
         { certVersion      :: Int                    -- ^ Certificate Version
@@ -210,8 +215,8 @@ encodeAsn1String (BMP, x)       = BMPString x
 encodeAsn1String (IA5, x)       = IA5String x
 encodeAsn1String (T61, x)       = T61String x
 
-parseDN :: ParseASN1 [(OID, ASN1String)]
-parseDN = onNextContainer Sequence getDNs where
+parseDN :: ParseASN1 DistinguishedName
+parseDN = DistinguishedName <$> onNextContainer Sequence getDNs where
         getDNs = do
                 n <- hasNext
                 if n
@@ -318,11 +323,12 @@ parseCertificate = do
                 , certExtensions   = exts
                 }
 
+encodeDNinner :: (ASN1String -> ASN1String) -> DistinguishedName -> [ASN1]
+encodeDNinner f (DistinguishedName dn) = concatMap dnSet dn
+    where dnSet (oid, stringy) = asn1Container Set (asn1Container Sequence [OID oid, encodeAsn1String (f stringy)])
 
-encodeDN :: [ (OID, ASN1String) ] -> [ASN1]
-encodeDN dn = asn1Container Sequence $ concatMap dnSet dn
-        where
-                dnSet (oid, stringy) = asn1Container Set (asn1Container Sequence [OID oid, encodeAsn1String stringy])
+encodeDN :: DistinguishedName -> [ASN1]
+encodeDN dn = asn1Container Sequence $ encodeDNinner id dn
 
 encodePK :: PubKey -> [ASN1]
 encodePK k@(PubKeyRSA pubkey) =
