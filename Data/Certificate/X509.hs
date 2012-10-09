@@ -34,8 +34,11 @@ module Data.Certificate.X509
         -- * Distinguished names related function
         , decodeDN
         , encodeDN
+        , hashDN
+        , hashDN_old
         ) where
 
+import Data.Char
 import Data.Word
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
@@ -43,12 +46,16 @@ import qualified Data.ASN1.BinaryEncoding.Raw as Raw (toLazyByteString)
 import Data.ASN1.Stream
 import Data.ASN1.BitArray
 import Data.ASN1.Object
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 
 import Data.Certificate.X509.Internal
 import Data.Certificate.X509.Cert hiding (encodeDN)
 import qualified  Data.Certificate.X509.Cert as Cert
 import Data.Certificate.X509.Ext
+
+import qualified Crypto.Hash.MD5 as MD5
+import qualified Crypto.Hash.SHA1 as SHA1
 
 data X509 = X509
         { x509Cert              :: Certificate          -- ^ the certificate part of a X509 structure
@@ -124,3 +131,19 @@ decodeDN by = either (Left . show) (runParseASN1 parseDN) $ decodeASN1 BER by
 
 encodeDN :: DistinguishedName -> L.ByteString
 encodeDN dn = encodeASN1 DER $ Cert.encodeDN dn
+
+-- | Make an openssl style hash of distinguished name
+hashDN :: DistinguishedName -> B.ByteString
+hashDN = shorten . SHA1.hash . encodeASN1' DER . Cert.encodeDNinner toLowerUTF8
+    where toLowerUTF8 (_, s) = (UTF8, map asciiToLower s)
+          asciiToLower c
+            | c >= 'A' && c <= 'Z' = toLower c
+            | otherwise            = c
+
+-- | Create an openssl style old hash of distinguished name
+hashDN_old :: DistinguishedName -> B.ByteString
+hashDN_old = shorten . MD5.hash . encodeASN1' DER . Cert.encodeDN
+
+shorten :: B.ByteString -> B.ByteString
+shorten b = B.pack $ map i [3,2,1,0]
+    where i n = B.index b n

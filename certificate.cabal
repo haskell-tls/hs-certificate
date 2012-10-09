@@ -32,6 +32,7 @@ Library
                    , pem >= 0.1 && < 0.2
                    , asn1-data >= 0.7.1
                    , crypto-pubkey-types >= 0.1 && < 0.2
+                   , cryptohash
                    , directory
                    , process
                    , time
