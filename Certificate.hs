@@ -7,6 +7,7 @@ import qualified Data.ByteString as B
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import qualified Data.Certificate.X509 as X509
+import Data.Certificate.X509.Cert as Cert
 import Data.Certificate.KeyRSA as KeyRSA
 import Data.Certificate.KeyDSA as KeyDSA
 import Data.List (find)
@@ -38,7 +39,10 @@ hexdump bs = concatMap hex $ L.unpack bs
 		| n > 0xa   = showHex n ""
 		| otherwise = "0" ++ showHex n ""
 
-showDN dn = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ t)) dn
+hexdump' :: B.ByteString -> String
+hexdump' = hexdump . L.fromChunks . (:[])
+
+showDN (X509.DistinguishedName dn) = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ t)) dn
 
 showExts es = do
 	mapM_ showExt es
@@ -167,8 +171,17 @@ processCert opts (cert, x509) = do
 		Right asn1 -> showASN1 0 asn1
 
 	when (text opts || not (or [asn1 opts,raw opts])) $ showCert x509
+	when (hash opts) $ hashCert x509
 	when (verify opts) $ verifyCert x509
 	where
+		hashCert x509@(X509.X509 cert _ _ _ _) = do
+			putStrLn ("subject(MD5):  " ++ hexdump' (X509.hashDN_old subject))
+			putStrLn ("issuer(MD5):   " ++ hexdump' (X509.hashDN_old issuer))
+			putStrLn ("subject(SHA1): " ++ hexdump' (X509.hashDN subject))
+			putStrLn ("issuer(SHA1):  " ++ hexdump' (X509.hashDN issuer))
+			where
+				subject    = X509.certSubjectDN cert
+				issuer     = X509.certIssuerDN cert
 		verifyCert x509@(X509.X509 cert _ _ sigalg sig) = do
 			sysx509 <- SysCert.findCertificate (matchsysX509 cert)
 			case sysx509 of
@@ -236,6 +249,7 @@ data CertMainOpts =
 		, text   :: Bool
 		, raw    :: Bool
 		, verify :: Bool
+		, hash   :: Bool
 		}
 	| Key
 		{ files :: [FilePath]
@@ -248,6 +262,7 @@ x509Opts = X509
 	, text   = def
 	, raw    = def
 	, verify = def
+	, hash   = def
 	} &= help "x509 certificate related commands"
 
 keyOpts = Key
