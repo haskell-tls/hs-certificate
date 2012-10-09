@@ -33,7 +33,7 @@ module Data.Certificate.X509.Cert
 
 import Data.Word
 import Data.Monoid
-import Data.List (find, sortBy)
+import Data.List (find)
 import Data.ASN1.Stream
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
@@ -43,7 +43,6 @@ import Data.Maybe
 import Data.Time.Calendar
 import Data.Time.Clock (DiffTime, secondsToDiffTime)
 import qualified Data.ByteString.Lazy as L
-import Control.Arrow (second)
 import Control.Applicative ((<$>))
 import Control.Monad.State
 import Control.Monad.Error
