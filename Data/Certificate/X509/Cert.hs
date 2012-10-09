@@ -266,9 +266,8 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
                 _              -> throwError "expecting bitstring"
 
 parseCertExtensions :: ParseASN1 (Maybe [ExtensionRaw])
-parseCertExtensions = onNextContainerMaybe (Container Context 3) (sortByOID . mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
+parseCertExtensions = onNextContainerMaybe (Container Context 3) (mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
         where
-                sortByOID = sortBy (\(a,_,_) (b,_,_) -> a `compare` b)
                 getSequences = do
                         n <- hasNext
                         if n
@@ -315,13 +314,12 @@ parseCertificate = do
                 { certVersion      = version
                 , certSerial       = serial
                 , certSignatureAlg = sigalg
-                , certIssuerDN     = sortByOID issuer
-                , certSubjectDN    = sortByOID subject
+                , certIssuerDN     = issuer
+                , certSubjectDN    = subject
                 , certValidity     = validity
                 , certPubKey       = pk
                 , certExtensions   = exts
                 }
-    where sortByOID = sortBy (\a b -> fst a `compare` fst b)
 
 
 encodeDN :: [ (OID, ASN1String) ] -> [ASN1]
