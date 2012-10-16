@@ -13,7 +13,8 @@ import Data.Certificate.X509
 import Data.List (isPrefixOf)
 
 -- FIXME : make unit tests portable to run on osX and windows
-import System.Certificate.X509.Unix (readAll)
+import System.Certificate.X509
+import Data.CertificateStore
 
 checkCert (X509 c mraw rawCert sigalg sigbits) = do
 	let errs =
@@ -42,4 +43,4 @@ checkCert (X509 c mraw rawCert sigalg sigbits) = do
 			| otherwise          = findsubstring a (L.drop 1 b)
 
 runTests :: IO ()
-runTests = readAll >>= mapM_ (\x509 -> checkCert x509)
+runTests = getSystemCertificateStore >>= mapM_ checkCert . listCertificates

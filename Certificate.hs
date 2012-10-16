@@ -17,7 +17,8 @@ import Control.Monad
 import Control.Applicative ((<$>))
 import Data.Maybe
 import System.Exit
-import System.Certificate.X509 as SysCert
+import System.Certificate.X509
+import Data.CertificateStore
 
 -- for signing/verifying certificate
 import qualified Crypto.Hash.SHA1 as SHA1
@@ -172,7 +173,7 @@ processCert opts (cert, x509) = do
 
 	when (text opts || not (or [asn1 opts,raw opts])) $ showCert x509
 	when (hash opts) $ hashCert x509
-	when (verify opts) $ verifyCert x509
+	when (verify opts) $ getSystemCertificateStore >>= flip verifyCert x509
 	where
 		hashCert x509@(X509.X509 cert _ _ _ _) = do
 			putStrLn ("subject(MD5):  " ++ hexdump' (X509.hashDN_old subject))
@@ -182,9 +183,8 @@ processCert opts (cert, x509) = do
 			where
 				subject    = X509.certSubjectDN cert
 				issuer     = X509.certIssuerDN cert
-		verifyCert x509@(X509.X509 cert _ _ sigalg sig) = do
-			sysx509 <- SysCert.findCertificate (matchsysX509 cert)
-			case sysx509 of
+		verifyCert store x509@(X509.X509 cert _ _ sigalg sig) = do
+			case findCertificate (X509.certIssuerDN cert) store of
 				Nothing                        -> putStrLn "couldn't find signing certificate"
 				Just (X509.X509 syscert _ _ _ _) -> do
 					verifyAlg (B.concat $ L.toChunks $ X509.getSigningData x509)

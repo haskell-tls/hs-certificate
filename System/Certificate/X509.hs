@@ -7,7 +7,7 @@
 -- Portability : good
 --
 module System.Certificate.X509
-	( findCertificate
+	( getSystemCertificateStore
 	) where
 
 #if defined(WINDOWS)

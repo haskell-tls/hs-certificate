@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 -- |
 -- Module      : System.Certificate.X509
 -- License     : BSD-style
@@ -14,27 +13,26 @@
 -- default is SYSTEM_CERTIFICATE_PATH
 --
 module System.Certificate.X509.Unix
-    ( getSystemPath
-    , readAll
-    , findCertificate
+    ( getSystemCertificateStore
     ) where
 
-import System.Directory (getDirectoryContents)
+import System.Directory (getDirectoryContents, doesFileExist)
 import System.Environment (getEnv)
-import Data.List (isPrefixOf, find)
+import System.FilePath ((</>))
 
+import Data.List (isPrefixOf)
 import Data.PEM (PEM(..), pemParseBS)
 import Data.Either
 import Data.Certificate.X509
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
+import Data.CertificateStore
 
 import Control.Applicative ((<$>))
-import Control.Exception
+import Control.Monad (filterM)
+import qualified Control.Exception as E
 
-#if !MIN_VERSION_base(4,6,0)
-import Prelude hiding (catch)
-#endif
+import Data.Char
 
 defaultSystemPath :: FilePath
 defaultSystemPath = "/etc/ssl/certs/"
@@ -42,28 +40,24 @@ defaultSystemPath = "/etc/ssl/certs/"
 envPathOverride :: String
 envPathOverride = "SYSTEM_CERTIFICATE_PATH"
 
-listSystemCertificates :: IO [FilePath]
-listSystemCertificates = do
-    path      <- getSystemPath
-    map (path ++) . filter (not . isPrefixOf ".") <$> getDirectoryContents path
+listDirectoryCerts :: FilePath -> IO [FilePath]
+listDirectoryCerts path = (map (path </>) . filter isCert <$> getDirectoryContents path)
+                      >>= filterM doesFileExist
+    where isHashedFile s = length s == 10
+                        && isDigit (s !! 9)
+                        && (s !! 8) == '.'
+                        && all isHexDigit (take 8 s)
+          isCert x = (not $ isPrefixOf "." x) && (not $ isHashedFile x)
+
+getSystemCertificateStore :: IO CertificateStore
+getSystemCertificateStore = makeCertificateStore . concat <$> (getSystemPath >>= listDirectoryCerts >>= mapM readCertificates)
 
 getSystemPath :: IO FilePath
-getSystemPath = catch (getEnv envPathOverride) inDefault
+getSystemPath = E.catch (getEnv envPathOverride) inDefault
     where
-        inDefault :: IOException -> IO FilePath
+        inDefault :: E.IOException -> IO FilePath
         inDefault _ = return defaultSystemPath
 
 readCertificates :: FilePath -> IO [X509]
 readCertificates file = either (const []) (rights . map getCert) . pemParseBS <$> B.readFile file
     where getCert pem = decodeCertificate $ L.fromChunks [pemContent pem]
-
-readAll :: IO [X509]
-readAll = do
-    certfiles <- listSystemCertificates
-    concat . rights <$> mapM (trySE . readCertificates) certfiles
-
-findCertificate :: (X509 -> Bool) -> IO (Maybe X509)
-findCertificate f = find f <$> readAll
-
-trySE :: IO a -> IO (Either SomeException a)
-trySE = try

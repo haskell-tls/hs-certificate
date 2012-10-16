@@ -33,7 +33,9 @@ Library
                    , asn1-data >= 0.7.1
                    , crypto-pubkey-types >= 0.1 && < 0.2
                    , cryptohash
+                   , containers
                    , directory
+                   , filepath
                    , process
                    , time
   Exposed-modules:   Data.Certificate.X509
@@ -41,6 +43,7 @@ Library
                      Data.Certificate.X509.Ext
                      Data.Certificate.KeyDSA
                      Data.Certificate.KeyRSA
+                     Data.CertificateStore
                      System.Certificate.X509
                      System.Certificate.X509.Unix
                      System.Certificate.X509.MacOS

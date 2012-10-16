@@ -1,5 +1,5 @@
 module System.Certificate.X509.Win32
-	( findCertificate
+	( getSystemCertificateStore
 	) where
 
 import Foreign.Marshal.Alloc (allocaBytes)
@@ -19,6 +19,8 @@ import Data.Certificate.X509.Cert
 
 import Data.Bits
 
+import Data.CertificateStore
+
 defaultSystemPath :: FilePath
 defaultSystemPath = "SOFTWARE\\Microsoft\\SystemCertificates\\CA\\Certificates"
 
@@ -35,26 +37,17 @@ fromBlob mem ty
 		B.create (fromIntegral len) (\bptr -> B.memcpy bptr mem len)
 	| otherwise        = error "certificate blob have unexpected type"
 
-getSystemPath :: IO FilePath
-getSystemPath = undefined
-
 data ReadErr =
 	  Exception IOException
 	| CertError String
 	deriving (Show,Eq)
 
-findCertificate :: (X509 -> Bool) -> IO (Maybe X509)
-findCertificate f = do
-	hashes <- listSubDirectories defaultSystemPath
-	loop hashes
-	where
-		readCertificate path = do
-			b <- openValue path "Blob" fromBlob
-			return $ decodeCertificate $ L.fromChunks [b]
+readCertificate dir hash = do
+    b <- openValue path "Blob" fromBlob
+    return $ decodeCertificate $ L.fromChunks [b]
+    where path = dir ++ "\\" ++ hash
 
-		loop []     = return Nothing
-		loop (x:xs) = do
-			cert <- readCertificate (defaultSystemPath ++ "\\" ++ x)
-			case cert of
-				Left _ -> loop xs
-				Right x509 -> if f x509 then return $ Just x509 else loop xs
+listIn dir = listSubDirectories dir >>= \hs -> (rights <$> mapM (readCertificate dir) hs)
+
+getSystemCertificateStore :: IO CertificateStore
+getSystemCertificateStore = makeCertificateStore <$> listIn defaultSystemPath
