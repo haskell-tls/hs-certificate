@@ -92,7 +92,7 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr BER b
                  - * the header
                  - * the signature algorithm
                  - * the signature -}
-                parseRootASN1 l = onContainer rootseq $ \l2 ->
+                parseRootASN1 l = onContainer (fst $ getConstructedEndRepr l) $ \l2 ->
                                 let (certrepr,rem1)  = getConstructedEndRepr l2 in
                                 let (sigalgseq,rem2) = getConstructedEndRepr rem1 in
                                 let (sigseq,_)       = getConstructedEndRepr rem2 in
@@ -104,8 +104,6 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr BER b
                                                 Right $ X509 c (Just certevs) (Just by) sigalg (L.unpack $ bitArrayGetData b)
                                         (Left err, _) -> Left $ ("certificate error: " ++ show err)
                                         _             -> Left $ "certificate structure error"
-                        where
-                                (rootseq, _) = getConstructedEndRepr l
 
                 onContainer ((Start _, _) : l) f =
                         case reverse l of
