@@ -102,11 +102,11 @@ data CertKeyUsage =
         | CertKeyUsageDecipherOnly
         deriving (Show, Eq)
 
-data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq)
+data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq,Ord,Enum)
 type ASN1String = (ASN1StringType, String)
 
 newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1String)] }
-    deriving (Show,Eq)
+    deriving (Show,Eq,Ord)
 
 instance Monoid DistinguishedName where
     mempty  = DistinguishedName []
