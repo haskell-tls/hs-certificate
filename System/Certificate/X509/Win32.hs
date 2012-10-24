@@ -10,6 +10,8 @@ import Control.Applicative ((<$>))
 
 import System.Win32.Registry
 
+import Data.Either
+
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Lazy as L
