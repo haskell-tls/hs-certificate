@@ -2,6 +2,7 @@ module System.Certificate.X509.Win32
 	( getSystemCertificateStore
 	) where
 
+{-
 import Foreign.Marshal.Alloc (allocaBytes)
 import Foreign.Ptr (castPtr)
 
@@ -18,7 +19,6 @@ import Data.Certificate.X509
 import Data.Certificate.X509.Cert
 
 import Data.Bits
-
 import Data.CertificateStore
 
 defaultSystemPath :: FilePath
@@ -51,3 +51,8 @@ listIn dir = listSubDirectories dir >>= \hs -> (rights <$> mapM (readCertificate
 
 getSystemCertificateStore :: IO CertificateStore
 getSystemCertificateStore = makeCertificateStore <$> listIn defaultSystemPath
+-}
+import Data.CertificateStore
+
+getSystemCertificateStore :: IO CertificateStore
+getSystemCertificateStore = return (makeCertificateStore [])
