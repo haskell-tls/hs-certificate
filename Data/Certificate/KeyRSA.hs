@@ -5,7 +5,7 @@
 -- Stability   : experimental
 -- Portability : unknown
 --
--- Read/Write Private/Public RSA Key
+-- Read\/Write Private\/Public RSA Key
 --
 
 module Data.Certificate.KeyRSA
