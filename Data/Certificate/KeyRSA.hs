@@ -61,8 +61,7 @@ parsePrivate
         , End Sequence ] = Right (pubkey, privkey)
         where
                 privkey = RSA.PrivateKey
-                        { RSA.private_size = calculate_modulus p_modulus 1
-                        , RSA.private_n    = p_modulus
+                        { RSA.private_pub  = pubkey
                         , RSA.private_d    = priv_exp
                         , RSA.private_p    = p_p1
                         , RSA.private_q    = p_p2
