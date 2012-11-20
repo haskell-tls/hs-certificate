@@ -115,11 +115,11 @@ showRSAKey (pubkey,privkey) = unlines
 
 showDSAKey :: (DSA.PublicKey,DSA.PrivateKey) -> String
 showDSAKey (pubkey,privkey) = unlines
-	[ "priv     " ++ (show $ DSA.private_x privkey)
-	, "pub:     " ++ (show $ DSA.public_y pubkey)
-	, "p:       " ++ (show p)
-	, "q:       " ++ (show g)
-	, "g:       " ++ (show q)
+	[ "priv     " ++ (printf "%x" $ DSA.private_x privkey)
+	, "pub:     " ++ (printf "%x" $ DSA.public_y pubkey)
+	, "p:       " ++ (printf "%x" p)
+	, "q:       " ++ (printf "%x" g)
+	, "g:       " ++ (printf "%x" q)
 	]
     where (p,g,q) = DSA.private_params privkey
 
