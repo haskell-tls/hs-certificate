@@ -22,7 +22,7 @@ import qualified Crypto.Types.PubKey.DSA as DSA
 parsePrivate :: [ASN1] -> Either String (DSA.PublicKey, DSA.PrivateKey)
 parsePrivate
         [ Start Sequence
-        , IntVal 0, IntVal p, IntVal g, IntVal q, IntVal pub, IntVal priv
+        , IntVal 0, IntVal p, IntVal q, IntVal g, IntVal pub, IntVal priv
         , End Sequence ] = Right (pubkey, privkey)
     where
         privkey = DSA.PrivateKey { DSA.private_params = params, DSA.private_x = priv }
@@ -43,8 +43,8 @@ encodePrivate (pubkey, privkey) = encodeASN1 DER pkseq
                 [ Start Sequence
                 , IntVal 0
                 , IntVal p
-                , IntVal g
                 , IntVal q
+                , IntVal g
                 , IntVal $ DSA.public_y pubkey
                 , IntVal $ DSA.private_x privkey
                 , End Sequence

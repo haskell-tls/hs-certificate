@@ -77,7 +77,7 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 			printf "  modulus: %x\n" (RSA.public_n pubkey)
 			printf "  e      : %x\n" (RSA.public_e pubkey)
 		X509.PubKeyDSA pubkey -> do
-			let (p,g,q) = DSA.public_params pubkey
+			let (p,q,g) = DSA.public_params pubkey
 			putStrLn "public key DSA:"
 			printf "  pub    : %x\n" (DSA.public_y pubkey)
 			printf "  p      : %d\n" p
@@ -121,7 +121,7 @@ showDSAKey (pubkey,privkey) = unlines
 	, "q:       " ++ (printf "%x" g)
 	, "g:       " ++ (printf "%x" q)
 	]
-    where (p,g,q) = DSA.private_params privkey
+    where (p,q,g) = DSA.private_params privkey
 
 showASN1 :: Int -> [ASN1] -> IO ()
 showASN1 at = prettyPrint at where
