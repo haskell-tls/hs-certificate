@@ -22,10 +22,15 @@ import Data.CertificateStore
 
 -- for signing/verifying certificate
 import qualified Crypto.Hash.SHA1 as SHA1
+import qualified Crypto.Hash.SHA224 as SHA224
+import qualified Crypto.Hash.SHA256 as SHA256
+import qualified Crypto.Hash.SHA512 as SHA512
 import qualified Crypto.Hash.MD2 as MD2
 import qualified Crypto.Hash.MD5 as MD5
-import qualified Crypto.Cipher.RSA as RSA
-import qualified Crypto.Cipher.DSA as DSA
+import qualified Crypto.PubKey.HashDescr as HD
+import qualified Crypto.PubKey.RSA as RSA
+import qualified Crypto.PubKey.RSA.PKCS15 as RSA
+import qualified Crypto.PubKey.DSA as DSA
 
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
@@ -192,16 +197,21 @@ processCert opts (cert, x509) = do
 					          sigalg
 					          (X509.certPubKey syscert)
 
-		rsaVerify h hdesc pk a b = either (Left . show) (Right) $ RSA.verify h hdesc pk a b
+		rsaVerify hdesc pk a b = Right $ RSA.verify hdesc pk a b
 
 		verifyF (X509.SignatureALG hash X509.PubKeyALG_RSA) (X509.PubKeyRSA rsak) =
-			let (f, asn1) = case hash of
-				X509.HashMD2  -> (MD2.hash, "\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x02\x10")
-				X509.HashMD5  -> (MD5.hash, "\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10")
-				X509.HashSHA1 -> (SHA1.hash, "\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14")
-				_             -> error ("unsupported hash in RSA: " ++ show hash)
+			let hdesc = case hash of
+				-- "ASN.1 DER X algorithm designator prefix"
+				X509.HashMD2    -> HD.hashDescrMD2
+				X509.HashMD5    -> HD.hashDescrMD5
+				X509.HashSHA1   -> HD.hashDescrSHA1
+				X509.HashSHA224 -> HD.hashDescrSHA224
+				X509.HashSHA256 -> HD.hashDescrSHA256
+				X509.HashSHA384 -> HD.hashDescrSHA384
+				X509.HashSHA512 -> HD.hashDescrSHA512
+				_               -> error ("unsupported hash in RSA: " ++ show hash)
 				in
-			rsaVerify f asn1 rsak
+			rsaVerify hdesc rsak
 
 		verifyF (X509.SignatureALG _ X509.PubKeyALG_DSA) (X509.PubKeyDSA dsak) =
 			(\_ _ -> Left "unimplemented DSA checking")

@@ -1,5 +1,5 @@
 Name:                certificate
-Version:             1.3.3
+Version:             1.3.4
 Description:
     Certificates and Key reader/writer
     .
@@ -63,7 +63,7 @@ Executable           certificate
     Build-depends:   cmdargs
                    , text >= 0.11
                    , cryptohash
-                   , cryptocipher >= 0.3.0
+                   , crypto-pubkey
                    , directory
   else
     Buildable:       False
