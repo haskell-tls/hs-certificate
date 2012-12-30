@@ -59,5 +59,8 @@ getSystemPath = E.catch (getEnv envPathOverride) inDefault
         inDefault _ = return defaultSystemPath
 
 readCertificates :: FilePath -> IO [X509]
-readCertificates file = either (const []) (rights . map getCert) . pemParseBS <$> B.readFile file
-    where getCert pem = decodeCertificate $ L.fromChunks [pemContent pem]
+readCertificates file = E.catch (either (const []) (rights . map getCert) . pemParseBS <$> B.readFile file) skipIOError
+    where
+        getCert pem = decodeCertificate $ L.fromChunks [pemContent pem]
+        skipIOError :: E.IOException -> IO [X509]
+        skipIOError _ = return []
