@@ -65,14 +65,19 @@ extensionGet ((oid,_,asn1):xs) = case extDecode asn1 of
                 | otherwise       -> extensionGet xs
         Left _                    -> extensionGet xs
 
-data ExtBasicConstraints = ExtBasicConstraints Bool
+data ExtBasicConstraints = ExtBasicConstraints Bool (Maybe Integer)
         deriving (Show,Eq)
 
 instance Extension ExtBasicConstraints where
         extOID = const [2,5,29,19]
-        extEncode (ExtBasicConstraints b) = [Start Sequence,Boolean b,End Sequence]
-        extDecode [Start Sequence,Boolean b,End Sequence] = Right (ExtBasicConstraints b)
-        extDecode [Start Sequence,End Sequence] = Right (ExtBasicConstraints False)
+        extEncode (ExtBasicConstraints b Nothing)  = [Start Sequence,Boolean b,End Sequence]
+        extEncode (ExtBasicConstraints b (Just i)) = [Start Sequence,Boolean b,IntVal i,End Sequence]
+
+        extDecode [Start Sequence,Boolean b,IntVal v,End Sequence]
+            | v >= 0    = Right (ExtBasicConstraints b (Just v))
+            | otherwise = Left "invalid pathlen"
+        extDecode [Start Sequence,Boolean b,End Sequence] = Right (ExtBasicConstraints b Nothing)
+        extDecode [Start Sequence,End Sequence] = Right (ExtBasicConstraints False Nothing)
         extDecode _ = Left "unknown sequence"
 
 data ExtKeyUsage = ExtKeyUsage [ExtKeyUsageFlag]
