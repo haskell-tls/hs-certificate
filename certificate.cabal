@@ -30,7 +30,7 @@ Library
                    , bytestring
                    , mtl
                    , pem >= 0.1 && < 0.2
-                   , asn1-data >= 0.7.1
+                   , asn1-data >= 0.7.1 && < 0.8.0
                    , crypto-pubkey-types >= 0.2 && < 0.3
                    , cryptohash
                    , containers
