@@ -28,6 +28,7 @@ import Data.ASN1.Types
 import Data.ASN1.Stream
 import Data.ASN1.BitArray
 import Data.Certificate.X509.Internal
+import Control.Monad.Error
 
 type ExtensionRaw = (OID, Bool, [ASN1])
 
@@ -110,9 +111,10 @@ instance Extension ExtSubjectAltName where
         extDecode l = runParseASN1 parse l where
                 parse = do
                         c <- getNextContainer Sequence
-                        return $ ExtSubjectAltName $ map toStringy c
-                toStringy (Other Context 2 b) = BC.unpack b
-                toStringy b                   = error ("not coping with anything else " ++ show b)
+                        r <- sequence $ map toStringy c
+                        return $ ExtSubjectAltName r
+                toStringy (Other Context 2 b) = return $ BC.unpack b
+                toStringy b                   = throwError ("ExtSubjectAltName: not coping with anything else " ++ show b)
 
 data ExtAuthorityKeyId = ExtAuthorityKeyId B.ByteString
         deriving (Show,Eq)
