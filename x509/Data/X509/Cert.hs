@@ -105,15 +105,15 @@ oidOrganizationUnit = [2,5,4,11]
 parseCertHeaderVersion :: ParseASN1 Int
 parseCertHeaderVersion =
     maybe 1 id <$> onNextContainerMaybe (Container Context 0) (getNext >>= getVer)
-    where getVer (IntVal v) = return $ fromIntegral v
-          getVer _          = throwError "unexpected type for version"
+  where getVer (IntVal v) = return $ fromIntegral v
+        getVer _          = throwError "unexpected type for version"
 
 parseCertHeaderSerial :: ParseASN1 Integer
 parseCertHeaderSerial = do
-        n <- getNext
-        case n of
-                IntVal v -> return v
-                _        -> throwError ("missing serial" ++ show n)
+    n <- getNext
+    case n of
+        IntVal v -> return v
+        _        -> throwError ("missing serial" ++ show n)
 
 sig_table :: [ (OID, SignatureALG) ]
 sig_table =
@@ -142,11 +142,11 @@ sigOID sig = maybe [] fst $ find ((==) sig . snd) sig_table
 
 parseCertHeaderAlgorithmID :: ParseASN1 SignatureALG
 parseCertHeaderAlgorithmID = do
-        n <- getNextContainer Sequence
-        case n of
-                [ OID oid, Null ] -> return $ oidSig oid
-                [ OID oid ]       -> return $ oidSig oid
-                _                 -> throwError ("algorithm ID bad format " ++ show n)
+    n <- getNextContainer Sequence
+    case n of
+        [ OID oid, Null ] -> return $ oidSig oid
+        [ OID oid ]       -> return $ oidSig oid
+        _                 -> throwError ("algorithm ID bad format " ++ show n)
 
 type ASN1Stringable = (ASN1StringEncoding, B.ByteString)
 
@@ -167,8 +167,8 @@ parseOneDN = onNextContainer Set $ do
 
 parseCertHeaderValidity :: ParseASN1 (UTCTime, UTCTime)
 parseCertHeaderValidity = getNextContainer Sequence >>= toTimeBound
-    where toTimeBound [ ASN1Time _ t1 _, ASN1Time _ t2 _ ] = return (t1,t2)
-          toTimeBound _                                    = throwError "bad validity format"
+  where toTimeBound [ ASN1Time _ t1 _, ASN1Time _ t2 _ ] = return (t1,t2)
+        toTimeBound _                                    = throwError "bad validity format"
 
 parseCertHeaderSubjectPK :: ParseASN1 PubKey
 parseCertHeaderSubjectPK = onNextContainer Sequence $ do
@@ -177,47 +177,51 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
     case l of
         (OID pkalg):xs -> toKey (oidPubKey pkalg) xs bits
         _              -> throwError ("subject public unknown key format : " ++ show l)
-    where toKey PubKeyALG_RSA _ bits = do
-                case decodeASN1' BER bits of
-                    Left err -> throwError ("rsa format not ASN1: " ++ show err)
-                    Right s  -> case fromASN1 s of
-                                    Left err2     -> throwError err2
-                                    Right (rsa,_) -> return $ PubKeyRSA rsa
-          toKey PubKeyALG_ECDSA xs bits = do
-                case xs of
-                    [(OID [1,3,132,0,34])] -> return $ PubKeyECDSA ECDSA_Hash_SHA384 bits
-                    _                      -> return $ PubKeyUnknown (getObjectID PubKeyALG_ECDSA) $ B.unpack bits
-          toKey PubKeyALG_DSA [Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] bits = do
-                case decodeASN1' BER bits of
-                     Right [IntVal dsapub] -> return $ PubKeyDSA $ DSA.PublicKey
-                                                                     { DSA.public_params = DSA.Params { DSA.params_p = p
-                                                                                                      , DSA.params_q = q
-                                                                                                      , DSA.params_g = g
-                                                                                                      }
-                                                                     , DSA.public_y = dsapub }
-                     _                     -> return $ PubKeyUnknown (getObjectID PubKeyALG_DSA) $ B.unpack bits
-          toKey (PubKeyALG_Unknown oid) _ bits = return $ PubKeyUnknown oid $ B.unpack bits
-          toKey other _ bits = return $ PubKeyUnknown (getObjectID other) $ B.unpack bits
+  where toKey PubKeyALG_RSA _ bits = do
+            case decodeASN1' BER bits of
+                Left err -> throwError ("rsa format not ASN1: " ++ show err)
+                Right s  -> case fromASN1 s of
+                                Left err2     -> throwError err2
+                                Right (rsa,_) -> return $ PubKeyRSA rsa
+        toKey PubKeyALG_ECDSA xs bits = do
+            case xs of
+                [(OID [1,3,132,0,34])] -> return $ PubKeyECDSA ECDSA_Hash_SHA384 bits
+                _                      -> return $ PubKeyUnknown (getObjectID PubKeyALG_ECDSA) $ B.unpack bits
+        toKey PubKeyALG_DSA [Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] bits = do
+            case decodeASN1' BER bits of
+                Right [IntVal dsapub] -> return $ PubKeyDSA $ DSA.PublicKey
+                                                                   { DSA.public_params = DSA.Params { DSA.params_p = p
+                                                                                                    , DSA.params_q = q
+                                                                                                    , DSA.params_g = g
+                                                                                                    }
+                                                                   , DSA.public_y = dsapub }
+                _                     -> return $ PubKeyUnknown (getObjectID PubKeyALG_DSA) $ B.unpack bits
+        toKey (PubKeyALG_Unknown oid) _ bits = return $ PubKeyUnknown oid $ B.unpack bits
+        toKey other _ bits = return $ PubKeyUnknown (getObjectID other) $ B.unpack bits
 
-          getNextBitString = getNext >>= \bs -> case bs of
-                BitString bits -> return $ bitArrayGetData bits
-                _              -> throwError "expecting bitstring"
+        getNextBitString = getNext >>= \bs -> case bs of
+            BitString bits -> return $ bitArrayGetData bits
+            _              -> throwError "expecting bitstring"
 
 parseCertExtensions :: ParseASN1 (Maybe [ExtensionRaw])
-parseCertExtensions = onNextContainerMaybe (Container Context 3) (mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
-        where
-                getSequences = do
-                        n <- hasNext
-                        if n
-                                then getNextContainer Sequence >>= \sq -> liftM (sq :) getSequences
-                                else return []
-                extractExtension [OID oid,Boolean True,OctetString obj] = case decodeASN1' BER obj of
-                        Left _  -> Nothing
-                        Right r -> Just (oid, True, r)
-                extractExtension [OID oid,OctetString obj]              = case decodeASN1' BER obj of
-                        Left _  -> Nothing
-                        Right r -> Just (oid, False, r)
-                extractExtension _                                      = Nothing
+parseCertExtensions =
+    onNextContainerMaybe (Container Context 3)
+                         (mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
+  where getSequences = do
+            n <- hasNext
+            if n
+                then getNextContainer Sequence >>= \sq -> liftM (sq :) getSequences
+                else return []
+        extractExtension [OID oid,Boolean True,OctetString obj] =
+            case decodeASN1' BER obj of
+                Left _  -> Nothing
+                Right r -> Just (oid, True, r)
+        extractExtension [OID oid,OctetString obj]              =
+            case decodeASN1' BER obj of
+                Left _  -> Nothing
+                Right r -> Just (oid, False, r)
+        extractExtension _                                      =
+            Nothing
 
 {- | parse header structure of a x509 certificate. the structure the following:
         Version
@@ -261,7 +265,7 @@ parseCertificate = do
 
 encodeDNinner :: (ASN1Stringable -> ASN1Stringable) -> DistinguishedName -> [ASN1]
 encodeDNinner f (DistinguishedName dn) = concatMap dnSet dn
-    where dnSet (oid, str) = asn1Container Set $ asn1Container Sequence [OID oid, uncurry ASN1String $ f str]
+  where dnSet (oid, str) = asn1Container Set $ asn1Container Sequence [OID oid, uncurry ASN1String $ f str]
 
 encodeDN :: DistinguishedName -> [ASN1]
 encodeDN dn = asn1Container Sequence $ encodeDNinner id dn
@@ -269,21 +273,20 @@ encodeDN dn = asn1Container Sequence $ encodeDNinner id dn
 encodeExts :: Maybe [ExtensionRaw] -> [ASN1]
 encodeExts Nothing  = []
 encodeExts (Just l) = asn1Container (Container Context 3) $ concatMap encodeExt l
-        where encodeExt (oid, critical, asn1) =
-                let bs = encodeASN1' DER asn1
-                 in asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString bs])
+  where encodeExt (oid, critical, asn1) =
+            let bs = encodeASN1' DER asn1
+             in asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString bs])
 
 encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
-        eVer ++ eSerial ++ eAlgId ++ eIssuer ++ eValidity ++ eSubject ++ epkinfo ++ eexts
-        where
-                eVer      = asn1Container (Container Context 0) [IntVal (fromIntegral $ certVersion cert)]
-                eSerial   = [IntVal $ certSerial cert]
-                eAlgId    = asn1Container Sequence [OID (sigOID $ certSignatureAlg cert), Null]
-                eIssuer   = encodeDN $ certIssuerDN cert
-                (t1, t2)  = certValidity cert
-                eValidity = asn1Container Sequence [ASN1Time TimeGeneralized t1 Nothing
-                                                   ,ASN1Time TimeGeneralized t2 Nothing]
-                eSubject  = encodeDN $ certSubjectDN cert
-                epkinfo   = encodePK $ certPubKey cert
-                eexts     = encodeExts $ certExtensions cert
+    eVer ++ eSerial ++ eAlgId ++ eIssuer ++ eValidity ++ eSubject ++ epkinfo ++ eexts
+  where eVer      = asn1Container (Container Context 0) [IntVal (fromIntegral $ certVersion cert)]
+        eSerial   = [IntVal $ certSerial cert]
+        eAlgId    = asn1Container Sequence [OID (sigOID $ certSignatureAlg cert), Null]
+        eIssuer   = encodeDN $ certIssuerDN cert
+        (t1, t2)  = certValidity cert
+        eValidity = asn1Container Sequence [ASN1Time TimeGeneralized t1 Nothing
+                                           ,ASN1Time TimeGeneralized t2 Nothing]
+        eSubject  = encodeDN $ certSubjectDN cert
+        epkinfo   = encodePK $ certPubKey cert
+        eexts     = encodeExts $ certExtensions cert
