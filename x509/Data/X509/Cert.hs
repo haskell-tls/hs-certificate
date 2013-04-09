@@ -29,16 +29,13 @@ module Data.X509.Cert
         , module Data.X509.Ext
         ) where
 
-import Data.Word
 import Data.Monoid
 import Data.List (find)
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
-import Data.ASN1.Object
 import Data.Maybe
-import Data.Time.Calendar
 import Data.Time.Clock (UTCTime)
 import qualified Data.ByteString as B
 import Control.Applicative ((<$>))
@@ -47,7 +44,7 @@ import Control.Monad.Error
 import Data.X509.Internal
 import Data.X509.Ext
 import Data.X509.PublicKey
-import qualified Crypto.Types.PubKey.RSA as RSA
+
 import qualified Crypto.Types.PubKey.DSA as DSA
 
 data HashALG =
@@ -76,11 +73,6 @@ data CertKeyUsage =
         | CertKeyUsageEncipherOnly
         | CertKeyUsageDecipherOnly
         deriving (Show, Eq)
-
-{-
-data ASN1StringType = UTF8 | Printable | Univ | BMP | IA5 | T61 deriving (Show,Eq,Ord,Enum)
-type ASN1String = (ASN1StringType, String)
--}
 
 newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1Stringable)] }
     deriving (Show,Eq)
@@ -137,35 +129,16 @@ sig_table =
         , ([1,2,840,10045,4,3,4],  SignatureALG HashSHA512 PubKeyALG_ECDSA)
         ]
 
-{-
-pk_table :: [ (OID, PubKeyALG) ]
-pk_table =
-        [ ([1,2,840,113549,1,1,1], PubKeyALG_RSA)
-        , ([1,2,840,10040,4,1],    PubKeyALG_DSA)
-        , ([1,2,840,10045,2,1],    PubKeyALG_ECDSA)
-        , ([1,2,840,10046,2,1],    PubKeyALG_DH)
-        ]
--}
-
 oidSig :: OID -> SignatureALG
 oidSig oid = maybe (SignatureALG_Unknown oid) id $ lookup oid sig_table
 
+oidPubKey :: OID -> PubKeyALG
 oidPubKey oid =
     maybe (PubKeyALG_Unknown oid) id $ find (\p -> getObjectID p == oid) knownPubkeyAlgs
-{-
-oidPubKey :: OID -> PubKeyALG
-oidPubKey oid = maybe (PubKeyALG_Unknown oid) id $ lookup oid pk_table
--}
 
 sigOID :: SignatureALG -> OID
 sigOID (SignatureALG_Unknown oid) = oid
 sigOID sig = maybe [] fst $ find ((==) sig . snd) sig_table
-
-{-
-pubkeyalgOID :: PubKeyALG -> OID
-pubkeyalgOID (PubKeyALG_Unknown oid) = oid
-pubkeyalgOID sig = maybe [] fst $ find ((==) sig . snd) pk_table
--}
 
 parseCertHeaderAlgorithmID :: ParseASN1 SignatureALG
 parseCertHeaderAlgorithmID = do
@@ -205,14 +178,11 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
         (OID pkalg):xs -> toKey (oidPubKey pkalg) xs bits
         _              -> throwError ("subject public unknown key format : " ++ show l)
     where toKey PubKeyALG_RSA _ bits = do
-                undefined
-                {-
                 case decodeASN1' BER bits of
-                    Left err    -> throwError
-                    Right asn1s -> fromASN1 asn1s
-                -}
-                --decodeRSA
-                --either (throwError) (return . PubKeyRSA) (parse_RSA bits)
+                    Left err -> throwError ("rsa format not ASN1: " ++ show err)
+                    Right s  -> case fromASN1 s of
+                                    Left err2     -> throwError err2
+                                    Right (rsa,_) -> return $ PubKeyRSA rsa
           toKey PubKeyALG_ECDSA xs bits = do
                 case xs of
                     [(OID [1,3,132,0,34])] -> return $ PubKeyECDSA ECDSA_Hash_SHA384 bits
@@ -317,11 +287,3 @@ encodeCertificateHeader cert =
                 eSubject  = encodeDN $ certSubjectDN cert
                 epkinfo   = encodePK $ certPubKey cert
                 eexts     = encodeExts $ certExtensions cert
-
-                unconvertTime (day, difftime, z) =
-                        let (y, m, d) = toGregorian day in
-                        let seconds = floor $ toRational difftime in
-                        let h = seconds `div` 3600 in
-                        let mi = (seconds `div` 60) `mod` 60 in
-                        let s  = seconds `mod` 60 in
-                        (fromIntegral y,m,d,h,mi,s,z)
