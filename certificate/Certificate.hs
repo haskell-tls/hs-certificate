@@ -82,12 +82,12 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
 			printf "  modulus: %x\n" (RSA.public_n pubkey)
 			printf "  e      : %x\n" (RSA.public_e pubkey)
 		X509.PubKeyDSA pubkey -> do
-			let (p,q,g) = DSA.public_params pubkey
+			let params = DSA.public_params pubkey
 			putStrLn "public key DSA:"
 			printf "  pub    : %x\n" (DSA.public_y pubkey)
-			printf "  p      : %d\n" p
-			printf "  q      : %x\n" q
-			printf "  g      : %x\n" g
+			printf "  p      : %d\n" (DSA.params_p params)
+			printf "  q      : %x\n" (DSA.params_q params)
+			printf "  g      : %x\n" (DSA.params_g params)
 		X509.PubKeyUnknown oid ws -> do
 			printf "public key unknown: %s\n" (show oid)
 			printf "  raw bytes: %s\n" (show ws)
@@ -122,11 +122,11 @@ showDSAKey :: (DSA.PublicKey,DSA.PrivateKey) -> String
 showDSAKey (pubkey,privkey) = unlines
 	[ "priv     " ++ (printf "%x" $ DSA.private_x privkey)
 	, "pub:     " ++ (printf "%x" $ DSA.public_y pubkey)
-	, "p:       " ++ (printf "%x" p)
-	, "q:       " ++ (printf "%x" g)
-	, "g:       " ++ (printf "%x" q)
+	, "p:       " ++ (printf "%x" $ DSA.params_p params)
+	, "q:       " ++ (printf "%x" $ DSA.params_q params)
+	, "g:       " ++ (printf "%x" $ DSA.params_g params)
 	]
-    where (p,q,g) = DSA.private_params privkey
+    where params = DSA.private_params privkey
 
 showASN1 :: Int -> [ASN1] -> IO ()
 showASN1 at = prettyPrint at where

@@ -256,7 +256,10 @@ parseCertHeaderSubjectPK = onNextContainer Sequence $ do
           toKey PubKeyALG_DSA [Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] bits = do
                 case decodeASN1 BER bits of
                      Right [IntVal dsapub] -> return $ PubKeyDSA $ DSA.PublicKey
-                                                                     { DSA.public_params = (p, q, g)
+                                                                     { DSA.public_params = DSA.Params
+                                                                             { DSA.params_p = p
+                                                                             , DSA.params_q = q
+                                                                             , DSA.params_g = g }
                                                                      , DSA.public_y = dsapub }
                      _                     -> return $ PubKeyUnknown (pubkeyalgOID PubKeyALG_DSA) $ L.unpack bits
           toKey (PubKeyALG_Unknown oid) _ bits = return $ PubKeyUnknown oid $ L.unpack bits
@@ -340,8 +343,10 @@ encodePK k@(PubKeyDSA pubkey) =
         asn1Container Sequence (asn1Container Sequence ([pkalg] ++ dsaseq) ++ [BitString $ toBitArray bits 0])
         where
                 pkalg   = OID $ pubkeyalgOID $ pubkeyToAlg k
-                dsaseq  = asn1Container Sequence [IntVal p,IntVal q,IntVal g]
-                (p,q,g) = DSA.public_params pubkey
+                dsaseq  = asn1Container Sequence [IntVal (DSA.params_p params)
+                                                 ,IntVal (DSA.params_q params)
+                                                 ,IntVal (DSA.params_g params)]
+                params  = DSA.public_params pubkey
                 bits    = encodeASN1 DER [IntVal $ DSA.public_y pubkey]
 
 encodePK k@(PubKeyUnknown _ l) =

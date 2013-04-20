@@ -27,7 +27,7 @@ parsePrivate
     where
         privkey = DSA.PrivateKey { DSA.private_params = params, DSA.private_x = priv }
         pubkey  = DSA.PublicKey { DSA.public_params = params, DSA.public_y = pub }
-        params  = (p,g,q)
+        params  = DSA.Params { DSA.params_p = p, DSA.params_g = g, DSA.params_q = q }
 
 parsePrivate (Start Sequence : IntVal n : _)
         | n == 0    = Left "DSA key format: not recognized"
@@ -42,11 +42,11 @@ encodePrivate (pubkey, privkey) = encodeASN1 DER pkseq
         where pkseq =
                 [ Start Sequence
                 , IntVal 0
-                , IntVal p
-                , IntVal q
-                , IntVal g
+                , IntVal $ DSA.params_p params
+                , IntVal $ DSA.params_q params
+                , IntVal $ DSA.params_g params
                 , IntVal $ DSA.public_y pubkey
                 , IntVal $ DSA.private_x privkey
                 , End Sequence
                 ]
-              (p,g,q) = DSA.private_params privkey
+              params = DSA.private_params privkey
