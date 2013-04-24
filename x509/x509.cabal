@@ -31,6 +31,7 @@ Library
   Exposed-modules:   Data.X509
                      Data.X509.Cert
                      Data.X509.Ext
+                     Data.X509.PublicKey
   Other-modules:     Data.X509.Internal
   ghc-options:       -Wall
 
