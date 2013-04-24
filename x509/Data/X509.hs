@@ -15,11 +15,10 @@ module Data.X509
         -- * Data Structure (reexported from X509Cert)
         , SignatureALG(..)
         , HashALG(..)
+        , ECDSA_Hash(..)
         , PubKeyALG(..)
         , PubKey(..)
         , OID
-        --, ASN1StringType(..)
-        --, ASN1String
         , DistinguishedName(..)
         , Certificate(..)
         , module Data.X509.Ext

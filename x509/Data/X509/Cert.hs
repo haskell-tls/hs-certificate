@@ -34,18 +34,15 @@ import Data.List (find)
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
-import Data.ASN1.BitArray
 import Data.Maybe
 import Data.Time.Clock (UTCTime)
 import qualified Data.ByteString as B
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<*>))
 import Control.Monad.State
 import Control.Monad.Error
 import Data.X509.Internal
 import Data.X509.Ext
 import Data.X509.PublicKey
-
-import qualified Crypto.Types.PubKey.DSA as DSA
 
 data HashALG =
           HashMD2
@@ -86,8 +83,8 @@ data Certificate = Certificate
         , certSerial       :: Integer                -- ^ Certificate Serial number
         , certSignatureAlg :: SignatureALG           -- ^ Certificate Signature algorithm
         , certIssuerDN     :: DistinguishedName      -- ^ Certificate Issuer DN
-        , certSubjectDN    :: DistinguishedName      -- ^ Certificate Subject DN
         , certValidity     :: (UTCTime, UTCTime)     -- ^ Certificate Validity period
+        , certSubjectDN    :: DistinguishedName      -- ^ Certificate Subject DN
         , certPubKey       :: PubKey                 -- ^ Certificate Public key
         , certExtensions   :: Maybe [ExtensionRaw]   -- ^ Certificate Extensions
         } deriving (Show,Eq)
@@ -132,21 +129,18 @@ sig_table =
 oidSig :: OID -> SignatureALG
 oidSig oid = maybe (SignatureALG_Unknown oid) id $ lookup oid sig_table
 
-oidPubKey :: OID -> PubKeyALG
-oidPubKey oid =
-    maybe (PubKeyALG_Unknown oid) id $ find (\p -> getObjectID p == oid) knownPubkeyAlgs
-
 sigOID :: SignatureALG -> OID
 sigOID (SignatureALG_Unknown oid) = oid
 sigOID sig = maybe [] fst $ find ((==) sig . snd) sig_table
 
-parseCertHeaderAlgorithmID :: ParseASN1 SignatureALG
-parseCertHeaderAlgorithmID = do
-    n <- getNextContainer Sequence
-    case n of
-        [ OID oid, Null ] -> return $ oidSig oid
-        [ OID oid ]       -> return $ oidSig oid
-        _                 -> throwError ("algorithm ID bad format " ++ show n)
+instance ASN1Object SignatureALG where
+    fromASN1 (Start Sequence:OID oid:Null:End Sequence:xs) =
+        Right (oidSig oid, xs)
+    fromASN1 (Start Sequence:OID oid:End Sequence:xs) =
+        Right (oidSig oid, xs)
+    fromASN1 _ =
+        Left "fromASN1: X509.SignatureALG: unknown format"
+    toASN1 signatureAlg = \xs -> asn1Container Sequence [OID (sigOID signatureAlg), Null] ++ xs
 
 type ASN1Stringable = (ASN1StringEncoding, B.ByteString)
 
@@ -170,39 +164,6 @@ parseCertHeaderValidity = getNextContainer Sequence >>= toTimeBound
   where toTimeBound [ ASN1Time _ t1 _, ASN1Time _ t2 _ ] = return (t1,t2)
         toTimeBound _                                    = throwError "bad validity format"
 
-parseCertHeaderSubjectPK :: ParseASN1 PubKey
-parseCertHeaderSubjectPK = onNextContainer Sequence $ do
-    l <- getNextContainer Sequence
-    bits <- getNextBitString
-    case l of
-        (OID pkalg):xs -> toKey (oidPubKey pkalg) xs bits
-        _              -> throwError ("subject public unknown key format : " ++ show l)
-  where toKey PubKeyALG_RSA _ bits = do
-            case decodeASN1' BER bits of
-                Left err -> throwError ("rsa format not ASN1: " ++ show err)
-                Right s  -> case fromASN1 s of
-                                Left err2     -> throwError err2
-                                Right (rsa,_) -> return $ PubKeyRSA rsa
-        toKey PubKeyALG_ECDSA xs bits = do
-            case xs of
-                [(OID [1,3,132,0,34])] -> return $ PubKeyECDSA ECDSA_Hash_SHA384 bits
-                _                      -> return $ PubKeyUnknown (getObjectID PubKeyALG_ECDSA) $ B.unpack bits
-        toKey PubKeyALG_DSA [Start Sequence,IntVal p,IntVal q,IntVal g,End Sequence] bits = do
-            case decodeASN1' BER bits of
-                Right [IntVal dsapub] -> return $ PubKeyDSA $ DSA.PublicKey
-                                                                   { DSA.public_params = DSA.Params { DSA.params_p = p
-                                                                                                    , DSA.params_q = q
-                                                                                                    , DSA.params_g = g
-                                                                                                    }
-                                                                   , DSA.public_y = dsapub }
-                _                     -> return $ PubKeyUnknown (getObjectID PubKeyALG_DSA) $ B.unpack bits
-        toKey (PubKeyALG_Unknown oid) _ bits = return $ PubKeyUnknown oid $ B.unpack bits
-        toKey other _ bits = return $ PubKeyUnknown (getObjectID other) $ B.unpack bits
-
-        getNextBitString = getNext >>= \bs -> case bs of
-            BitString bits -> return $ bitArrayGetData bits
-            _              -> throwError "expecting bitstring"
-
 parseCertExtensions :: ParseASN1 (Maybe [ExtensionRaw])
 parseCertExtensions =
     onNextContainerMaybe (Container Context 3)
@@ -223,7 +184,7 @@ parseCertExtensions =
         extractExtension _                                      =
             Nothing
 
-{- | parse header structure of a x509 certificate. the structure the following:
+{- | parse header structure of a x509 certificate. the structure is the following:
         Version
         Serial Number
         Algorithm ID
@@ -240,29 +201,16 @@ parseCertExtensions =
         Extensions (Optional)   (>= v3)
 -}
 parseCertificate :: ParseASN1 Certificate
-parseCertificate = do
-        version  <- parseCertHeaderVersion
-        serial   <- parseCertHeaderSerial
-        sigalg   <- parseCertHeaderAlgorithmID
-        issuer   <- parseDN
-        validity <- parseCertHeaderValidity
-        subject  <- parseDN
-        pk       <- parseCertHeaderSubjectPK
-        exts     <- parseCertExtensions
-        hnext    <- hasNext
-        when hnext $ throwError "expecting End Of Data."
+parseCertificate =
+    Certificate <$> parseCertHeaderVersion
+                <*> parseCertHeaderSerial
+                <*> getObject
+                <*> parseDN
+                <*> parseCertHeaderValidity
+                <*> parseDN
+                <*> getObject
+                <*> parseCertExtensions
         
-        return $ Certificate
-                { certVersion      = version
-                , certSerial       = serial
-                , certSignatureAlg = sigalg
-                , certIssuerDN     = issuer
-                , certSubjectDN    = subject
-                , certValidity     = validity
-                , certPubKey       = pk
-                , certExtensions   = exts
-                }
-
 encodeDNinner :: (ASN1Stringable -> ASN1Stringable) -> DistinguishedName -> [ASN1]
 encodeDNinner f (DistinguishedName dn) = concatMap dnSet dn
   where dnSet (oid, str) = asn1Container Set $ asn1Container Sequence [OID oid, uncurry ASN1String $ f str]
@@ -282,11 +230,11 @@ encodeCertificateHeader cert =
     eVer ++ eSerial ++ eAlgId ++ eIssuer ++ eValidity ++ eSubject ++ epkinfo ++ eexts
   where eVer      = asn1Container (Container Context 0) [IntVal (fromIntegral $ certVersion cert)]
         eSerial   = [IntVal $ certSerial cert]
-        eAlgId    = asn1Container Sequence [OID (sigOID $ certSignatureAlg cert), Null]
+        eAlgId    = toASN1 (certSignatureAlg cert) []
         eIssuer   = encodeDN $ certIssuerDN cert
         (t1, t2)  = certValidity cert
         eValidity = asn1Container Sequence [ASN1Time TimeGeneralized t1 Nothing
                                            ,ASN1Time TimeGeneralized t2 Nothing]
         eSubject  = encodeDN $ certSubjectDN cert
-        epkinfo   = encodePK $ certPubKey cert
+        epkinfo   = toASN1 (certPubKey cert) []
         eexts     = encodeExts $ certExtensions cert
