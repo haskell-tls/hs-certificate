@@ -35,6 +35,24 @@ Library
   Other-modules:     Data.X509.Internal
   ghc-options:       -Wall
 
+Test-Suite test-x509
+  type:              exitcode-stdio-1.0
+  hs-source-dirs:    Tests
+  Main-is:           Tests.hs
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , mtl
+                   , QuickCheck >= 2
+                   , HUnit
+                   , test-framework
+                   , test-framework-quickcheck2
+                   , test-framework-hunit
+                   , asn1-types
+                   , x509
+                   , time
+                   , crypto-pubkey-types
+  ghc-options:       -Wall -fno-warn-orphans -fno-warn-missing-signatures
+
 source-repository head
   type:     git
   location: git://github.com/vincenthz/hs-certificate
