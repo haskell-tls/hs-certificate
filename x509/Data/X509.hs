@@ -99,7 +99,6 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr' BER 
              in case (cert, map fst sigseq) of
                     (Right c, [BitString b]) ->
                         let certevs = Raw.toByteString $ concatMap snd certrepr
-                            --sigalg  = onContainer sigalgseq (parseSigAlg . map fst)
                             sigalg  = fromASN1 $ map fst sigalgseq
                          in case sigalg of
                                 Left s -> Left ("certificate error: " ++ s)
@@ -112,11 +111,6 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr' BER 
                 ((End _, _) : l2) -> f $ reverse l2
                 _                 -> f []
         onContainer _ f = f []
-
-{-
-        parseSigAlg [ OID oid, Null ] = oidSig oid
-        parseSigAlg _                 = SignatureALG_Unknown []
--}
 
 {-| encode a SignedCertificate certificate to a bytestring -}
 encodeCertificate :: SignedCertificate -> B.ByteString
