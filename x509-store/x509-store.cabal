@@ -1,0 +1,41 @@
+Name:                x509-store
+Version:             1.3.6
+Description:         X.509 collection accessing and storing methods for certificate, crl, exception list
+License:             BSD3
+License-file:        LICENSE
+Copyright:           Vincent Hanquez <vincent@snarc.org>
+Author:              Vincent Hanquez <vincent@snarc.org>
+Maintainer:          Vincent Hanquez <vincent@snarc.org>
+Synopsis:            X.509 collection accessing and storing methods
+Build-Type:          Simple
+Category:            Data
+stability:           experimental
+Homepage:            http://github.com/vincenthz/hs-certificate
+Cabal-Version:       >=1.8
+
+Flag test
+  Description:       Build unit test
+  Default:           False
+
+Flag executable
+  Description:       Build the executable
+  Default:           False
+
+Library
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , mtl
+                   , pem >= 0.1 && < 0.2
+                   , asn1-data >= 0.7.1 && < 0.8.0
+                   , certificate
+                   , containers
+                   , directory
+                   , filepath
+                   , process
+                   , time
+  Exposed-modules:   Data.X509.CertificateStore
+  ghc-options:       -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/vincenthz/hs-certificate
