@@ -1,17 +1,19 @@
 -- |
--- Module      : Data.Certificate.X509
+-- Module      : Data.X509
 -- License     : BSD-style
 -- Maintainer  : Vincent Hanquez <vincent@snarc.org>
 -- Stability   : experimental
 -- Portability : unknown
 --
--- Read/Write X509 certificate
+-- Read/Write X509 Certificate, CRL and their signed equivalents.
+--
+-- Follows RFC5280 / RFC6818
 --
 
 module Data.X509
         (
         -- * Data Structure
-          X509(..)
+          SignedCertificate(..)
         -- * Data Structure (reexported from X509Cert)
         , SignatureALG(..)
         , HashALG(..)
@@ -54,35 +56,35 @@ import Data.X509.Ext
 import qualified Crypto.Hash.MD5 as MD5
 import qualified Crypto.Hash.SHA1 as SHA1
 
-data X509 = X509
-        { x509Cert              :: Certificate          -- ^ the certificate part of a X509 structure
-        , x509CachedSigningData :: (Maybe B.ByteString) -- ^ a cache of the raw representation of the x509 part for signing
-                                                        -- since encoding+decoding might not result in the same data being signed.
-        , x509CachedData        :: (Maybe B.ByteString) -- ^ a cache of the raw representation of the whole x509.
-        , x509SignatureALG      :: SignatureALG         -- ^ the signature algorithm used.
-        , x509Signature         :: B.ByteString         -- ^ the signature.
-        } deriving (Show)
+data SignedCertificate = SignedCertificate
+    { x509Cert              :: Certificate          -- ^ the certificate part of a SignedCertificate structure
+    , x509CachedSigningData :: (Maybe B.ByteString) -- ^ a cache of the raw representation of the x509 part for signing
+                                                    -- since encoding+decoding might not result in the same data being signed.
+    , x509CachedData        :: (Maybe B.ByteString) -- ^ a cache of the raw representation of the whole x509.
+    , x509SignatureALG      :: SignatureALG         -- ^ the signature algorithm used.
+    , x509Signature         :: B.ByteString         -- ^ the signature.
+    } deriving (Show)
 
-instance Eq X509 where
+instance Eq SignedCertificate where
         x1 == x2 =
                 (x509Cert x1         == x509Cert x2)         &&
                 (x509SignatureALG x1 == x509SignatureALG x2) &&
                 (x509Signature x1    == x509Signature x2)
 
-{- | get signing data related to a X509 message,
+{- | get signing data related to a SignedCertificate message,
  - which is either the cached data or the encoded certificate -}
-getSigningData :: X509 -> B.ByteString
-getSigningData (X509 _    (Just e) _ _ _) = e
-getSigningData (X509 cert Nothing _ _ _)  = encodeASN1' DER header
+getSigningData :: SignedCertificate -> B.ByteString
+getSigningData (SignedCertificate _    (Just e) _ _ _) = e
+getSigningData (SignedCertificate cert Nothing _ _ _)  = encodeASN1' DER header
         where header    = asn1Container Sequence $ toASN1 cert []
 
-{- | decode an X509 from a bytestring
+{- | decode an SignedCertificate from a bytestring
  - the structure is the following:
  -   Certificate
  -   Certificate Signature Algorithm
  -   Certificate Signature
 -}
-decodeCertificate :: B.ByteString -> Either String X509
+decodeCertificate :: B.ByteString -> Either String SignedCertificate
 decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr' BER by
   where
         {- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
@@ -97,8 +99,11 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr' BER 
              in case (cert, map fst sigseq) of
                     (Right c, [BitString b]) ->
                         let certevs = Raw.toByteString $ concatMap snd certrepr
-                            sigalg  = onContainer sigalgseq (parseSigAlg . map fst)
-                         in Right $ X509 c (Just certevs) (Just by) sigalg (bitArrayGetData b)
+                            --sigalg  = onContainer sigalgseq (parseSigAlg . map fst)
+                            sigalg  = fromASN1 $ map fst sigalgseq
+                         in case sigalg of
+                                Left s -> Left ("certificate error: " ++ s)
+                                Right (sa,_) -> Right $ SignedCertificate c (Just certevs) (Just by) sa (bitArrayGetData b)
                     (Left err, _) -> Left $ ("certificate error: " ++ show err)
                     _             -> Left $ "certificate structure error"
 
@@ -108,15 +113,17 @@ decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr' BER 
                 _                 -> f []
         onContainer _ f = f []
 
+{-
         parseSigAlg [ OID oid, Null ] = oidSig oid
         parseSigAlg _                 = SignatureALG_Unknown []
+-}
 
-{-| encode a X509 certificate to a bytestring -}
-encodeCertificate :: X509 -> B.ByteString
-encodeCertificate (X509 _    _ (Just bs) _      _      ) = bs
-encodeCertificate (X509 cert _ Nothing   sigalg sigbits) = encodeASN1' DER rootSeq
+{-| encode a SignedCertificate certificate to a bytestring -}
+encodeCertificate :: SignedCertificate -> B.ByteString
+encodeCertificate (SignedCertificate _    _ (Just bs) _      _      ) = bs
+encodeCertificate (SignedCertificate cert _ Nothing   sigalg sigbits) = encodeASN1' DER rootSeq
         where
-                esigalg   = asn1Container Sequence [OID (sigOID sigalg), Null]
+                esigalg   = toASN1 sigalg [] -- asn1Container Sequence [OID (sigOID sigalg), Null]
                 esig      = BitString $ toBitArray sigbits 0
                 header    = asn1Container Sequence $ toASN1 cert []
                 rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])

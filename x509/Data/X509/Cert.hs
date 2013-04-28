@@ -16,10 +16,6 @@ module Data.X509.Cert
         , oidOrganization
         , oidOrganizationUnit
 
-        -- signature to/from oid
-        , oidSig
-        , sigOID
-
         -- * Parse and encode a single distinguished name
         , parseDN
         , encodeDNinner
@@ -43,21 +39,7 @@ import Control.Monad.Error
 import Data.X509.Internal
 import Data.X509.Ext
 import Data.X509.PublicKey
-
-data HashALG =
-          HashMD2
-        | HashMD5
-        | HashSHA1
-        | HashSHA224
-        | HashSHA256
-        | HashSHA384
-        | HashSHA512
-        deriving (Show,Eq)
-
-data SignatureALG =
-          SignatureALG HashALG PubKeyALG
-        | SignatureALG_Unknown OID
-        deriving (Show,Eq)
+import Data.X509.AlgorithmIdentifier
 
 data CertKeyUsage =
           CertKeyUsageDigitalSignature
@@ -111,36 +93,6 @@ parseCertHeaderSerial = do
     case n of
         IntVal v -> return v
         _        -> throwError ("missing serial" ++ show n)
-
-sig_table :: [ (OID, SignatureALG) ]
-sig_table =
-        [ ([1,2,840,113549,1,1,5], SignatureALG HashSHA1 PubKeyALG_RSA)
-        , ([1,2,840,113549,1,1,4], SignatureALG HashMD5 PubKeyALG_RSA)
-        , ([1,2,840,113549,1,1,2], SignatureALG HashMD2 PubKeyALG_RSA)
-        , ([1,2,840,113549,1,1,11], SignatureALG HashSHA256 PubKeyALG_RSA)
-        , ([1,2,840,113549,1,1,12], SignatureALG HashSHA384 PubKeyALG_RSA)
-        , ([1,2,840,10040,4,3],    SignatureALG HashSHA1 PubKeyALG_DSA)
-        , ([1,2,840,10045,4,3,1],  SignatureALG HashSHA224 PubKeyALG_ECDSA)
-        , ([1,2,840,10045,4,3,2],  SignatureALG HashSHA256 PubKeyALG_ECDSA)
-        , ([1,2,840,10045,4,3,3],  SignatureALG HashSHA384 PubKeyALG_ECDSA)
-        , ([1,2,840,10045,4,3,4],  SignatureALG HashSHA512 PubKeyALG_ECDSA)
-        ]
-
-oidSig :: OID -> SignatureALG
-oidSig oid = maybe (SignatureALG_Unknown oid) id $ lookup oid sig_table
-
-sigOID :: SignatureALG -> OID
-sigOID (SignatureALG_Unknown oid) = oid
-sigOID sig = maybe [] fst $ find ((==) sig . snd) sig_table
-
-instance ASN1Object SignatureALG where
-    fromASN1 (Start Sequence:OID oid:Null:End Sequence:xs) =
-        Right (oidSig oid, xs)
-    fromASN1 (Start Sequence:OID oid:End Sequence:xs) =
-        Right (oidSig oid, xs)
-    fromASN1 _ =
-        Left "fromASN1: X509.SignatureALG: unknown format"
-    toASN1 signatureAlg = \xs -> asn1Container Sequence [OID (sigOID signatureAlg), Null] ++ xs
 
 type ASN1Stringable = (ASN1StringEncoding, B.ByteString)
 

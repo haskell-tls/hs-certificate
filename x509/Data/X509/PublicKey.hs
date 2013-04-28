@@ -6,28 +6,13 @@ import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
 
 import Data.X509.Internal
+import Data.X509.AlgorithmIdentifier
 
 import qualified Crypto.Types.PubKey.RSA as RSA
 import qualified Crypto.Types.PubKey.DSA as DSA
 import Data.Word
 
 import qualified Data.ByteString as B
-
-data PubKeyALG =
-      PubKeyALG_RSA
-    | PubKeyALG_DSA
-    | PubKeyALG_ECDSA
-    | PubKeyALG_DH
-    | PubKeyALG_Unknown OID
-    deriving (Show,Eq)
-
-knownPubkeyAlgs :: [PubKeyALG]
-knownPubkeyAlgs =
-    [ PubKeyALG_RSA
-    , PubKeyALG_DSA
-    , PubKeyALG_ECDSA
-    , PubKeyALG_DH
-    ]
 
 -- FIXME this doesn't identify ECDSA_Hash_SHA384, but the curve name secp384r1
 -- with implicit SHA384 hashing.
@@ -42,21 +27,6 @@ data PubKey =
         | PubKeyECDSA ECDSA_Hash B.ByteString
         | PubKeyUnknown OID B.ByteString -- ^ unrecognized format
         deriving (Show,Eq)
-
-instance ObjectIdable PubKeyALG where
-    getObjectID PubKeyALG_RSA   = [1,2,840,113549,1,1,1]
-    getObjectID PubKeyALG_DSA   = [1,2,840,10040,4,1]
-    getObjectID PubKeyALG_ECDSA = [1,2,840,10045,2,1]
-    getObjectID PubKeyALG_DH    = [1,2,840,10046,2,1]
-    getObjectID (PubKeyALG_Unknown oid) = oid
-
-pk_table :: [ (OID, PubKeyALG) ]
-pk_table =
-        [ ([1,2,840,113549,1,1,1], PubKeyALG_RSA)
-        , ([1,2,840,10040,4,1],    PubKeyALG_DSA)
-        , ([1,2,840,10045,2,1],    PubKeyALG_ECDSA)
-        , ([1,2,840,10046,2,1],    PubKeyALG_DH)
-        ]
 
 -- Public key are in the format:
 --
