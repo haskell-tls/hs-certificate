@@ -11,25 +11,6 @@
 --
 
 module Data.X509
-        (
-------- OLD
-        -- * Data Structure
-          SignedCertificate(..)
-
-        -- * helper for signing/veryfing certificate
-        , getSigningData
-
-        -- * serialization from ASN1 bytestring
-        , decodeCertificate
-        , encodeCertificate
-
-        -- * Distinguished names related function
-        , decodeDN
-        , encodeDN
-        , hashDN
-        , hashDN_old
-------- OLD END
-
     -- * Types
     , Certificate(..)
     , DistinguishedName(..)
@@ -42,10 +23,14 @@ module Data.X509
     , Signed(..)
     , SignedExact
     , getSigned
+    , getSignedData
     , objectToSignedExact
     , encodeSignedObject
     , decodeSignedObject
 
+    -- * Hash distinguished names related function
+    , hashDN
+    , hashDN_old
     ) where
 
 import Data.ASN1.Types
@@ -69,71 +54,6 @@ import Data.X509.AlgorithmIdentifier
 import qualified Crypto.Hash.MD5 as MD5
 import qualified Crypto.Hash.SHA1 as SHA1
 
-data SignedCertificate = SignedCertificate
-    { x509Cert              :: Certificate          -- ^ the certificate part of a SignedCertificate structure
-    , x509CachedSigningData :: (Maybe B.ByteString) -- ^ a cache of the raw representation of the x509 part for signing
-                                                    -- since encoding+decoding might not result in the same data being signed.
-    , x509CachedData        :: (Maybe B.ByteString) -- ^ a cache of the raw representation of the whole x509.
-    , x509SignatureALG      :: SignatureALG         -- ^ the signature algorithm used.
-    , x509Signature         :: B.ByteString         -- ^ the signature.
-    } deriving (Show)
-
-instance Eq SignedCertificate where
-        x1 == x2 =
-                (x509Cert x1         == x509Cert x2)         &&
-                (x509SignatureALG x1 == x509SignatureALG x2) &&
-                (x509Signature x1    == x509Signature x2)
-
-
-{- | decode an SignedCertificate from a bytestring
- - the structure is the following:
- -   Certificate
- -   Certificate Signature Algorithm
- -   Certificate Signature
--}
-decodeCertificate :: B.ByteString -> Either String SignedCertificate
-decodeCertificate by = either (Left . show) parseRootASN1 $ decodeASN1Repr' BER by
-  where
-        {- | parse root structure of a x509 certificate. this has to be a sequence of 3 objects :
-         - * the header
-         - * the signature algorithm
-         - * the signature -}
-        parseRootASN1 l = onContainer (fst $ getConstructedEndRepr l) $ \l2 ->
-            let (certrepr,rem1)  = getConstructedEndRepr l2
-                (sigalgseq,rem2) = getConstructedEndRepr rem1
-                (sigseq,_)       = getConstructedEndRepr rem2
-                cert             = onContainer certrepr (either Left (Right . fst) . fromASN1 . map fst)
-             in case (cert, map fst sigseq) of
-                    (Right c, [BitString b]) ->
-                        let certevs = Raw.toByteString $ concatMap snd certrepr
-                            sigalg  = fromASN1 $ map fst sigalgseq
-                         in case sigalg of
-                                Left s -> Left ("certificate error: " ++ s)
-                                Right (sa,_) -> Right $ SignedCertificate c (Just certevs) (Just by) sa (bitArrayGetData b)
-                    (Left err, _) -> Left $ ("certificate error: " ++ show err)
-                    _             -> Left $ "certificate structure error"
-
-        onContainer ((Start _, _) : l) f =
-            case reverse l of
-                ((End _, _) : l2) -> f $ reverse l2
-                _                 -> f []
-        onContainer _ f = f []
-
-{-| encode a SignedCertificate certificate to a bytestring -}
-encodeCertificate :: SignedCertificate -> B.ByteString
-encodeCertificate (SignedCertificate _    _ (Just bs) _      _      ) = bs
-encodeCertificate (SignedCertificate cert _ Nothing   sigalg sigbits) = encodeASN1' DER rootSeq
-        where
-                esigalg   = toASN1 sigalg []
-                esig      = BitString $ toBitArray sigbits 0
-                header    = asn1Container Sequence $ toASN1 cert []
-                rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])
-
-decodeDN :: L.ByteString -> Either String DistinguishedName
-decodeDN by = either (Left . show) (runParseASN1 parseDN) $ decodeASN1 BER by
-
-encodeDN :: DistinguishedName -> L.ByteString
-encodeDN dn = encodeASN1 DER $ Cert.encodeDN dn
 
 -- | Make an openssl style hash of distinguished name
 hashDN :: DistinguishedName -> B.ByteString
