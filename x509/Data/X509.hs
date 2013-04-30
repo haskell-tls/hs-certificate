@@ -9,9 +9,11 @@
 --
 -- Follows RFC5280 / RFC6818
 --
-
 module Data.X509
+    (
     -- * Types
+      SignedCertificate
+    , SignedCRL
     , Certificate(..)
     , DistinguishedName(..)
     , PubKey(..)
@@ -42,11 +44,11 @@ import Data.ASN1.BitArray
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 
-import Data.X509.Internal
-import Data.X509.Cert hiding (encodeDN)
-import qualified  Data.X509.Cert as Cert
+import Data.X509.Cert
 import Data.X509.Ext
+import Data.X509.CRL
 import Data.X509.CertificateChain
+import Data.X509.DistinguishedName
 import Data.X509.Signed
 import Data.X509.PublicKey
 import Data.X509.AlgorithmIdentifier
@@ -54,6 +56,8 @@ import Data.X509.AlgorithmIdentifier
 import qualified Crypto.Hash.MD5 as MD5
 import qualified Crypto.Hash.SHA1 as SHA1
 
+type SignedCertificate = SignedExact Certificate
+type SignedCRL         = SignedExact CRL
 
 -- | Make an openssl style hash of distinguished name
 hashDN :: DistinguishedName -> B.ByteString
