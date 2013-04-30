@@ -38,11 +38,7 @@ module Data.X509
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
-import qualified Data.ASN1.BinaryEncoding.Raw as Raw (toByteString)
-import Data.ASN1.Stream
-import Data.ASN1.BitArray
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as L
 
 import Data.X509.Cert
 import Data.X509.Ext

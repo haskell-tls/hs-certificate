@@ -29,13 +29,14 @@ Library
                    , process
                    , time
   Exposed-modules:   Data.X509
-                     Data.X509.Cert
-                     Data.X509.CRL
-                     Data.X509.Ext
-                     Data.X509.PublicKey
   Other-modules:     Data.X509.Internal
                      Data.X509.CertificateChain
                      Data.X509.AlgorithmIdentifier
+                     Data.X509.DistinguishedName
+                     Data.X509.Cert
+                     Data.X509.PublicKey
+                     Data.X509.Ext
+                     Data.X509.CRL
                      Data.X509.Signed
   ghc-options:       -Wall
 
