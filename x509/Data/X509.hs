@@ -130,7 +130,7 @@ encodeCertificate :: SignedCertificate -> B.ByteString
 encodeCertificate (SignedCertificate _    _ (Just bs) _      _      ) = bs
 encodeCertificate (SignedCertificate cert _ Nothing   sigalg sigbits) = encodeASN1' DER rootSeq
         where
-                esigalg   = toASN1 sigalg [] -- asn1Container Sequence [OID (sigOID sigalg), Null]
+                esigalg   = toASN1 sigalg []
                 esig      = BitString $ toBitArray sigbits 0
                 header    = asn1Container Sequence $ toASN1 cert []
                 rootSeq   = asn1Container Sequence (header ++ esigalg ++ [esig])
