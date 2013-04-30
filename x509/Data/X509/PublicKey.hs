@@ -1,4 +1,7 @@
-module Data.X509.PublicKey where
+module Data.X509.PublicKey
+    ( PubKey(..)
+    , pubkeyToAlg
+    ) where
 
 import Data.ASN1.Types
 import Data.ASN1.Encoding
