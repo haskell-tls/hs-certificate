@@ -40,7 +40,7 @@ instance Arbitrary PubKey where
     arbitrary = oneof
         [ PubKeyRSA <$> arbitrary
         , PubKeyDSA <$> arbitrary
-        , PubKeyECDSA ECDSA_Hash_SHA384 <$> (B.pack <$> replicateM 384 arbitrary)
+        --, PubKeyECDSA ECDSA_Hash_SHA384 <$> (B.pack <$> replicateM 384 arbitrary)
         ]
 
 instance Arbitrary HashALG where

@@ -9,14 +9,8 @@
 module Data.X509.Cert
         (
         -- * Data Structure
-          SignatureALG(..)
-        , HashALG(..)
-        , PubKeyALG(..)
-        , PubKey(..)
-        , ECDSA_Hash(..)
-        , Certificate(..)
+          Certificate(..)
         , DistinguishedName(..)
-        , OID
 
         -- various OID
         , oidCommonName
