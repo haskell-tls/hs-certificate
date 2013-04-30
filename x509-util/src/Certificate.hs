@@ -6,8 +6,8 @@ import qualified Data.ByteString.Lazy.Char8 as LC
 import qualified Data.ByteString as B
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (decodeUtf8)
+import Data.X509
 import qualified Data.X509 as X509
-import Data.X509.Cert as Cert
 --import Data.Certificate.KeyRSA as KeyRSA
 --import Data.Certificate.KeyDSA as KeyDSA
 import Data.List (find)
@@ -64,7 +64,7 @@ showExts es = do
         showKnownExtension Nothing  = return ()
         showKnownExtension (Just e) = putStrLn ("  " ++ show e)
 
-showCert :: X509.SignedExact Certificate -> IO ()
+showCert :: SignedCertificate -> IO ()
 showCert signedCert = do -- (X509.X509 cert _ _ sigalg sigbits) = do
     putStrLn ("version: " ++ show (X509.certVersion cert))
     putStrLn ("serial:  " ++ show (X509.certSerial cert))
