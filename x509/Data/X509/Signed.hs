@@ -106,6 +106,8 @@ objectToSignedExact signatureFunction object = (SignedExact signed objRaw signed
         (sigBits,sigAlg,r) = signatureFunction objRaw
 
 -- | Transform an object into a 'Signed' object.
+--
+-- It's recommended to use the SignedExact object instead of Signed.
 objectToSigned :: (Eq a, ASN1Object a) => (ByteString -> (ByteString, SignatureALG, r)) -> a -> (Signed a, r)
 objectToSigned signatureFunction object = first getSigned $ objectToSignedExact signatureFunction object
 
