@@ -64,8 +64,8 @@ showExts es = do
         showKnownExtension Nothing  = return ()
         showKnownExtension (Just e) = putStrLn ("  " ++ show e)
 
-showCert :: X509.X509 -> IO ()
-showCert (X509.X509 cert _ _ sigalg sigbits) = do
+showCert :: X509.SignedExact Certificate -> IO ()
+showCert signedCert = do -- (X509.X509 cert _ _ sigalg sigbits) = do
     putStrLn ("version: " ++ show (X509.certVersion cert))
     putStrLn ("serial:  " ++ show (X509.certSerial cert))
     putStrLn ("sigalg:  " ++ show (X509.certSignatureAlg cert))
@@ -102,6 +102,11 @@ showCert (X509.X509 cert _ _ sigalg sigbits) = do
             showExts es
     putStrLn ("sigAlg: " ++ show sigalg)
     putStrLn ("sig:    " ++ show sigbits)
+  where
+    signed  = X509.getSigned signedCert
+    sigalg  = X509.signedAlg signed
+    sigbits = X509.signedSignature signed
+    cert    = X509.signedObject signed
 
 
 showRSAKey :: (RSA.PublicKey,RSA.PrivateKey) -> String
@@ -167,7 +172,7 @@ showASN1 at = prettyPrint at where
     p (Other tc tn x)        = putStr "other"
 
 parsePEMCert = either (const []) (rights . map getCert) . pemParseBS
-    where getCert pem = either error (\x -> Right (pemContent pem,x)) $ X509.decodeCertificate $ pemContent pem
+    where getCert pem = either error (\x -> Right (pemContent pem,x)) $ X509.decodeSignedObject $ pemContent pem
 
 processCert opts (cert, x509) = do
     when (raw opts) $ putStrLn $ hexdump $ cert
@@ -179,14 +184,15 @@ processCert opts (cert, x509) = do
     when (hash opts) $ hashCert x509
     --when (verify opts) $ getSystemCertificateStore >>= flip verifyCert x509
     where
-        hashCert x509@(X509.X509 cert _ _ _ _) = do
+        hashCert signedCert = do
             putStrLn ("subject(MD5):  " ++ hexdump' (X509.hashDN_old subject))
             putStrLn ("issuer(MD5):   " ++ hexdump' (X509.hashDN_old issuer))
             putStrLn ("subject(SHA1): " ++ hexdump' (X509.hashDN subject))
             putStrLn ("issuer(SHA1):  " ++ hexdump' (X509.hashDN issuer))
             where
-                subject    = X509.certSubjectDN cert
-                issuer     = X509.certIssuerDN cert
+                subject = X509.certSubjectDN cert
+                issuer  = X509.certIssuerDN cert
+                cert    = X509.signedObject $ X509.getSigned signedCert
 {-
         verifyCert store x509@(X509.X509 cert _ _ sigalg sig) = do
             case findCertificate (X509.certIssuerDN cert) store of
@@ -227,7 +233,8 @@ processCert opts (cert, x509) = do
                 Right True  -> putStrLn "certificate verified"
                 Right False -> putStrLn "certificate not verified"
 
-        matchsysX509 cert (X509.X509 syscert _ _ _ _) = do
+        matchsysX509 cert signedCert = do
+            let syscert = X509.signedObject $ X509.getSigned signedCert
             let x = X509.certSubjectDN syscert
             let y = X509.certIssuerDN cert
             x == y
