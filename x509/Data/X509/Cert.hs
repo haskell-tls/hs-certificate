@@ -1,3 +1,11 @@
+-- |
+-- Module      : Data.X509.Cert
+-- License     : BSD-style
+-- Maintainer  : Vincent Hanquez <vincent@snarc.org>
+-- Stability   : experimental
+-- Portability : unknown
+--
+-- X.509 Certificate types and functions
 module Data.X509.Cert
         (
         -- * Data Structure
