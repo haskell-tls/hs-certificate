@@ -23,7 +23,6 @@ module Data.X509.Ext
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
---import qualified Data.ByteString.Lazy as L
 import Data.ASN1.Types
 import Data.ASN1.BitArray
 import Data.X509.Internal
