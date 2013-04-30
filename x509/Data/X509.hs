@@ -12,18 +12,9 @@
 
 module Data.X509
         (
+------- OLD
         -- * Data Structure
           SignedCertificate(..)
-        -- * Data Structure (reexported from X509Cert)
-        , SignatureALG(..)
-        , HashALG(..)
-        , ECDSA_Hash(..)
-        , PubKeyALG(..)
-        , PubKey(..)
-        , OID
-        , DistinguishedName(..)
-        , Certificate(..)
-        , module Data.X509.Ext
 
         -- * helper for signing/veryfing certificate
         , getSigningData
@@ -37,7 +28,25 @@ module Data.X509
         , encodeDN
         , hashDN
         , hashDN_old
-        ) where
+------- OLD END
+
+    -- * Types
+    , Certificate(..)
+    , DistinguishedName(..)
+    , PubKey(..)
+    , module Data.X509.CertificateChain
+    , module Data.X509.AlgorithmIdentifier
+    , module Data.X509.Ext
+
+    -- * Signed types and marshalling
+    , Signed(..)
+    , SignedExact
+    , getSigned
+    , objectToSignedExact
+    , encodeSignedObject
+    , decodeSignedObject
+
+    ) where
 
 import Data.ASN1.Types
 import Data.ASN1.Encoding
@@ -52,6 +61,10 @@ import Data.X509.Internal
 import Data.X509.Cert hiding (encodeDN)
 import qualified  Data.X509.Cert as Cert
 import Data.X509.Ext
+import Data.X509.CertificateChain
+import Data.X509.Signed
+import Data.X509.PublicKey
+import Data.X509.AlgorithmIdentifier
 
 import qualified Crypto.Hash.MD5 as MD5
 import qualified Crypto.Hash.SHA1 as SHA1
