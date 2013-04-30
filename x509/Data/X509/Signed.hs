@@ -74,15 +74,31 @@ data (Eq a, ASN1Object a) => SignedExact a = SignedExact
 -- encoded object to have been made on a compliant DER ASN1 implementation.
 --
 -- It's better to use 'objectToSignedExact' instead of this.
-signedToExact :: Signed a -> SignedExact a
-signedToExact signed = undefined
+signedToExact :: (Eq a, ASN1Object a) => Signed a -> SignedExact a
+signedToExact signed = sExact
+  where (sExact, ())      = objectToSignedExact fakeSigFunction (signedObject signed)
+        fakeSigFunction _ = (signedSignature signed, signedAlg signed, ())
 
 -- | Transform an object into a 'SignedExact' object
 objectToSignedExact :: (Eq a, ASN1Object a)
                     => (ByteString -> (ByteString, SignatureALG, r)) -- ^ signature function
-                    -> a                                             -- ^ object to encode
+                    -> a                                             -- ^ object to sign
                     -> (SignedExact a, r)
-objectToSignedExact signatureFunction object = undefined
+objectToSignedExact signatureFunction object = (SignedExact signed objRaw signedRaw, r)
+  where signed     = Signed { signedObject    = object
+                            , signedAlg       = sigAlg
+                            , signedSignature = sigBits
+                            }
+        signedRaw  = encodeASN1' DER signedASN1
+        signedASN1 = Start Sequence
+                       : objASN1
+                       (toASN1 sigAlg
+                       (BitString (toBitArray sigBits 0)
+                   : End Sequence
+                   : []))
+        objASN1            = \xs -> Start Sequence : toASN1 object (End Sequence : xs)
+        objRaw             = encodeASN1' DER (objASN1 [])
+        (sigBits,sigAlg,r) = signatureFunction objRaw
 
 -- | Transform an object into a 'Signed' object.
 objectToSigned :: (Eq a, ASN1Object a) => (ByteString -> (ByteString, SignatureALG, r)) -> a -> (Signed a, r)
