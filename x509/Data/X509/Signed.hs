@@ -29,6 +29,7 @@ module Data.X509.Signed
     , SignedExact
     -- * SignedExact to Signed
     , getSigned
+    , getSignedData
     -- * Marshalling function
     , encodeSignedObject
     , decodeSignedObject
@@ -67,6 +68,10 @@ data (Eq a, ASN1Object a) => SignedExact a = SignedExact
                                          -- TODO: in later version, replace with offset in exactRaw
     , encodeSignedObject :: B.ByteString -- ^ The raw representation of the whole signed structure
     }
+
+-- | Get the signed data for the signature
+getSignedData :: (Eq a, ASN1Object a) => SignedExact a -> B.ByteString
+getSignedData = exactObjectRaw
 
 -- | make a 'SignedExact' copy of a 'Signed' object
 --

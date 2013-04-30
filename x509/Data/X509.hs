@@ -84,12 +84,6 @@ instance Eq SignedCertificate where
                 (x509SignatureALG x1 == x509SignatureALG x2) &&
                 (x509Signature x1    == x509Signature x2)
 
-{- | get signing data related to a SignedCertificate message,
- - which is either the cached data or the encoded certificate -}
-getSigningData :: SignedCertificate -> B.ByteString
-getSigningData (SignedCertificate _    (Just e) _ _ _) = e
-getSigningData (SignedCertificate cert Nothing _ _ _)  = encodeASN1' DER header
-        where header    = asn1Container Sequence $ toASN1 cert []
 
 {- | decode an SignedCertificate from a bytestring
  - the structure is the following:
