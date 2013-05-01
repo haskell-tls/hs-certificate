@@ -19,6 +19,7 @@ module Data.X509.Ext
         , ExtAuthorityKeyId(..)
         -- * Accessor turning extension into a specific one
         , extensionGet
+        , extensionDecode
         ) where
 
 import qualified Data.ByteString as B
@@ -57,12 +58,23 @@ class Extension a where
         extDecode :: [ASN1] -> Either String a
 
 extensionGet :: Extension a => [ExtensionRaw] -> Maybe a
-extensionGet []                = Nothing
-extensionGet ((oid,_,asn1):xs) = case extDecode asn1 of
-        Right b
-                | oid == extOID b -> Just b
-                | otherwise       -> extensionGet xs
-        Left _                    -> extensionGet xs
+extensionGet []       = Nothing
+extensionGet (raw:xs) = case extensionDecode raw of
+                            Just (Right e) -> Just e
+                            _              -> extensionGet xs
+
+-- | Try to decode an ExtensionRaw.
+--
+-- If this function return:
+-- * Nothing, the OID doesn't match
+-- * Just Left, the OID matched, but the extension couldn't be decoded
+-- * Just Right, the OID matched, and the extension has been succesfully decoded 
+extensionDecode :: Extension a => ExtensionRaw -> Maybe (Either String a)
+extensionDecode = doDecode undefined
+  where doDecode :: Extension a => a -> ExtensionRaw -> Maybe (Either String a)
+        doDecode dummy (oid,_,asn1)
+            | extOID dummy == oid = Just (extDecode asn1)
+            | otherwise           = Nothing
 
 data ExtBasicConstraints = ExtBasicConstraints Bool (Maybe Integer)
         deriving (Show,Eq)
