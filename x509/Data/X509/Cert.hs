@@ -6,6 +6,7 @@
 -- Portability : unknown
 --
 -- X.509 Certificate types and functions
+--
 module Data.X509.Cert
     (
     -- * Data Structure
