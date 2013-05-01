@@ -35,7 +35,7 @@ oidOrganizationUnit = [2,5,4,11]
 
 -- | A list of OID and strings.
 newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1Stringable)] }
-    deriving (Show,Eq)
+    deriving (Show,Eq,Ord)
 
 -- | Only use to encode a DistinguishedName without including it in a
 -- Sequence
