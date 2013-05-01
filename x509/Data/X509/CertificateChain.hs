@@ -14,12 +14,12 @@ module Data.X509.CertificateChain
     ) where
 
 import Data.X509.Cert (Certificate)
-import Data.X509.Signed (SignedExact)
+import Data.X509.Signed (SignedExact, decodeSignedObject, encodeSignedObject)
 import Data.ByteString (ByteString)
 
 -- | A chain of X.509 certificates in exact form.
 newtype CertificateChain = CertificateChain [SignedExact Certificate]
-    deriving (Show,Eq)
+    deriving (Eq)
 
 -- | Represent a chain of X.509 certificates in bytestring form.
 newtype CertificateChainRaw = CertificateChainRaw [ByteString]
@@ -31,10 +31,10 @@ newtype CertificateChainRaw = CertificateChainRaw [ByteString]
 decodeCertificateChain :: CertificateChainRaw -> Either (Int, String) CertificateChain
 decodeCertificateChain (CertificateChainRaw l) =
     either Left (Right . CertificateChain) $ loop 0 l
-  where loop _ []   = Right []
-        loop i r:rs = case decodeSignedObject r of
+  where loop _ []     = Right []
+        loop i (r:rs) = case decodeSignedObject r of
                          Left err -> Left (i, err)
-                         Right r  -> either Left (Right . (r :)) $ loop (i+1) rs
+                         Right o  -> either Left (Right . (o :)) $ loop (i+1) rs
 
 -- | Convert a CertificateChain into a CertificateChainRaw
 encodeCertificateChain :: CertificateChain -> CertificateChainRaw
