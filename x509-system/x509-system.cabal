@@ -23,7 +23,8 @@ Library
                    , filepath
                    , process
                    , time
-                   , certificate
+                   , x509
+                   , x509-store
   Exposed-modules:   System.X509
                      System.X509.Unix
                      System.X509.MacOS

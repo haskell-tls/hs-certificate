@@ -23,10 +23,9 @@ import System.FilePath ((</>))
 import Data.List (isPrefixOf)
 import Data.PEM (PEM(..), pemParseBS)
 import Data.Either
-import Data.Certificate.X509
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as L
-import Data.CertificateStore
+import Data.X509
+import Data.X509.CertificateStore
 
 import Control.Applicative ((<$>))
 import Control.Monad (filterM)
@@ -58,9 +57,9 @@ getSystemPath = E.catch (getEnv envPathOverride) inDefault
         inDefault :: E.IOException -> IO FilePath
         inDefault _ = return defaultSystemPath
 
-readCertificates :: FilePath -> IO [X509]
+readCertificates :: FilePath -> IO [SignedCertificate]
 readCertificates file = E.catch (either (const []) (rights . map getCert) . pemParseBS <$> B.readFile file) skipIOError
     where
-        getCert pem = decodeCertificate $ L.fromChunks [pemContent pem]
-        skipIOError :: E.IOException -> IO [X509]
+        getCert = decodeSignedCertificate . pemContent
+        skipIOError :: E.IOException -> IO [SignedCertificate]
         skipIOError _ = return []

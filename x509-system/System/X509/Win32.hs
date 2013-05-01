@@ -52,7 +52,7 @@ listIn dir = listSubDirectories dir >>= \hs -> (rights <$> mapM (readCertificate
 getSystemCertificateStore :: IO CertificateStore
 getSystemCertificateStore = makeCertificateStore <$> listIn defaultSystemPath
 -}
-import Data.CertificateStore
+import Data.X509.CertificateStore
 
 getSystemCertificateStore :: IO CertificateStore
 getSystemCertificateStore = return (makeCertificateStore [])
