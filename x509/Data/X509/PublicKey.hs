@@ -1,3 +1,12 @@
+-- |
+-- Module      : Data.X509.PublicKey
+-- License     : BSD-style
+-- Maintainer  : Vincent Hanquez <vincent@snarc.org>
+-- Stability   : experimental
+-- Portability : unknown
+--
+-- Public key handling in X.509 infrastructure
+--
 module Data.X509.PublicKey
     ( PubKey(..)
     , pubkeyToAlg
@@ -22,6 +31,7 @@ import qualified Data.ByteString as B
 data ECDSA_Hash = ECDSA_Hash_SHA384
                 deriving (Show,Eq)
 
+-- | Public key types known and used in X.509
 data PubKey =
           PubKeyRSA RSA.PublicKey -- ^ RSA public key
         | PubKeyDSA DSA.PublicKey -- ^ DSA public key
@@ -74,6 +84,7 @@ instance ASN1Object PubKey where
     fromASN1 l = Left ("fromASN1: X509.PubKey: unknown format:" ++ show l)
     toASN1 a = \xs -> encodePK a ++ xs
 
+-- | Convert a Public key to the Public Key Algorithm type
 pubkeyToAlg :: PubKey -> PubKeyALG
 pubkeyToAlg (PubKeyRSA _)         = PubKeyALG_RSA
 pubkeyToAlg (PubKeyDSA _)         = PubKeyALG_DSA
