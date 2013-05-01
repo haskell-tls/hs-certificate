@@ -67,7 +67,7 @@ data (Eq a, ASN1Object a) => SignedExact a = SignedExact
     , exactObjectRaw     :: B.ByteString -- ^ The raw representation of the object a
                                          -- TODO: in later version, replace with offset in exactRaw
     , encodeSignedObject :: B.ByteString -- ^ The raw representation of the whole signed structure
-    }
+    } deriving (Eq)
 
 -- | Get the signed data for the signature
 getSignedData :: (Eq a, ASN1Object a) => SignedExact a -> B.ByteString
