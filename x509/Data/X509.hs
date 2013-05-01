@@ -17,9 +17,11 @@ module Data.X509
     , Certificate(..)
     , DistinguishedName(..)
     , PubKey(..)
-    , module Data.X509.CertificateChain
     , module Data.X509.AlgorithmIdentifier
     , module Data.X509.Ext
+
+    -- * Certificate Chain
+    , module Data.X509.CertificateChain
 
     -- * Signed types and marshalling
     , Signed(..)
