@@ -14,6 +14,7 @@ module Data.X509.Validation
     ) where
 
 import Data.X509
+import Data.Time.Clock
 
 data FailedReason =
       UnknownCriticalExtension -- ^ certificate contains an unknown critical extension
@@ -37,3 +38,4 @@ validate :: Checks -> CertificateChain -> IO [FailedReason]
 validate checks certificateChain = do
     time <- getCurrentTime
     doCheck 
+  where doCheck = return []
