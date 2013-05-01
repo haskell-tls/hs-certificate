@@ -37,15 +37,19 @@ data CertKeyUsage =
         | CertKeyUsageDecipherOnly
         deriving (Show, Eq)
 
+-- | X.509 Certificate type.
+--
+-- This type doesn't include the signature, it's describe in the RFC
+-- as tbsCertificate.
 data Certificate = Certificate
-        { certVersion      :: Int                    -- ^ Certificate Version
-        , certSerial       :: Integer                -- ^ Certificate Serial number
-        , certSignatureAlg :: SignatureALG           -- ^ Certificate Signature algorithm
-        , certIssuerDN     :: DistinguishedName      -- ^ Certificate Issuer DN
-        , certValidity     :: (UTCTime, UTCTime)     -- ^ Certificate Validity period
-        , certSubjectDN    :: DistinguishedName      -- ^ Certificate Subject DN
-        , certPubKey       :: PubKey                 -- ^ Certificate Public key
-        , certExtensions   :: Maybe [ExtensionRaw]   -- ^ Certificate Extensions
+        { certVersion      :: Int                    -- ^ Version
+        , certSerial       :: Integer                -- ^ Serial number
+        , certSignatureAlg :: SignatureALG           -- ^ Signature algorithm
+        , certIssuerDN     :: DistinguishedName      -- ^ Issuer DN
+        , certValidity     :: (UTCTime, UTCTime)     -- ^ Validity period
+        , certSubjectDN    :: DistinguishedName      -- ^ Subject DN
+        , certPubKey       :: PubKey                 -- ^ Public key
+        , certExtensions   :: Maybe [ExtensionRaw]   -- ^ Extensions
         } deriving (Show,Eq)
 
 instance ASN1Object Certificate where
