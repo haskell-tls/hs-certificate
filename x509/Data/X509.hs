@@ -35,6 +35,8 @@ module Data.X509
     -- * Parametrized Signed accessor
     , getCertificate
     , getCRL
+    , decodeSignedCertificate
+    , decodeSignedCRL
 
     -- * Hash distinguished names related function
     , hashDN
@@ -68,6 +70,14 @@ getCertificate = signedObject . getSigned
 -- | Get the CRL associated to a SignedCRL
 getCRL :: SignedCRL -> CRL
 getCRL = signedObject . getSigned
+
+-- | Try to decode a bytestring to a SignedCertificate
+decodeSignedCertificate :: B.ByteString -> Either String SignedCertificate
+decodeSignedCertificate = decodeSignedObject
+
+-- | Try to decode a bytestring to a SignedCRL
+decodeSignedCRL :: B.ByteString -> Either String SignedCRL
+decodeSignedCRL = decodeSignedObject
 
 -- | Make an OpenSSL style hash of distinguished name
 --
