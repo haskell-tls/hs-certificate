@@ -22,6 +22,8 @@ Executable           x509-util
                    , cmdargs
                    , text >= 0.11
                    , x509
+                   , x509-store
+                   , x509-system
                    , asn1-types
                    , asn1-encoding
                    , pem

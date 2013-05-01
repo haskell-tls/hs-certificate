@@ -17,8 +17,8 @@ import Control.Monad
 import Control.Applicative ((<$>))
 import Data.Maybe
 import System.Exit
---import System.Certificate.X509
---import Data.CertificateStore
+import System.X509
+import Data.X509.CertificateStore
 
 -- for signing/verifying certificate
 import qualified Crypto.Hash.SHA1 as SHA1
@@ -65,7 +65,7 @@ showExts es = do
         showKnownExtension (Just e) = putStrLn ("  " ++ show e)
 
 showCert :: SignedCertificate -> IO ()
-showCert signedCert = do -- (X509.X509 cert _ _ sigalg sigbits) = do
+showCert signedCert = do
     putStrLn ("version: " ++ show (X509.certVersion cert))
     putStrLn ("serial:  " ++ show (X509.certSerial cert))
     putStrLn ("sigalg:  " ++ show (X509.certSignatureAlg cert))
