@@ -19,7 +19,6 @@ import Data.Time.Clock (UTCTime)
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
-import qualified Data.ASN1.BinaryEncoding.Raw as Raw (toByteString)
 
 import Data.X509.AlgorithmIdentifier
 
@@ -47,3 +46,7 @@ data RevokedCertificate = RevokedCertificate
     , revokedDate         :: UTCTime
     , revokedExtensions   :: Maybe [Extension]
     } deriving (Show,Eq)
+
+instance ASN1Object CRL where
+    toASN1 crl = undefined
+    fromASN1 s = undefined
