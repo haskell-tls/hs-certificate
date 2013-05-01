@@ -46,7 +46,7 @@ data SignatureALG =
     | SignatureALG_Unknown OID
     deriving (Show,Eq)
 
-instance ObjectIdable PubKeyALG where
+instance OIDable PubKeyALG where
     getObjectID PubKeyALG_RSA   = [1,2,840,113549,1,1,1]
     getObjectID PubKeyALG_DSA   = [1,2,840,10040,4,1]
     getObjectID PubKeyALG_ECDSA = [1,2,840,10045,2,1]
