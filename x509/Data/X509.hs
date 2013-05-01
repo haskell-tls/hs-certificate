@@ -32,6 +32,10 @@ module Data.X509
     , encodeSignedObject
     , decodeSignedObject
 
+    -- * Parametrized Signed accessor
+    , getCertificate
+    , getCRL
+
     -- * Hash distinguished names related function
     , hashDN
     , hashDN_old
@@ -56,6 +60,14 @@ import qualified Crypto.Hash.SHA1 as SHA1
 
 type SignedCertificate = SignedExact Certificate
 type SignedCRL         = SignedExact CRL
+
+-- | Get the Certificate associated to a SignedCertificate
+getCertificate :: SignedCertificate -> Certificate
+getCertificate = signedObject . getSigned
+
+-- | Get the CRL associated to a SignedCRL
+getCRL :: SignedCRL -> CRL
+getCRL = signedObject . getSigned
 
 -- | Make an OpenSSL style hash of distinguished name
 --
