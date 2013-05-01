@@ -19,13 +19,24 @@ import Data.ByteString (ByteString)
 
 -- | A chain of X.509 certificates in exact form.
 newtype CertificateChain = CertificateChain [SignedExact Certificate]
+    deriving (Show,Eq)
 
 -- | Represent a chain of X.509 certificates in bytestring form.
 newtype CertificateChainRaw = CertificateChainRaw [ByteString]
+    deriving (Show,Eq)
 
-decodeCertificateChain :: CertificateChainRaw -> Either String CertificateChain
+-- | Decode a CertificateChainRaw into a CertificateChain if every
+-- raw certificate are decoded correctly, otherwise return the index of the
+-- failed certificate and the error associated.
+decodeCertificateChain :: CertificateChainRaw -> Either (Int, String) CertificateChain
 decodeCertificateChain (CertificateChainRaw l) =
-    undefined
+    either Left (Right . CertificateChain) $ loop 0 l
+  where loop _ []   = Right []
+        loop i r:rs = case decodeSignedObject r of
+                         Left err -> Left (i, err)
+                         Right r  -> either Left (Right . (r :)) $ loop (i+1) rs
 
+-- | Convert a CertificateChain into a CertificateChainRaw
 encodeCertificateChain :: CertificateChain -> CertificateChainRaw
-encodeCertificateChain chain = undefined
+encodeCertificateChain (CertificateChain chain) =
+    CertificateChainRaw $ map encodeSignedObject chain
