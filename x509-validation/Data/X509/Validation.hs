@@ -29,11 +29,13 @@ data FailedReason =
     deriving (Show,Eq)
 
 data Checks = Checks
-    { checkValidity :: Bool
+    { checkValidity       :: Bool
+    , checkStrictOrdering :: Bool
     } deriving (Show,Eq)
 
 defaultChecks = Checks
-    { checkValidity = True
+    { checkValidity       = True
+    , checkStrictOrdering = False
     }
 
 validate :: Checks -> CertificateChain -> IO [FailedReason]
@@ -41,3 +43,10 @@ validate checks certificateChain = do
     time <- getCurrentTime
     doCheck 
   where doCheck = return []
+
+validateTime :: UTCTime -> Certificate -> [FailedReason]
+validateTime currentTime cert =
+    | currentTime < before = [InFuture]
+    | currentTime > after  = [Expired]
+    | otherwise            = []
+  where (before, after) = certValidity cert
