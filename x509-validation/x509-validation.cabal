@@ -28,6 +28,7 @@ Library
                    , process
                    , time
   Exposed-modules:   Data.X509.Validation
+  Other-modules:     Data.X509.Validation.Signature
   ghc-options:       -Wall
 
 source-repository head

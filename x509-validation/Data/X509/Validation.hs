@@ -16,6 +16,8 @@ module Data.X509.Validation
 import Data.X509
 import Data.Time.Clock
 
+import Data.X509.Validation.Signature
+
 data FailedReason =
       UnknownCriticalExtension -- ^ certificate contains an unknown critical extension
     | Expired                  -- ^ validity ends before checking time
