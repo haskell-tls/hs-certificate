@@ -17,6 +17,7 @@ module Data.X509
     , Certificate(..)
     , DistinguishedName(..)
     , PubKey(..)
+    , pubkeyToAlg
     , module Data.X509.AlgorithmIdentifier
     , module Data.X509.Ext
 
