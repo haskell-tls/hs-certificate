@@ -7,11 +7,7 @@
 --
 -- X.509 Certificate types and functions
 --
-module Data.X509.Cert
-    (
-    -- * Data Structure
-      Certificate(..)
-    ) where
+module Data.X509.Cert (Certificate(..)) where
 
 import Data.ASN1.Types
 import Data.Time.Clock (UTCTime)
