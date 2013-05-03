@@ -11,42 +11,67 @@
 --
 module Data.X509.CRL
     ( CRL(..)
-    , Extension(..)
     , RevokedCertificate(..)
     ) where
 
+import Control.Applicative
+import Control.Monad.Error
+
 import Data.Time.Clock (UTCTime)
 import Data.ASN1.Types
-import Data.ASN1.Encoding
-import Data.ASN1.BinaryEncoding
 
+import Data.X509.DistinguishedName
 import Data.X509.AlgorithmIdentifier
-
--- FIXME
-type Name = String
+import Data.X509.ExtensionRaw
+import Data.X509.Internal
 
 -- | Describe a Certificate revocation list
 data CRL = CRL
     { crlVersion             :: Integer
     , crlSignatureAlg        :: SignatureALG
-    , crlIssuer              :: Name
+    , crlIssuer              :: DistinguishedName
     , crlThisUpdate          :: UTCTime
     , crlNextUpdate          :: Maybe UTCTime
     , crlRevokedCertificates :: [RevokedCertificate]
-    , crlExtensions          :: Maybe [Extension]
+    , crlExtensions          :: Extensions
     } deriving (Show,Eq)
-
--- FIXME
-data Extension = Extension
-    deriving (Show,Eq)
 
 -- | Describe a revoked certificate identifiable by serial number.
 data RevokedCertificate = RevokedCertificate
     { revokedSerialNumber :: Integer
     , revokedDate         :: UTCTime
-    , revokedExtensions   :: Maybe [Extension]
+    , revokedExtensions   :: Extensions
     } deriving (Show,Eq)
 
 instance ASN1Object CRL where
     toASN1 crl = undefined
-    fromASN1 s = undefined
+    fromASN1 = runParseASN1State parseCRL
+
+-- TODO support extension
+instance ASN1Object RevokedCertificate where
+    fromASN1 (Start Sequence : IntVal serial : ASN1Time _ t _ : End Sequence : xs) =
+        Right (RevokedCertificate serial t (Extensions Nothing), xs)
+    fromASN1 l = Left ("fromASN1: X509.RevokedCertificate: unknown format:" ++ show l)
+    toASN1 (RevokedCertificate serial time _) = \xs ->
+        Start Sequence : IntVal serial : ASN1Time TimeGeneralized time Nothing : End Sequence : xs
+
+parseCRL = do
+    CRL <$> (getNext >>= getVersion)
+        <*> getObject
+        <*> getObject
+        <*> (getNext >>= getThisUpdate)
+        <*> getNextUpdate
+        <*> getRevokedCertificates
+        <*> getObject
+  where getVersion (IntVal v) = return $ fromIntegral v
+        getVersion _          = throwError "unexpected type for version"
+
+        getThisUpdate (ASN1Time _ t1 _) = return t1
+        getThisUpdate _                 = throwError "bad this update format, expecting time"
+
+        getNextUpdate = getNextMaybe timeOrNothing
+
+        timeOrNothing (ASN1Time _ tnext _) = Just tnext
+        timeOrNothing _                    = Nothing
+
+        getRevokedCertificates = onNextContainer Sequence $ getMany getObject
