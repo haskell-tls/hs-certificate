@@ -217,6 +217,12 @@ doCertMain opts files =
                 issuer  = X509.certIssuerDN cert
                 cert    = X509.signedObject $ X509.getSigned signedCert
 
+doCRLMain opts files = do
+    readSignedObject (head files) >>= \objs -> forM_ objs $ \o ->
+        case o of
+            Left err     -> error ("decoding CRL failed: " ++ show err)
+            Right signed -> do
+                putStrLn $ show $ getCRL signed
 
 doASN1Main files = do
     pem <- readPEMFile (head files)
@@ -226,10 +232,20 @@ doASN1Main files = do
             Right asn1 -> showASN1 0 asn1
     
 doKeyMain files = do
-    pems <- either error id . pemParseBS <$> B.readFile (head files)
-    let rsadata = find ((== "RSA PRIVATE KEY") . pemName) pems
-    let dsadata = find ((== "DSA PRIVATE KEY") . pemName) pems
-    case (rsadata, dsadata) of
+    pems <- readPEMFile (head files)
+    forM_ pems $ \pem -> do
+        let content = either (error . show) id $ decodeASN1' BER (pemContent pem)
+        case pemName pem of
+            "RSA PRIVATE KEY" ->
+                case fromASN1 content of
+                    Left err    -> error ("not a valid RSA key: " ++ err)
+                    Right (k,_) -> putStrLn "RSA KEY" >> putStrLn (showRSAKey k)
+            "DSA PRIVATE KEY" ->
+                case fromASN1 content of
+                    Left err    -> error ("not a valid DSA key: " ++ err)
+                    Right (k,_) -> putStrLn "DSA KEY" >> putStrLn (showDSAKey k)
+            _                 ->
+                putStrLn ("unknown private key: " ++ show (pemName pem))
 {-
         (Just x, _) -> do
             let rsaKey = KeyRSA.decodePrivate $ L.fromChunks [pemContent x]
@@ -251,7 +267,7 @@ optionsCert =
 
 certMain = getoptMain optionsCert $ \o n ->
     doCertMain o n
-crlMain = getoptMain [] $ \o n -> undefined
+crlMain = getoptMain [] $ \o n -> doCRLMain o n
 keyMain = getoptMain [] $ \o n -> doKeyMain n
 asn1Main = getoptMain [] $ \o n -> doASN1Main n
 
