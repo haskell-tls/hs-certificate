@@ -12,7 +12,8 @@ import qualified Data.X509 as X509
 --import Data.Certificate.KeyDSA as KeyDSA
 import Data.List (find)
 import Data.PEM (pemParseBS, pemContent, pemName)
-import System.Console.CmdArgs
+import System.Console.GetOpt
+import System.Environment
 import Control.Monad
 import Control.Applicative ((<$>))
 import Data.Maybe
@@ -175,13 +176,9 @@ parsePEMCert = either (const []) (rights . map getCert) . pemParseBS
     where getCert pem = either error (\x -> Right (pemContent pem,x)) $ X509.decodeSignedObject $ pemContent pem
 
 processCert opts (cert, x509) = do
-    when (raw opts) $ putStrLn $ hexdump $ cert
-    when (asn1 opts) $ case decodeASN1' BER cert of
-        Left err   -> error ("decoding ASN1 failed: " ++ show err)
-        Right asn1 -> showASN1 0 asn1
-
-    when (text opts || not (or [asn1 opts,raw opts])) $ showCert x509
-    when (hash opts) $ hashCert x509
+    when (DumpedRaw `elem` opts) $ putStrLn $ hexdump $ cert
+    when (DumpedText `elem` opts || not (or [DumpedRaw `elem` opts])) $ showCert x509
+    when (ShowHash `elem` opts) $ hashCert x509
     --when (verify opts) $ getSystemCertificateStore >>= flip verifyCert x509
     where
         hashCert signedCert = do
@@ -204,45 +201,26 @@ processCert opts (cert, x509) = do
                               (X509.certPubKey syscert)
 -}
 
-        rsaVerify hdesc pk a b = Right $ RSA.verify hdesc pk a b
+data X509Opts =
+      DumpedRaw
+    | DumpedText
+    | ShowHash
+    deriving (Show,Eq)
 
-        verifyF (X509.SignatureALG hash X509.PubKeyALG_RSA) (X509.PubKeyRSA rsak) =
-            let hdesc = case hash of
-                    -- "ASN.1 DER X algorithm designator prefix"
-                    X509.HashMD2    -> HD.hashDescrMD2
-                    X509.HashMD5    -> HD.hashDescrMD5
-                    X509.HashSHA1   -> HD.hashDescrSHA1
-                    X509.HashSHA224 -> HD.hashDescrSHA224
-                    X509.HashSHA256 -> HD.hashDescrSHA256
-                    X509.HashSHA384 -> HD.hashDescrSHA384
-                    X509.HashSHA512 -> HD.hashDescrSHA512
-                    --_               -> error ("unsupported hash in RSA: " ++ show hash)
-                in
-            rsaVerify hdesc rsak
+readPEMFile file = do
+    content <- B.readFile file
+    return $ either error id $ pemParseBS content
 
-        verifyF (X509.SignatureALG _ X509.PubKeyALG_DSA) (X509.PubKeyDSA dsak) =
-            (\_ _ -> Left "unimplemented DSA checking")
+doCertMain opts files = B.readFile (head files) >>= mapM_ (processCert opts) . parsePEMCert
 
-        verifyF _ _ =
-            (\_ _ -> Left "unexpected/wrong signature")
-
-        verifyAlg toSign expectedSig sigalg pk =
-            let f = verifyF sigalg pk in
-            case f toSign expectedSig of
-                Left err    -> putStrLn ("certificate couldn't be verified: something happened: " ++ show err)
-                Right True  -> putStrLn "certificate verified"
-                Right False -> putStrLn "certificate not verified"
-
-        matchsysX509 cert signedCert = do
-            let syscert = X509.signedObject $ X509.getSigned signedCert
-            let x = X509.certSubjectDN syscert
-            let y = X509.certIssuerDN cert
-            x == y
-
-doMain :: CertMainOpts -> IO ()
-doMain opts@(X509 {}) = B.readFile (head $ files opts) >>= mapM_ (processCert opts) . parsePEMCert
+doASN1Main files = do
+    pem <- readPEMFile (head files)
+    forM_ pem $ \p ->
+        case decodeASN1' BER $ pemContent p of
+            Left err   -> error ("decoding ASN1 failed: " ++ show err)
+            Right asn1 -> showASN1 0 asn1
     
-doMain (Key files) = do
+doKeyMain files = do
     pems <- either error id . pemParseBS <$> B.readFile (head files)
     let rsadata = find ((== "RSA PRIVATE KEY") . pemName) pems
     let dsadata = find ((== "DSA PRIVATE KEY") . pemName) pems
@@ -262,36 +240,35 @@ doMain (Key files) = do
         _ -> do
             putStrLn "no recognized private key found"
 
-data CertMainOpts =
-      X509
-        { files  :: [FilePath]
-        , asn1   :: Bool
-        , text   :: Bool
-        , raw    :: Bool
-        , verify :: Bool
-        , hash   :: Bool
-        }
-    | Key
-        { files :: [FilePath]
-        }
-    deriving (Show,Data,Typeable)
+optionsCert =
+    [ Option []     ["hash"] (NoArg ShowHash) "output certificate hash"
+    ]
 
-x509Opts = X509
-    { files  = def &= args &= typFile
-    , asn1   = def
-    , text   = def
-    , raw    = def
-    , verify = def
-    , hash   = def
-    } &= help "x509 certificate related commands"
+certMain = getoptMain optionsCert $ \o n ->
+    doCertMain o n
+crlMain = getoptMain [] $ \o n -> undefined
+keyMain = getoptMain [] $ \o n -> doKeyMain n
+asn1Main = getoptMain [] $ \o n -> doASN1Main n
 
-keyOpts = Key
-    { files = def &= args &= typFile
-    } &= help "keys related commands"
+getoptMain opts f as =
+    case getOpt Permute opts as of
+        (o,n,[])  -> f o n
+        (_,_,err) -> error (show err)
 
-mode = cmdArgsMode $ modes [x509Opts,keyOpts]
-    &= help "create, manipulate certificate (x509,etc) and keys"
-    &= program "certificate"
-    &= summary "certificate v0.1"
+usage = do
+    putStrLn "usage: x509-util <cmd>"
+    putStrLn "  key : process public key"
+    putStrLn "  cert: process X509 certificate"
+    putStrLn "  crl : process CRL certificate"
+    putStrLn "  asn1: show file asn1"
 
-main = cmdArgsRun mode >>= doMain
+main = do
+    args <- getArgs
+    case args of
+        []        -> usage
+        "x509":as -> certMain as
+        "cert":as -> certMain as
+        "key":as  -> keyMain as
+        "crl":as  -> crlMain as
+        "asn1":as -> asn1Main as
+        _         -> usage
