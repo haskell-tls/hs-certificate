@@ -50,6 +50,8 @@ instance ASN1Object DistinguishedName where
     toASN1 dn = \xs -> encodeDN dn ++ xs
     fromASN1  = runParseASN1State parseDN
 
+-- FIXME parseDNInner in fromASN1 is probably wrong as we don't have a container
+-- and thus hasNext should be replaced by a isFinished clause.
 instance ASN1Object DistinguishedNameInner where
     toASN1 (DistinguishedNameInner dn) = \xs -> encodeDNinner dn ++ xs
     fromASN1 = runParseASN1State (DistinguishedNameInner . DistinguishedName <$> parseDNInner)
