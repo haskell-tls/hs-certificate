@@ -248,18 +248,6 @@ doKeyMain files = do
                     Right (k,_) -> putStrLn "DSA KEY" >> putStrLn (showDSAKey k)
             _                 ->
                 putStrLn ("unknown private key: " ++ show (pemName pem))
-{-
-        (Just x, _) -> do
-            let rsaKey = KeyRSA.decodePrivate $ L.fromChunks [pemContent x]
-            case rsaKey of
-                Left err -> error err
-                Right k  -> putStrLn $ showRSAKey k
-        (_, Just x) -> do
-            let rsaKey = KeyDSA.decodePrivate $ L.fromChunks [pemContent x]
-            case rsaKey of
-                Left err   -> error err
-                Right k -> putStrLn $ showDSAKey k
--}
 
 optionsCert =
     [ Option []     ["hash"] (NoArg ShowHash) "output certificate hash"
