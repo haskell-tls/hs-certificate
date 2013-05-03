@@ -15,9 +15,9 @@ module Data.X509
       SignedCertificate
     , SignedCRL
     , Certificate(..)
-    , DistinguishedName(..)
     , PubKey(..)
     , pubkeyToAlg
+    , module Data.X509.DistinguishedName
     , module Data.X509.AlgorithmIdentifier
     , module Data.X509.Ext
     , module Data.X509.ExtensionRaw
