@@ -14,17 +14,14 @@ module Data.X509.Cert
     ) where
 
 import Data.ASN1.Types
-import Data.ASN1.Encoding
-import Data.ASN1.BinaryEncoding
-import Data.Maybe
 import Data.Time.Clock (UTCTime)
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad.Error
 import Data.X509.Internal
-import Data.X509.Ext
 import Data.X509.PublicKey
 import Data.X509.AlgorithmIdentifier
 import Data.X509.DistinguishedName
+import Data.X509.ExtensionRaw
 
 data CertKeyUsage =
           CertKeyUsageDigitalSignature
@@ -50,7 +47,7 @@ data Certificate = Certificate
         , certValidity     :: (UTCTime, UTCTime)     -- ^ Validity period
         , certSubjectDN    :: DistinguishedName      -- ^ Subject DN
         , certPubKey       :: PubKey                 -- ^ Public key
-        , certExtensions   :: Maybe [ExtensionRaw]   -- ^ Extensions
+        , certExtensions   :: Extensions             -- ^ Extensions
         } deriving (Show,Eq)
 
 instance ASN1Object Certificate where
@@ -74,26 +71,6 @@ parseCertHeaderValidity :: ParseASN1 (UTCTime, UTCTime)
 parseCertHeaderValidity = getNextContainer Sequence >>= toTimeBound
   where toTimeBound [ ASN1Time _ t1 _, ASN1Time _ t2 _ ] = return (t1,t2)
         toTimeBound _                                    = throwError "bad validity format"
-
-parseCertExtensions :: ParseASN1 (Maybe [ExtensionRaw])
-parseCertExtensions =
-    onNextContainerMaybe (Container Context 3)
-                         (mapMaybe extractExtension <$> onNextContainer Sequence getSequences)
-  where getSequences = do
-            n <- hasNext
-            if n
-                then getNextContainer Sequence >>= \sq -> liftM (sq :) getSequences
-                else return []
-        extractExtension [OID oid,Boolean True,OctetString obj] =
-            case decodeASN1' BER obj of
-                Left _  -> Nothing
-                Right r -> Just (oid, False, r)
-        extractExtension [OID oid,OctetString obj]              =
-            case decodeASN1' BER obj of
-                Left _  -> Nothing
-                Right r -> Just (oid, False, r)
-        extractExtension _                                      =
-            Nothing
 
 {- | parse header structure of a x509 certificate. the structure is the following:
         Version
@@ -120,15 +97,8 @@ parseCertificate =
                 <*> parseCertHeaderValidity
                 <*> getObject
                 <*> getObject
-                <*> parseCertExtensions
+                <*> getObject
         
-encodeExts :: Maybe [ExtensionRaw] -> [ASN1]
-encodeExts Nothing  = []
-encodeExts (Just l) = asn1Container (Container Context 3) $ concatMap encodeExt l
-  where encodeExt (oid, critical, asn1) =
-            let bs = encodeASN1' DER asn1
-             in asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString bs])
-
 encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
     eVer ++ eSerial ++ eAlgId ++ eIssuer ++ eValidity ++ eSubject ++ epkinfo ++ eexts
@@ -141,4 +111,4 @@ encodeCertificateHeader cert =
                                            ,ASN1Time TimeGeneralized t2 Nothing]
         eSubject  = toASN1 (certSubjectDN cert) []
         epkinfo   = toASN1 (certPubKey cert) []
-        eexts     = encodeExts $ certExtensions cert
+        eexts     = toASN1 (certExtensions cert) []

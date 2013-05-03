@@ -36,6 +36,7 @@ Library
                      Data.X509.Cert
                      Data.X509.PublicKey
                      Data.X509.Ext
+                     Data.X509.ExtensionRaw
                      Data.X509.CRL
                      Data.X509.Signed
   ghc-options:       -Wall

@@ -8,8 +8,7 @@
 -- extension processing module.
 --
 module Data.X509.Ext
-        ( ExtensionRaw
-        , Extension(..)
+        ( Extension(..)
         -- * Common extension usually found in x509v3
         , ExtBasicConstraints(..)
         , ExtKeyUsage(..)
@@ -27,9 +26,8 @@ import qualified Data.ByteString.Char8 as BC
 import Data.ASN1.Types
 import Data.ASN1.BitArray
 import Data.X509.Internal
+import Data.X509.ExtensionRaw
 import Control.Monad.Error
-
-type ExtensionRaw = (OID, Bool, [ASN1])
 
 -- | key usage flag that is found in the key usage extension field.
 data ExtKeyUsageFlag =
@@ -72,7 +70,7 @@ extensionGet (raw:xs) = case extensionDecode raw of
 extensionDecode :: Extension a => ExtensionRaw -> Maybe (Either String a)
 extensionDecode = doDecode undefined
   where doDecode :: Extension a => a -> ExtensionRaw -> Maybe (Either String a)
-        doDecode dummy (oid,_,asn1)
+        doDecode dummy (ExtensionRaw oid _ asn1)
             | extOID dummy == oid = Just (extDecode asn1)
             | otherwise           = Nothing
 

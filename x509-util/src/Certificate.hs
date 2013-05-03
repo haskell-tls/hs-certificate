@@ -58,7 +58,7 @@ showExts es = do
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtSubjectAltName)
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtAuthorityKeyId)
     where
-        showExt (oid,critical,asn1) = do
+        showExt (ExtensionRaw oid critical asn1) = do
             putStrLn ("  OID:  " ++ show oid ++ " critical: " ++ show critical)
             putStrLn ("        " ++ show asn1)
         showKnownExtension Nothing  = return ()
@@ -96,8 +96,8 @@ showCert signedCert = do
         pk                        ->
             printf "public key: %s\n" (show pk)
     case X509.certExtensions cert of
-        Nothing -> return ()
-        Just es -> do
+        (Extensions Nothing)   -> return ()
+        (Extensions (Just es)) -> do
             putStrLn "extensions:"
             showExts es
     putStrLn ("sigAlg: " ++ show sigalg)

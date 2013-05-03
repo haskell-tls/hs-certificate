@@ -20,6 +20,7 @@ module Data.X509
     , pubkeyToAlg
     , module Data.X509.AlgorithmIdentifier
     , module Data.X509.Ext
+    , module Data.X509.ExtensionRaw
 
     -- * Certificate Chain
     , module Data.X509.CertificateChain
@@ -51,6 +52,7 @@ import qualified Data.ByteString as B
 
 import Data.X509.Cert
 import Data.X509.Ext
+import Data.X509.ExtensionRaw
 import Data.X509.CRL
 import Data.X509.CertificateChain
 import Data.X509.DistinguishedName
