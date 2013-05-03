@@ -30,6 +30,8 @@ import qualified Crypto.Hash.MD2 as MD2
 import qualified Crypto.Hash.MD5 as MD5
 import qualified Crypto.PubKey.HashDescr as HD
 import qualified Crypto.PubKey.RSA as RSA
+import qualified Crypto.Types.PubKey.RSA as RSA
+import qualified Crypto.Types.PubKey.DSA as DSA
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
 import qualified Crypto.PubKey.DSA as DSA
 
@@ -110,8 +112,8 @@ showCert signedCert = do
     cert    = X509.signedObject signed
 
 
-showRSAKey :: (RSA.PublicKey,RSA.PrivateKey) -> String
-showRSAKey (pubkey,privkey) = unlines
+showRSAKey :: (RSA.KeyPair) -> String
+showRSAKey (RSA.KeyPair privkey) = unlines
     [ "len-modulus:      " ++ (show $ RSA.public_size pubkey)
     , "modulus:          " ++ (show $ RSA.public_n pubkey)
     , "public exponant:  " ++ (show $ RSA.public_e pubkey)
@@ -122,16 +124,16 @@ showRSAKey (pubkey,privkey) = unlines
     , "exp2:             " ++ (show $ RSA.private_dQ privkey)
     , "coefficient:      " ++ (show $ RSA.private_qinv privkey)
     ]
+  where pubkey = RSA.private_pub privkey
 
-showDSAKey :: (DSA.PublicKey,DSA.PrivateKey) -> String
-showDSAKey (pubkey,privkey) = unlines
-    [ "priv     " ++ (printf "%x" $ DSA.private_x privkey)
-    , "pub:     " ++ (printf "%x" $ DSA.public_y pubkey)
+showDSAKey :: DSA.KeyPair -> String
+showDSAKey (DSA.KeyPair params pubnum privnum) = unlines
+    [ "priv     " ++ (printf "%x" $ privnum)
+    , "pub:     " ++ (printf "%x" $ pubnum)
     , "p:       " ++ (printf "%x" $ DSA.params_p params)
     , "q:       " ++ (printf "%x" $ DSA.params_q params)
     , "g:       " ++ (printf "%x" $ DSA.params_g params)
     ]
-    where params = DSA.private_params privkey
 
 showASN1 :: Int -> [ASN1] -> IO ()
 showASN1 at = prettyPrint at where
@@ -258,8 +260,6 @@ doKeyMain files = do
                 Left err   -> error err
                 Right k -> putStrLn $ showDSAKey k
 -}
-        _ -> do
-            putStrLn "no recognized private key found"
 
 optionsCert =
     [ Option []     ["hash"] (NoArg ShowHash) "output certificate hash"
