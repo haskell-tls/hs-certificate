@@ -172,25 +172,9 @@ showASN1 at = prettyPrint at where
     p (ASN1String BMP t)          = putStr ("bmpstring: " ++ show t)
     p (Other tc tn x)        = putStr "other"
 
-parsePEMCert = either (const []) (rights . map getCert) . pemParseBS
-    where getCert pem = either error (\x -> Right (pemContent pem,x)) $ X509.decodeSignedObject $ pemContent pem
-
-processCert opts (cert, x509) = do
-    when (DumpedRaw `elem` opts) $ putStrLn $ hexdump $ cert
-    when (DumpedText `elem` opts || not (or [DumpedRaw `elem` opts])) $ showCert x509
-    when (ShowHash `elem` opts) $ hashCert x509
-    --when (verify opts) $ getSystemCertificateStore >>= flip verifyCert x509
-    where
-        hashCert signedCert = do
-            putStrLn ("subject(MD5):  " ++ hexdump' (X509.hashDN_old subject))
-            putStrLn ("issuer(MD5):   " ++ hexdump' (X509.hashDN_old issuer))
-            putStrLn ("subject(SHA1): " ++ hexdump' (X509.hashDN subject))
-            putStrLn ("issuer(SHA1):  " ++ hexdump' (X509.hashDN issuer))
-            where
-                subject = X509.certSubjectDN cert
-                issuer  = X509.certIssuerDN cert
-                cert    = X509.signedObject $ X509.getSigned signedCert
 {-
+    when (verify opts) $ getSystemCertificateStore >>= flip verifyCert x509
+  where
         verifyCert store x509@(X509.X509 cert _ _ sigalg sig) = do
             case findCertificate (X509.certIssuerDN cert) store of
                 Nothing                        -> putStrLn "couldn't find signing certificate"
@@ -211,7 +195,28 @@ readPEMFile file = do
     content <- B.readFile file
     return $ either error id $ pemParseBS content
 
-doCertMain opts files = B.readFile (head files) >>= mapM_ (processCert opts) . parsePEMCert
+readSignedObject file = do
+    content <- B.readFile file
+    return $ either error (map (X509.decodeSignedObject . pemContent)) $ pemParseBS content
+
+doCertMain opts files =
+    readSignedObject (head files) >>= \objs -> forM_ objs $ \o ->
+        case o of
+            Left err     -> error ("decoding Certificate failed: " ++ show err)
+            Right signed -> do
+                showCert signed
+                when (ShowHash `elem` opts) $ hashCert signed
+  where
+        hashCert signedCert = do
+            putStrLn ("subject(MD5) old: " ++ hexdump' (X509.hashDN_old subject))
+            putStrLn ("issuer(MD5) old:  " ++ hexdump' (X509.hashDN_old issuer))
+            putStrLn ("subject(SHA1):    " ++ hexdump' (X509.hashDN subject))
+            putStrLn ("issuer(SHA1):     " ++ hexdump' (X509.hashDN issuer))
+            where
+                subject = X509.certSubjectDN cert
+                issuer  = X509.certIssuerDN cert
+                cert    = X509.signedObject $ X509.getSigned signedCert
+
 
 doASN1Main files = do
     pem <- readPEMFile (head files)
