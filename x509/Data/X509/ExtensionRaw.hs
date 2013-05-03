@@ -16,11 +16,9 @@ import Control.Applicative
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import Data.ASN1.Types
-import Data.ASN1.BitArray
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.X509.Internal
-import Control.Monad.Error
 
 data ExtensionRaw = ExtensionRaw
     { extRawOID      :: OID

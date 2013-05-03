@@ -25,12 +25,6 @@ import Data.ByteString (ByteString)
 
 type ASN1Stringable = (ASN1StringEncoding, ByteString)
 
-oidCommonName, oidCountry, oidOrganization, oidOrganizationUnit :: OID
-oidCommonName       = [2,5,4,3]
-oidCountry          = [2,5,4,6]
-oidOrganization     = [2,5,4,10]
-oidOrganizationUnit = [2,5,4,11]
-
 -- | A list of OID and strings.
 newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1Stringable)] }
     deriving (Show,Eq,Ord)
