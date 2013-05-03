@@ -12,10 +12,8 @@ module Data.X509.DistinguishedName
     , ASN1Stringable
 
     -- various OID
-    , oidCommonName
-    , oidCountry
-    , oidOrganization
-    , oidOrganizationUnit
+    , DnElement
+    , getDnElement
     ) where
 
 import Control.Applicative
@@ -36,6 +34,22 @@ oidOrganizationUnit = [2,5,4,11]
 -- | A list of OID and strings.
 newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1Stringable)] }
     deriving (Show,Eq,Ord)
+
+data DnElement =
+      DnCommonName
+    | DnCountry
+    | DnOrganization
+    | DnOrganizationUnit
+    deriving (Show,Eq)
+
+instance OIDable DnElement where
+    getObjectID DnCommonName       = [2,5,4,3]
+    getObjectID DnCountry          = [2,5,4,6]
+    getObjectID DnOrganization     = [2,5,4,10]
+    getObjectID DnOrganizationUnit = [2,5,4,11]
+
+getDnElement :: DnElement -> DistinguishedName -> Maybe ASN1Stringable
+getDnElement element (DistinguishedName els) = lookup (getObjectID element) els
 
 -- | Only use to encode a DistinguishedName without including it in a
 -- Sequence

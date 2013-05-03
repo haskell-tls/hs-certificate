@@ -55,6 +55,7 @@ instance ASN1Object RevokedCertificate where
     toASN1 (RevokedCertificate serial time _) = \xs ->
         Start Sequence : IntVal serial : ASN1Time TimeGeneralized time Nothing : End Sequence : xs
 
+parseCRL :: ParseASN1 CRL
 parseCRL = do
     CRL <$> (getNext >>= getVersion)
         <*> getObject
