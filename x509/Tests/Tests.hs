@@ -83,7 +83,7 @@ instance Arbitrary Certificate where
                             <*> arbitrary
                             <*> arbitrary
                             <*> arbitrary
-                            <*> pure Nothing
+                            <*> pure (Extensions Nothing)
 
 assertEq a b
     | a == b    = True
