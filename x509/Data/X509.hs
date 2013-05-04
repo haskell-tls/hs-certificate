@@ -68,7 +68,10 @@ import Data.X509.AlgorithmIdentifier
 import qualified Crypto.Hash.MD5 as MD5
 import qualified Crypto.Hash.SHA1 as SHA1
 
+-- | A Signed Certificate
 type SignedCertificate = SignedExact Certificate
+
+-- | A Signed CRL
 type SignedCRL         = SignedExact CRL
 
 -- | Get the Certificate associated to a SignedCertificate
