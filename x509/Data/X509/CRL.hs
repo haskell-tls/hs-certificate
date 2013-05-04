@@ -44,7 +44,7 @@ data RevokedCertificate = RevokedCertificate
     } deriving (Show,Eq)
 
 instance ASN1Object CRL where
-    toASN1 crl = undefined
+    toASN1 crl = encodeCRL crl
     fromASN1 = runParseASN1State parseCRL
 
 -- TODO support extension
@@ -76,3 +76,18 @@ parseCRL = do
         timeOrNothing _                    = Nothing
 
         getRevokedCertificates = onNextContainer Sequence $ getMany getObject
+
+encodeCRL :: CRL -> ASN1S
+encodeCRL crl xs =
+    [IntVal $ crlVersion crl] ++
+    toASN1 (crlSignatureAlg crl) [] ++
+    toASN1 (crlIssuer crl) [] ++
+    [ASN1Time TimeGeneralized (crlThisUpdate crl) Nothing] ++
+    (maybe [] (\t -> [ASN1Time TimeGeneralized t Nothing]) (crlNextUpdate crl)) ++
+    [Start Sequence] ++
+    revoked ++
+    [End Sequence] ++
+    toASN1 (crlExtensions crl) [] ++
+    xs
+  where
+    revoked = concatMap (\e -> toASN1 e []) (crlRevokedCertificates crl)
