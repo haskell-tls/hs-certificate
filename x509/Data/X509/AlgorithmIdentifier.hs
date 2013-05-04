@@ -9,12 +9,12 @@ module Data.X509.AlgorithmIdentifier
     ( HashALG(..)
     , PubKeyALG(..)
     , SignatureALG(..)
-    , knownPubkeyAlgs
     ) where
 
 import Data.ASN1.Types
 import Data.List (find)
 
+-- | Hash Algorithm
 data HashALG =
       HashMD2
     | HashMD5
@@ -25,22 +25,17 @@ data HashALG =
     | HashSHA512
     deriving (Show,Eq)
 
+-- | Public Key Algorithm
 data PubKeyALG =
-      PubKeyALG_RSA
-    | PubKeyALG_DSA
-    | PubKeyALG_ECDSA
-    | PubKeyALG_DH
-    | PubKeyALG_Unknown OID
+      PubKeyALG_RSA         -- ^ RSA Public Key algorithm
+    | PubKeyALG_DSA         -- ^ DSA Public Key algorithm
+    | PubKeyALG_ECDSA       -- ^ ECDSA Public Key algorithm
+    | PubKeyALG_DH          -- ^ Diffie Hellman Public Key algorithm
+    | PubKeyALG_Unknown OID -- ^ Unknown Public Key algorithm
     deriving (Show,Eq)
 
-knownPubkeyAlgs :: [PubKeyALG]
-knownPubkeyAlgs =
-    [ PubKeyALG_RSA
-    , PubKeyALG_DSA
-    , PubKeyALG_ECDSA
-    , PubKeyALG_DH
-    ]
-
+-- | Signature Algorithm often composed of
+-- a public key algorithm and a hash algorithm
 data SignatureALG =
       SignatureALG HashALG PubKeyALG
     | SignatureALG_Unknown OID
@@ -52,14 +47,6 @@ instance OIDable PubKeyALG where
     getObjectID PubKeyALG_ECDSA = [1,2,840,10045,2,1]
     getObjectID PubKeyALG_DH    = [1,2,840,10046,2,1]
     getObjectID (PubKeyALG_Unknown oid) = oid
-
-pk_table :: [ (OID, PubKeyALG) ]
-pk_table =
-        [ ([1,2,840,113549,1,1,1], PubKeyALG_RSA)
-        , ([1,2,840,10040,4,1],    PubKeyALG_DSA)
-        , ([1,2,840,10045,2,1],    PubKeyALG_ECDSA)
-        , ([1,2,840,10046,2,1],    PubKeyALG_DH)
-        ]
 
 sig_table :: [ (OID, SignatureALG) ]
 sig_table =
