@@ -11,8 +11,8 @@ module Data.X509.DistinguishedName
     , DistinguishedNameInner(..)
     , ASN1Stringable
 
-    -- various OID
-    , DnElement
+    -- Distinguished Name Elements
+    , DnElement(..)
     , getDnElement
     ) where
 
