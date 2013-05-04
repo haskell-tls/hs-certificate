@@ -17,10 +17,15 @@ module Data.X509
     , Certificate(..)
     , PubKey(..)
     , pubkeyToAlg
-    , module Data.X509.DistinguishedName
+    , ASN1Stringable
     , module Data.X509.AlgorithmIdentifier
     , module Data.X509.Ext
     , module Data.X509.ExtensionRaw
+
+    -- * Naming
+    , DistinguishedName(..)
+    , DnElement(..)
+    , getDnElement
 
     -- * Certificate Chain
     , module Data.X509.CertificateChain
