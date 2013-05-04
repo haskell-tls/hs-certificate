@@ -57,7 +57,7 @@ validateTime currentTime cert
 
 getNames :: Certificate -> (Maybe String, [String])
 getNames cert = (commonName, altNames)
-  where commonName = getDnElement DnCommonName $ getSubjectDN cert
+  where commonName = getDnElement DnCommonName $ certSubjectDN cert
         altNames   = maybe [] (maybe [] toAltName . extensionGet) $ certExtensions cert
         toAltName (ExtSubjectAltName names) = names
 
