@@ -33,13 +33,13 @@ data ECDSA_Hash = ECDSA_Hash_SHA384
 
 -- | Public key types known and used in X.509
 data PubKey =
-          PubKeyRSA RSA.PublicKey -- ^ RSA public key
-        | PubKeyDSA DSA.PublicKey -- ^ DSA public key
-        | PubKeyDH (Integer,Integer,Integer,Maybe Integer,([Word8], Integer))
-                                    -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
-        | PubKeyECDSA ECDSA_Hash B.ByteString
-        | PubKeyUnknown OID B.ByteString -- ^ unrecognized format
-        deriving (Show,Eq)
+      PubKeyRSA RSA.PublicKey -- ^ RSA public key
+    | PubKeyDSA DSA.PublicKey -- ^ DSA public key
+    | PubKeyDH (Integer,Integer,Integer,Maybe Integer,([Word8], Integer))
+                                -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
+    | PubKeyECDSA ECDSA_Hash B.ByteString
+    | PubKeyUnknown OID B.ByteString -- ^ unrecognized format
+    deriving (Show,Eq)
 
 -- Public key are in the format:
 --
