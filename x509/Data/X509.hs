@@ -17,7 +17,6 @@ module Data.X509
     , Certificate(..)
     , PubKey(..)
     , pubkeyToAlg
-    , ASN1Stringable
     , module Data.X509.AlgorithmIdentifier
     , module Data.X509.Ext
     , module Data.X509.ExtensionRaw
@@ -28,6 +27,7 @@ module Data.X509
     -- * Naming
     , DistinguishedName(..)
     , DnElement(..)
+    , ASN1CharacterString(..)
     , getDnElement
 
     -- * Certificate Chain
@@ -52,6 +52,8 @@ module Data.X509
     , hashDN
     , hashDN_old
     ) where
+
+import Control.Arrow (second)
 
 import Data.ASN1.Types
 import Data.ASN1.Encoding
@@ -99,8 +101,8 @@ decodeSignedCRL = decodeSignedObject
 -- only lower the case of ascii character.
 hashDN :: DistinguishedName -> B.ByteString
 hashDN = shorten . SHA1.hash . encodeASN1' DER . flip toASN1 [] . DistinguishedNameInner . dnLowerUTF8
-    where dnLowerUTF8 (DistinguishedName l) = DistinguishedName $ map toLowerUTF8 l
-          toLowerUTF8 (oid, (_, s)) = (oid, (UTF8, B.map asciiToLower s))
+    where dnLowerUTF8 (DistinguishedName l) = DistinguishedName $ map (second toLowerUTF8) l
+          toLowerUTF8 (ASN1CharacterString _ s) = ASN1CharacterString UTF8 (B.map asciiToLower s)
           asciiToLower c
             | c >= w8A && c <= w8Z = fromIntegral (fromIntegral c - fromEnum 'A' + fromEnum 'a')
             | otherwise            = c

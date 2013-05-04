@@ -13,8 +13,6 @@ module Data.X509.ExtensionRaw
     ) where
 
 import Control.Applicative
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as BC
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
@@ -35,18 +33,20 @@ instance ASN1Object Extensions where
 
 instance ASN1Object ExtensionRaw where
     toASN1 extraw = \xs -> encodeExt extraw ++ xs
-    fromASN1 (Start Sequence:OID oid:Boolean b:OctetString obj:End Sequence:xs) =
-        extractExt oid b obj xs
-    fromASN1 (Start Sequence:OID oid:OctetString obj:End Sequence:xs)           =
-        extractExt oid False obj xs
+    fromASN1 (Start Sequence:OID oid:xs) =
+        case xs of
+            Boolean b:OctetString obj:End Sequence:xs2 -> extractExt b obj xs2
+            OctetString obj:End Sequence:xs2           -> extractExt False obj xs2
+            _                                          -> Left ("fromASN1: X509.ExtensionRaw: unknown format:" ++ show xs)
+      where
+        extractExt critical bs remainingStream =
+            case decodeASN1' BER bs of
+                Left err -> Left ("fromASN1: X509.ExtensionRaw: OID=" ++ show oid ++
+                                  ": cannot decode data: " ++ show err)
+                Right r  -> Right (ExtensionRaw oid critical r, remainingStream)
     fromASN1 l                                      =
         Left ("fromASN1: X509.ExtensionRaw: unknown format:" ++ show l)
 
-extractExt oid critical bs xs =
-    case decodeASN1' BER bs of
-        Left err -> Left ("fromASN1: X509.ExtensionRaw: OID=" ++ show oid ++
-                          ": cannot decode data: " ++ show err)
-        Right r  -> Right (ExtensionRaw oid critical r, xs)
 
 parseExtensions :: ParseASN1 Extensions
 parseExtensions = Extensions <$> (
@@ -75,6 +75,7 @@ encodeExts :: Extensions -> [ASN1]
 encodeExts (Extensions Nothing)  = []
 encodeExts (Extensions (Just l)) = asn1Container (Container Context 3) $ concatMap encodeExt l
 
+encodeExt :: ExtensionRaw -> [ASN1]
 encodeExt (ExtensionRaw oid critical asn1) =
     let bs = encodeASN1' DER asn1
      in asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString bs])

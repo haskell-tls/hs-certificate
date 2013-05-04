@@ -9,8 +9,7 @@
 module Data.X509.DistinguishedName
     ( DistinguishedName(..)
     , DistinguishedNameInner(..)
-    , ASN1Stringable
-
+    , ASN1CharacterString(..)
     -- Distinguished Name Elements
     , DnElement(..)
     , getDnElement
@@ -21,12 +20,9 @@ import Data.Monoid
 import Data.ASN1.Types
 import Data.X509.Internal
 import Control.Monad.Error
-import Data.ByteString (ByteString)
-
-type ASN1Stringable = (ASN1StringEncoding, ByteString)
 
 -- | A list of OID and strings.
-newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1Stringable)] }
+newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1CharacterString)] }
     deriving (Show,Eq,Ord)
 
 -- | Elements commonly available in a 'DistinguishedName' structure
@@ -44,7 +40,7 @@ instance OIDable DnElement where
     getObjectID DnOrganizationUnit = [2,5,4,11]
 
 -- | Try to get a specific element in a 'DistinguishedName' structure
-getDnElement :: DnElement -> DistinguishedName -> Maybe ASN1Stringable
+getDnElement :: DnElement -> DistinguishedName -> Maybe ASN1CharacterString
 getDnElement element (DistinguishedName els) = lookup (getObjectID element) els
 
 -- | Only use to encode a DistinguishedName without including it in a
@@ -69,23 +65,23 @@ instance ASN1Object DistinguishedNameInner where
 parseDN :: ParseASN1 DistinguishedName
 parseDN = DistinguishedName <$> onNextContainer Sequence parseDNInner
 
-parseDNInner :: ParseASN1 [(OID, ASN1Stringable)]
+parseDNInner :: ParseASN1 [(OID, ASN1CharacterString)]
 parseDNInner = do
     n <- hasNext
     if n
         then liftM2 (:) parseOneDN parseDNInner
         else return []
 
-parseOneDN :: ParseASN1 (OID, ASN1Stringable)
+parseOneDN :: ParseASN1 (OID, ASN1CharacterString)
 parseOneDN = onNextContainer Set $ do
     s <- getNextContainer Sequence
     case s of
-        [OID oid, ASN1String encoding val] -> return (oid, (encoding, val))
-        _                                  -> throwError "expecting sequence"
+        [OID oid, ASN1String cs] -> return (oid, cs)
+        _                        -> throwError "expecting sequence"
 
 encodeDNinner :: DistinguishedName -> [ASN1]
 encodeDNinner (DistinguishedName dn) = concatMap dnSet dn
-  where dnSet (oid, str) = asn1Container Set $ asn1Container Sequence [OID oid, uncurry ASN1String str]
+  where dnSet (oid, cs) = asn1Container Set $ asn1Container Sequence [OID oid, ASN1String cs]
 
 encodeDN :: DistinguishedName -> [ASN1]
 encodeDN dn = asn1Container Sequence $ encodeDNinner dn

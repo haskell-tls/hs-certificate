@@ -69,9 +69,14 @@ arbitraryBS r1 r2 = choose (r1,r2) >>= \l -> (B.pack <$> replicateM l arbitrary)
 
 instance Arbitrary ASN1StringEncoding where
     arbitrary = elements [IA5,UTF8]
+
+instance Arbitrary ASN1CharacterString where
+    arbitrary = ASN1CharacterString <$> arbitrary <*> arbitraryBS 2 36
+
 instance Arbitrary DistinguishedName where
     arbitrary = DistinguishedName <$> (choose (1,5) >>= \l -> replicateM l arbitraryDE)
-      where arbitraryDE = (,) <$> arbitrary <*> ((,) <$> arbitrary <*> arbitraryBS 2 36)
+      where arbitraryDE = (,) <$> arbitrary <*> arbitrary
+
 instance Arbitrary UTCTime where
     arbitrary = posixSecondsToUTCTime . fromIntegral <$> (arbitrary :: Gen Int)
 
