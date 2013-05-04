@@ -29,11 +29,12 @@ type ASN1Stringable = (ASN1StringEncoding, ByteString)
 newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1Stringable)] }
     deriving (Show,Eq,Ord)
 
+-- | Elements commonly available in a 'DistinguishedName' structure
 data DnElement =
-      DnCommonName
-    | DnCountry
-    | DnOrganization
-    | DnOrganizationUnit
+      DnCommonName       -- ^ CN
+    | DnCountry          -- ^ Country
+    | DnOrganization     -- ^ O
+    | DnOrganizationUnit -- ^ OU
     deriving (Show,Eq)
 
 instance OIDable DnElement where
@@ -42,6 +43,7 @@ instance OIDable DnElement where
     getObjectID DnOrganization     = [2,5,4,10]
     getObjectID DnOrganizationUnit = [2,5,4,11]
 
+-- | Try to get a specific element in a 'DistinguishedName' structure
 getDnElement :: DnElement -> DistinguishedName -> Maybe ASN1Stringable
 getDnElement element (DistinguishedName els) = lookup (getObjectID element) els
 
