@@ -50,7 +50,7 @@ hexdump bs = concatMap hex $ B.unpack bs
 
 hexdump' = hexdump
 
-showDN (X509.DistinguishedName dn) = mapM_ (\(oid, (_,t)) -> putStrLn ("  " ++ show oid ++ ": " ++ show t)) dn
+showDN (X509.DistinguishedName dn) = mapM_ (\(oid, ASN1CharacterString _ t) -> putStrLn ("  " ++ show oid ++ ": " ++ show t)) dn
 
 showExts es = do
     mapM_ showExt es
@@ -152,27 +152,29 @@ showASN1 at = prettyPrint at where
     p (OID is)               = putStr ("OID: " ++ show is)
     p (Real d)               = putStr "real"
     p (Enumerated _)         = putStr "enum"
-    p (ASN1String UTF8 t)         = putStr ("utf8string:" ++ show t)
     p (Start Sequence)       = putStr "sequence"
     p (End Sequence)         = putStr "end-sequence"
     p (Start Set)            = putStr "set"
     p (End Set)              = putStr "end-set"
     p (Start _)              = putStr "container"
     p (End _)                = putStr "end-container"
-    p (ASN1String Numeric bs)     = putStr "numericstring:"
-    p (ASN1String Printable t)    = putStr ("printablestring: " ++ show t)
-    p (ASN1String T61 bs)         = putStr "t61string:"
-    p (ASN1String VideoTex bs)    = putStr "videotexstring:"
-    p (ASN1String IA5 bs)         = putStr "ia5string:"
+    p (ASN1String cs)        = putCS cs
     p (ASN1Time TimeUTC time tz)      = putStr ("utctime: " ++ show time)
     p (ASN1Time TimeGeneralized time tz) = putStr ("generalizedtime: " ++ show time)
-    p (ASN1String Graphic bs)     = putStr "graphicstring:"
-    p (ASN1String Visible bs)     = putStr "visiblestring:"
-    p (ASN1String General bs)     = putStr "generalstring:"
-    p (ASN1String UTF32 t)        = putStr ("universalstring:" ++ show t)
-    p (ASN1String Character bs)   = putStr "characterstring:"
-    p (ASN1String BMP t)          = putStr ("bmpstring: " ++ show t)
     p (Other tc tn x)        = putStr "other"
+
+    putCS (ASN1CharacterString UTF8 t)         = putStr ("utf8string:" ++ show t)
+    putCS (ASN1CharacterString Numeric bs)     = putStr "numericstring:"
+    putCS (ASN1CharacterString Printable t)    = putStr ("printablestring: " ++ show t)
+    putCS (ASN1CharacterString T61 bs)         = putStr "t61string:"
+    putCS (ASN1CharacterString VideoTex bs)    = putStr "videotexstring:"
+    putCS (ASN1CharacterString IA5 bs)         = putStr "ia5string:"
+    putCS (ASN1CharacterString Graphic bs)     = putStr "graphicstring:"
+    putCS (ASN1CharacterString Visible bs)     = putStr "visiblestring:"
+    putCS (ASN1CharacterString General bs)     = putStr "generalstring:"
+    putCS (ASN1CharacterString UTF32 t)        = putStr ("universalstring:" ++ show t)
+    putCS (ASN1CharacterString Character bs)   = putStr "characterstring:"
+    putCS (ASN1CharacterString BMP t)          = putStr ("bmpstring: " ++ show t)
 
 {-
     when (verify opts) $ getSystemCertificateStore >>= flip verifyCert x509

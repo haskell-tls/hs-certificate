@@ -24,7 +24,7 @@ Executable           x509-util
                    , x509
                    , x509-store
                    , x509-system
-                   , asn1-types
+                   , asn1-types >= 0.2
                    , asn1-encoding
                    , pem
                    , cryptohash

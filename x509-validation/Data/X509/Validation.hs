@@ -71,6 +71,8 @@ validateCertificateName cert
 -- match the certificate used.
 validateNameMatch :: String -> Certificate -> [FailedReason]
 validateNameMatch fqhn cert =
+    undefined
+{-
     let names = maybe [] ((:[]) . snd) (lookup oidCommonName $ getDistinguishedElements $ certSubjectDN cert)
              ++ maybe [] (maybe [] toAltName . extensionGet) (certExtensions cert) in
     orUsage $ map (matchDomain . splitDot) names
@@ -107,3 +109,4 @@ validateNameMatch fqhn cert =
         splitDot x  =
             let (y, z) = break (== '.') x in
             y : (if z == "" then [] else splitDot $ drop 1 z)
+-}
