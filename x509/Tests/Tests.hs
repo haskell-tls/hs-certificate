@@ -74,6 +74,10 @@ instance Arbitrary DistinguishedName where
       where arbitraryDE = (,) <$> arbitrary <*> ((,) <$> arbitrary <*> arbitraryBS 2 36)
 instance Arbitrary UTCTime where
     arbitrary = posixSecondsToUTCTime . fromIntegral <$> (arbitrary :: Gen Int)
+
+instance Arbitrary Extensions where
+    arbitrary = pure (Extensions Nothing)
+
 instance Arbitrary Certificate where
     arbitrary = Certificate <$> pure 2
                             <*> arbitrary
@@ -82,7 +86,21 @@ instance Arbitrary Certificate where
                             <*> arbitrary
                             <*> arbitrary
                             <*> arbitrary
-                            <*> pure (Extensions Nothing)
+                            <*> arbitrary
+
+instance Arbitrary RevokedCertificate where
+    arbitrary = RevokedCertificate <$> arbitrary
+                                   <*> arbitrary
+                                   <*> pure (Extensions Nothing)
+
+instance Arbitrary CRL where
+    arbitrary = CRL <$> pure 1
+                    <*> arbitrary
+                    <*> arbitrary
+                    <*> arbitrary
+                    <*> arbitrary
+                    <*> arbitrary
+                    <*> arbitrary
 
 assertEq a b
     | a == b    = True
@@ -96,5 +114,6 @@ main = defaultMain
         [ testProperty "pubkey" (property_unmarshall_marshall_id :: PubKey -> Bool)
         , testProperty "signature alg" (property_unmarshall_marshall_id :: SignatureALG -> Bool)
         , testProperty "certificate" (property_unmarshall_marshall_id :: Certificate -> Bool)
+        , testProperty "crl" (property_unmarshall_marshall_id :: CRL -> Bool)
         ]
     ]
