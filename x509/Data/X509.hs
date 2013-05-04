@@ -22,6 +22,9 @@ module Data.X509
     , module Data.X509.Ext
     , module Data.X509.ExtensionRaw
 
+    -- * Certificate Revocation List (CRL)
+    , module Data.X509.CRL
+
     -- * Naming
     , DistinguishedName(..)
     , DnElement(..)
