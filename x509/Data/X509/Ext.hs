@@ -8,18 +8,19 @@
 -- extension processing module.
 --
 module Data.X509.Ext
-        ( Extension(..)
-        -- * Common extension usually found in x509v3
-        , ExtBasicConstraints(..)
-        , ExtKeyUsage(..)
-        , ExtKeyUsageFlag(..)
-        , ExtSubjectKeyId(..)
-        , ExtSubjectAltName(..)
-        , ExtAuthorityKeyId(..)
-        -- * Accessor turning extension into a specific one
-        , extensionGet
-        , extensionDecode
-        ) where
+    ( Extension(..)
+    -- * Common extension usually found in x509v3
+    , ExtBasicConstraints(..)
+    , ExtKeyUsage(..)
+    , ExtKeyUsageFlag(..)
+    , ExtSubjectKeyId(..)
+    , ExtSubjectAltName(..)
+    , ExtAuthorityKeyId(..)
+    , AltName(..)
+    -- * Accessor turning extension into a specific one
+    , extensionGet
+    , extensionDecode
+    ) where
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
@@ -32,16 +33,16 @@ import Control.Monad.Error
 
 -- | key usage flag that is found in the key usage extension field.
 data ExtKeyUsageFlag =
-          KeyUsage_digitalSignature -- (0)
-        | KeyUsage_nonRepudiation   -- (1) recent X.509 ver have renamed this bit to contentCommitment
-        | KeyUsage_keyEncipherment  -- (2)
-        | KeyUsage_dataEncipherment -- (3)
-        | KeyUsage_keyAgreement     -- (4)
-        | KeyUsage_keyCertSign      -- (5)
-        | KeyUsage_cRLSign          -- (6)
-        | KeyUsage_encipherOnly     -- (7)
-        | KeyUsage_decipherOnly     -- (8)
-        deriving (Show,Eq,Ord,Enum)
+      KeyUsage_digitalSignature -- (0)
+    | KeyUsage_nonRepudiation   -- (1) recent X.509 ver have renamed this bit to contentCommitment
+    | KeyUsage_keyEncipherment  -- (2)
+    | KeyUsage_dataEncipherment -- (3)
+    | KeyUsage_keyAgreement     -- (4)
+    | KeyUsage_keyCertSign      -- (5)
+    | KeyUsage_cRLSign          -- (6)
+    | KeyUsage_encipherOnly     -- (7)
+    | KeyUsage_decipherOnly     -- (8)
+    deriving (Show,Eq,Ord,Enum)
 
 {-
 -- RFC 5280
@@ -82,39 +83,39 @@ extensionDecode = doDecode undefined
 
 -- | Basic Constraints
 data ExtBasicConstraints = ExtBasicConstraints Bool (Maybe Integer)
-        deriving (Show,Eq)
+    deriving (Show,Eq)
 
 instance Extension ExtBasicConstraints where
-        extOID = const [2,5,29,19]
-        extEncode (ExtBasicConstraints b Nothing)  = [Start Sequence,Boolean b,End Sequence]
-        extEncode (ExtBasicConstraints b (Just i)) = [Start Sequence,Boolean b,IntVal i,End Sequence]
+    extOID = const [2,5,29,19]
+    extEncode (ExtBasicConstraints b Nothing)  = [Start Sequence,Boolean b,End Sequence]
+    extEncode (ExtBasicConstraints b (Just i)) = [Start Sequence,Boolean b,IntVal i,End Sequence]
 
-        extDecode [Start Sequence,Boolean b,IntVal v,End Sequence]
-            | v >= 0    = Right (ExtBasicConstraints b (Just v))
-            | otherwise = Left "invalid pathlen"
-        extDecode [Start Sequence,Boolean b,End Sequence] = Right (ExtBasicConstraints b Nothing)
-        extDecode [Start Sequence,End Sequence] = Right (ExtBasicConstraints False Nothing)
-        extDecode _ = Left "unknown sequence"
+    extDecode [Start Sequence,Boolean b,IntVal v,End Sequence]
+        | v >= 0    = Right (ExtBasicConstraints b (Just v))
+        | otherwise = Left "invalid pathlen"
+    extDecode [Start Sequence,Boolean b,End Sequence] = Right (ExtBasicConstraints b Nothing)
+    extDecode [Start Sequence,End Sequence] = Right (ExtBasicConstraints False Nothing)
+    extDecode _ = Left "unknown sequence"
 
 -- | Describe key usage
 data ExtKeyUsage = ExtKeyUsage [ExtKeyUsageFlag]
-        deriving (Show,Eq)
+    deriving (Show,Eq)
 
 instance Extension ExtKeyUsage where
-        extOID = const [2,5,29,15]
-        extEncode (ExtKeyUsage flags) = [BitString $ flagsToBits flags]
-        extDecode [BitString bits] = Right $ ExtKeyUsage $ bitsToFlags bits
-        extDecode _ = Left "unknown sequence"
+    extOID = const [2,5,29,15]
+    extEncode (ExtKeyUsage flags) = [BitString $ flagsToBits flags]
+    extDecode [BitString bits] = Right $ ExtKeyUsage $ bitsToFlags bits
+    extDecode _ = Left "unknown sequence"
 
 -- | Provide a way to identify a public key by a short hash.
 data ExtSubjectKeyId = ExtSubjectKeyId B.ByteString
-        deriving (Show,Eq)
+    deriving (Show,Eq)
 
 instance Extension ExtSubjectKeyId where
-        extOID = const [2,5,29,14]
-        extEncode (ExtSubjectKeyId o) = [OctetString o]
-        extDecode [OctetString o] = Right $ ExtSubjectKeyId o
-        extDecode _ = Left "unknown sequence"
+    extOID = const [2,5,29,14]
+    extEncode (ExtSubjectKeyId o) = [OctetString o]
+    extDecode [OctetString o] = Right $ ExtSubjectKeyId o
+    extDecode _ = Left "unknown sequence"
 
 -- | Different naming scheme use by the extension.
 --
@@ -145,15 +146,15 @@ instance Extension ExtSubjectAltName where
 -- | Provide a mean to identify the public key corresponding to the private key
 -- used to signed a certificate.
 data ExtAuthorityKeyId = ExtAuthorityKeyId B.ByteString
-        deriving (Show,Eq)
+    deriving (Show,Eq)
 
 instance Extension ExtAuthorityKeyId where
-        extOID _ = [2,5,29,35]
-        extEncode (ExtAuthorityKeyId keyid) =
-                [Start Sequence,Other Context 0 keyid,End Sequence]
-        extDecode [Start Sequence,Other Context 0 keyid,End Sequence] =
-                Right $ ExtAuthorityKeyId keyid
-        extDecode _ = Left "unknown sequence"
+    extOID _ = [2,5,29,35]
+    extEncode (ExtAuthorityKeyId keyid) =
+        [Start Sequence,Other Context 0 keyid,End Sequence]
+    extDecode [Start Sequence,Other Context 0 keyid,End Sequence] =
+        Right $ ExtAuthorityKeyId keyid
+    extDecode _ = Left "unknown sequence"
 
 parseGeneralNames :: ParseASN1 [AltName]
 parseGeneralNames = do
