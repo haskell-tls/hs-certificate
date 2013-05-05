@@ -161,7 +161,7 @@ showASN1 at = prettyPrint at where
     p (ASN1String cs)        = putCS cs
     p (ASN1Time TimeUTC time tz)      = putStr ("utctime: " ++ show time)
     p (ASN1Time TimeGeneralized time tz) = putStr ("generalizedtime: " ++ show time)
-    p (Other tc tn x)        = putStr "other"
+    p (Other tc tn x)        = putStr ("other(" ++ show tc ++ "," ++ show tn ++ ")")
 
     putCS (ASN1CharacterString UTF8 t)         = putStr ("utf8string:" ++ show t)
     putCS (ASN1CharacterString Numeric bs)     = putStr "numericstring:"
