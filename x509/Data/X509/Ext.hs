@@ -107,22 +107,31 @@ instance Extension ExtSubjectKeyId where
         extDecode [OctetString o] = Right $ ExtSubjectKeyId o
         extDecode _ = Left "unknown sequence"
 
-data ExtSubjectAltName = ExtSubjectAltName [String]
-        deriving (Show,Eq)
+-- | Different naming scheme use by the extension.
+--
+-- Not all name types are available, missing:
+-- otherName
+-- x400Address
+-- directoryName
+-- ediPartyName
+-- registeredID
+--
+data AltName =
+      AltNameRFC822 String
+    | AltNameDNS String
+    | AltNameURI String
+    | AltNameIP  B.ByteString
+    deriving (Show,Eq)
+
+-- | Provide a way to supply alternate name that can be
+-- used for matching host name.
+data ExtSubjectAltName = ExtSubjectAltName [AltName]
+    deriving (Show,Eq)
 
 instance Extension ExtSubjectAltName where
-        extOID = const [2,5,29,17]
-        extEncode (ExtSubjectAltName names) =
-                [Start Sequence]
-                ++ map (Other Context 2 . BC.pack) names
-                ++ [End Sequence]
-        extDecode l = runParseASN1 parse l where
-                parse = do
-                        c <- getNextContainer Sequence
-                        r <- sequence $ map toStringy c
-                        return $ ExtSubjectAltName r
-                toStringy (Other Context 2 b) = return $ BC.unpack b
-                toStringy b                   = throwError ("ExtSubjectAltName: not coping with anything else " ++ show b)
+    extOID = const [2,5,29,17]
+    extEncode (ExtSubjectAltName names) = encodeGeneralNames names
+    extDecode l = runParseASN1 (ExtSubjectAltName <$> parseGeneralNames) l
 
 data ExtAuthorityKeyId = ExtAuthorityKeyId B.ByteString
         deriving (Show,Eq)
@@ -134,6 +143,28 @@ instance Extension ExtAuthorityKeyId where
         extDecode [Start Sequence,Other Context 0 keyid,End Sequence] =
                 Right $ ExtAuthorityKeyId keyid
         extDecode _ = Left "unknown sequence"
+
+parseGeneralNames :: ParseASN1 [AltName]
+parseGeneralNames = do
+    c <- getNextContainer Sequence
+    r <- sequence $ map toStringy c
+    return r
+  where
+        toStringy (Other Context 1 b) = return $ AltNameRFC822 $ BC.unpack b
+        toStringy (Other Context 2 b) = return $ AltNameDNS $ BC.unpack b
+        toStringy (Other Context 6 b) = return $ AltNameURI $ BC.unpack b
+        toStringy (Other Context 7 b) = return $ AltNameIP  b
+        toStringy b                   = throwError ("GeneralNames: not coping with anything else " ++ show b)
+
+encodeGeneralNames :: [AltName] -> [ASN1]
+encodeGeneralNames names =
+    [Start Sequence]
+    ++ map encodeAltName names
+    ++ [End Sequence]
+  where encodeAltName (AltNameRFC822 n) = Other Context 1 $ BC.pack n
+        encodeAltName (AltNameDNS n)    = Other Context 2 $ BC.pack n
+        encodeAltName (AltNameURI n)    = Other Context 6 $ BC.pack n
+        encodeAltName (AltNameIP n)     = Other Context 7 $ n
 
 bitsToFlags :: Enum a => BitArray -> [a]
 bitsToFlags bits = concat $ flip map [0..(bitArrayLength bits-1)] $ \i -> do
