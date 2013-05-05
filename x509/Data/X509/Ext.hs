@@ -163,6 +163,7 @@ instance Extension ExtAuthorityKeyId where
 data ExtCrlDistributionPoints = ExtCrlDistributionPoints [DistributionPoint]
     deriving (Show,Eq)
 
+-- | Reason flag for the CRL
 data ReasonFlag =
       Reason_Unused
     | Reason_KeyCompromise
@@ -175,6 +176,7 @@ data ReasonFlag =
     | Reason_AACompromise
     deriving (Show,Eq,Ord,Enum)
 
+-- | Distribution point as either some GeneralNames or a DN
 data DistributionPoint =
       DistributionPointFullName [AltName]
     | DistributionNameRelative DistinguishedName
