@@ -16,7 +16,10 @@ module Data.X509.Ext
     , ExtSubjectKeyId(..)
     , ExtSubjectAltName(..)
     , ExtAuthorityKeyId(..)
+    , ExtCrlDistributionPoints(..)
     , AltName(..)
+    , DistributionPoint(..)
+    , ReasonFlag(..)
     -- * Accessor turning extension into a specific one
     , extensionGet
     , extensionDecode
@@ -28,6 +31,7 @@ import Data.ASN1.Types
 import Data.ASN1.BitArray
 import Data.X509.Internal
 import Data.X509.ExtensionRaw
+import Data.X509.DistinguishedName
 import Control.Applicative
 import Control.Monad.Error
 
@@ -47,7 +51,6 @@ data ExtKeyUsageFlag =
 {-
 -- RFC 5280
 oidDistributionPoints, oidPolicies, oidPoliciesMapping :: OID
-oidDistributionPoints = [2,5,29,31]
 oidPolicies           = [2,5,29,32]
 oidPoliciesMapping    = [2,5,29,33]
 -}
@@ -131,7 +134,7 @@ data AltName =
     | AltNameDNS String
     | AltNameURI String
     | AltNameIP  B.ByteString
-    deriving (Show,Eq)
+    deriving (Show,Eq,Ord)
 
 -- | Provide a way to supply alternate name that can be
 -- used for matching host name.
@@ -155,6 +158,33 @@ instance Extension ExtAuthorityKeyId where
     extDecode [Start Sequence,Other Context 0 keyid,End Sequence] =
         Right $ ExtAuthorityKeyId keyid
     extDecode _ = Left "unknown sequence"
+
+-- | Identify how CRL information is obtained
+data ExtCrlDistributionPoints = ExtCrlDistributionPoints [DistributionPoint]
+    deriving (Show,Eq)
+
+data ReasonFlag =
+      Reason_Unused
+    | Reason_KeyCompromise
+    | Reason_CACompromise
+    | Reason_AffiliationChanged
+    | Reason_Superseded
+    | Reason_CessationOfOperation
+    | Reason_CertificateHold
+    | Reason_PrivilegeWithdrawn
+    | Reason_AACompromise
+    deriving (Show,Eq,Ord,Enum)
+
+data DistributionPoint =
+      DistributionPointFullName [AltName]
+    | DistributionNameRelative DistinguishedName
+    deriving (Show,Eq)
+
+instance Extension ExtCrlDistributionPoints where
+    extOID _ = [2,5,29,31]
+    extEncode = undefined
+    extDecode = undefined
+    --extEncode (ExtCrlDistributionPoints )
 
 parseGeneralNames :: ParseASN1 [AltName]
 parseGeneralNames = do
