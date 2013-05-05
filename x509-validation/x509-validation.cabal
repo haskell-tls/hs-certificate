@@ -18,6 +18,7 @@ Library
                    , bytestring
                    , mtl
                    , pem >= 0.1 && < 0.2
+                   , asn1-types
                    , x509
                    , x509-store
                    , crypto-pubkey

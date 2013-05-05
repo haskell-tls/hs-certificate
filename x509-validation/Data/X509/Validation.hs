@@ -13,10 +13,12 @@ module Data.X509.Validation
     (
     ) where
 
+import Data.ASN1.Types
 import Data.X509
-import Data.Time.Clock
-
 import Data.X509.Validation.Signature
+import Data.Time.Clock
+import Data.Maybe
+
 
 data FailedReason =
       UnknownCriticalExtension -- ^ certificate contains an unknown critical extension
@@ -56,10 +58,12 @@ validateTime currentTime cert
   where (before, after) = certValidity cert
 
 getNames :: Certificate -> (Maybe String, [String])
-getNames cert = (commonName, altNames)
+getNames cert = (commonName >>= asn1CharacterToString, altNames)
   where commonName = getDnElement DnCommonName $ certSubjectDN cert
-        altNames   = maybe [] (maybe [] toAltName . extensionGet) $ certExtensions cert
-        toAltName (ExtSubjectAltName names) = names
+        altNames   = maybe [] toAltName $ extensionGet $ certExtensions cert
+        toAltName (ExtSubjectAltName names) = catMaybes $ map unAltName names
+            where unAltName (AltNameDNS s) = Just s
+                  unAltName _              = Nothing
 
 validateCertificateName :: Certificate -> [FailedReason]
 validateCertificateName cert
