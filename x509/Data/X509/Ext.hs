@@ -65,11 +65,13 @@ class Extension a where
     extDecode :: [ASN1] -> Either String a
 
 -- | Get a specific extension from a lists of raw extensions
-extensionGet :: Extension a => [ExtensionRaw] -> Maybe a
-extensionGet []       = Nothing
-extensionGet (raw:xs) = case extensionDecode raw of
+extensionGet :: Extension a => Extensions -> Maybe a
+extensionGet (Extensions Nothing)  = Nothing
+extensionGet (Extensions (Just l)) = findExt l
+  where findExt []     = Nothing
+        findExt (x:xs) = case extensionDecode x of
                             Just (Right e) -> Just e
-                            _              -> extensionGet xs
+                            _              -> findExt xs
 
 -- | Try to decode an ExtensionRaw.
 --
