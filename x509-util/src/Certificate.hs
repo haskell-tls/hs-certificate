@@ -52,8 +52,10 @@ hexdump' = hexdump
 
 showDN (X509.DistinguishedName dn) = mapM_ (\(oid, ASN1CharacterString _ t) -> putStrLn ("  " ++ show oid ++ ": " ++ show t)) dn
 
-showExts es = do
-    mapM_ showExt es
+showExts es@(Extensions Nothing) = do
+    return ()
+showExts es@(Extensions (Just exts)) = do
+    mapM_ showExt exts
     putStrLn "known extensions decoded: "
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtBasicConstraints)
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtKeyUsage)
@@ -100,9 +102,7 @@ showCert signedCert = do
             printf "public key: %s\n" (show pk)
     case X509.certExtensions cert of
         (Extensions Nothing)   -> return ()
-        (Extensions (Just es)) -> do
-            putStrLn "extensions:"
-            showExts es
+        (Extensions (Just es)) -> putStrLn "extensions:" >> showExts (X509.certExtensions cert)
     putStrLn ("sigAlg: " ++ show sigalg)
     putStrLn ("sig:    " ++ show sigbits)
   where
