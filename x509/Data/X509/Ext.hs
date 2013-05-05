@@ -136,7 +136,7 @@ data AltName =
 -- | Provide a way to supply alternate name that can be
 -- used for matching host name.
 data ExtSubjectAltName = ExtSubjectAltName [AltName]
-    deriving (Show,Eq)
+    deriving (Show,Eq,Ord)
 
 instance Extension ExtSubjectAltName where
     extOID = const [2,5,29,17]
