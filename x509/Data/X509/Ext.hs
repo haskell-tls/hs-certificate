@@ -27,6 +27,7 @@ import Data.ASN1.Types
 import Data.ASN1.BitArray
 import Data.X509.Internal
 import Data.X509.ExtensionRaw
+import Control.Applicative
 import Control.Monad.Error
 
 -- | key usage flag that is found in the key usage extension field.
@@ -50,11 +51,16 @@ oidPolicies           = [2,5,29,32]
 oidPoliciesMapping    = [2,5,29,33]
 -}
 
+-- | Extension class.
+--
+-- each extension have a unique OID associated, and a way
+-- to encode and decode an ASN1 stream.
 class Extension a where
-        extOID    :: a -> OID
-        extEncode :: a -> [ASN1]
-        extDecode :: [ASN1] -> Either String a
+    extOID    :: a -> OID
+    extEncode :: a -> [ASN1]
+    extDecode :: [ASN1] -> Either String a
 
+-- | Get a specific extension from a lists of raw extensions
 extensionGet :: Extension a => [ExtensionRaw] -> Maybe a
 extensionGet []       = Nothing
 extensionGet (raw:xs) = case extensionDecode raw of
@@ -66,7 +72,7 @@ extensionGet (raw:xs) = case extensionDecode raw of
 -- If this function return:
 -- * Nothing, the OID doesn't match
 -- * Just Left, the OID matched, but the extension couldn't be decoded
--- * Just Right, the OID matched, and the extension has been succesfully decoded 
+-- * Just Right, the OID matched, and the extension has been succesfully decoded
 extensionDecode :: Extension a => ExtensionRaw -> Maybe (Either String a)
 extensionDecode = doDecode undefined
   where doDecode :: Extension a => a -> ExtensionRaw -> Maybe (Either String a)
@@ -74,6 +80,7 @@ extensionDecode = doDecode undefined
             | extOID dummy == oid = Just (extDecode asn1)
             | otherwise           = Nothing
 
+-- | Basic Constraints
 data ExtBasicConstraints = ExtBasicConstraints Bool (Maybe Integer)
         deriving (Show,Eq)
 
@@ -89,6 +96,7 @@ instance Extension ExtBasicConstraints where
         extDecode [Start Sequence,End Sequence] = Right (ExtBasicConstraints False Nothing)
         extDecode _ = Left "unknown sequence"
 
+-- | Describe key usage
 data ExtKeyUsage = ExtKeyUsage [ExtKeyUsageFlag]
         deriving (Show,Eq)
 
@@ -98,6 +106,7 @@ instance Extension ExtKeyUsage where
         extDecode [BitString bits] = Right $ ExtKeyUsage $ bitsToFlags bits
         extDecode _ = Left "unknown sequence"
 
+-- | Provide a way to identify a public key by a short hash.
 data ExtSubjectKeyId = ExtSubjectKeyId B.ByteString
         deriving (Show,Eq)
 
@@ -133,6 +142,8 @@ instance Extension ExtSubjectAltName where
     extEncode (ExtSubjectAltName names) = encodeGeneralNames names
     extDecode l = runParseASN1 (ExtSubjectAltName <$> parseGeneralNames) l
 
+-- | Provide a mean to identify the public key corresponding to the private key
+-- used to signed a certificate.
 data ExtAuthorityKeyId = ExtAuthorityKeyId B.ByteString
         deriving (Show,Eq)
 

@@ -18,12 +18,14 @@ import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.X509.Internal
 
+-- | An undecoded extension
 data ExtensionRaw = ExtensionRaw
-    { extRawOID      :: OID
-    , extRawCritical :: Bool
-    , extRawASN1     :: [ASN1]
+    { extRawOID      :: OID    -- ^ OID of this extension
+    , extRawCritical :: Bool   -- ^ if this extension is critical
+    , extRawASN1     :: [ASN1] -- ^ the associated ASN1
     } deriving (Show,Eq)
 
+-- | a Set of 'ExtensionRaw'
 newtype Extensions = Extensions (Maybe [ExtensionRaw])
     deriving (Show,Eq)
 
