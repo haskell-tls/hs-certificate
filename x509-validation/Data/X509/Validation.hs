@@ -10,7 +10,10 @@
 -- Follows RFC5280 / RFC6818
 --
 module Data.X509.Validation
-    (
+    ( FailedReason(..)
+    , Checks(..)
+    , defaultChecks
+    , validate
     ) where
 
 import Data.ASN1.Types
@@ -18,7 +21,6 @@ import Data.X509
 import Data.X509.Validation.Signature
 import Data.Time.Clock
 import Data.Maybe
-
 
 data FailedReason =
       UnknownCriticalExtension -- ^ certificate contains an unknown critical extension
@@ -31,16 +33,35 @@ data FailedReason =
     | NoCommonName             -- ^ Certificate doesn't have any common name (CN)
     | NameMismatch String      -- ^ connection name and certificate do not match
     | InvalidWildcard          -- ^ invalid wildcard in certificate
+    | EmptyChain               -- ^ empty chain of certificate
     deriving (Show,Eq)
 
 data Checks = Checks
-    { checkValidity       :: Bool
+    {
+    -- | check time validity of every certificate in the chain.
+    -- the make sure that current time is between each validity bounds
+    -- in the certificate
+      checkTimeValidity   :: Bool
+    -- | Check that no certificate is included that doesn't
+    -- unfortunately despite the specification violation, a lots of
+    -- real world server serves useless and usually old certificates
+    -- that are not relevant to the certificate sent, in their chain.
     , checkStrictOrdering :: Bool
+    -- | Check that signing certificate got the CA basic constraint.
+    -- this is absolutely not recommended to turn it off.
+    , checkCAConstraints  :: Bool
+    -- | Check the whole certificate chain without stopping at the first failure.
+    -- Allow gathering a exhaustive list of failure reasons. if this is
+    -- turn off, it's absolutely not safe to ignore a failed reason even it doesn't look serious
+    -- (e.g. Expired) as other more serious checks would not have been performed.
+    , checkExhaustive     :: Bool
     } deriving (Show,Eq)
 
 defaultChecks = Checks
-    { checkValidity       = True
+    { checkTimeValidity   = True
     , checkStrictOrdering = False
+    , checkCAConstraints  = True
+    , checkExhaustive     = False
     }
 
 validate :: Checks -> CertificateChain -> IO [FailedReason]
