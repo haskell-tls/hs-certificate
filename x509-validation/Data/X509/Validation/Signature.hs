@@ -8,7 +8,7 @@
 -- X.509 Certificate and CRL signature verification
 --
 module Data.X509.Validation.Signature
-    ( verifyCertificateSignature
+    ( verifySignedSignature
     , verifySignature
     , SignatureVerification(..)
     ) where
@@ -20,6 +20,7 @@ import Crypto.PubKey.HashDescr
 
 import Data.ByteString (ByteString)
 import Data.X509
+import Data.ASN1.Types
 
 -- | A set of possible return from signature verification.
 --
@@ -35,14 +36,14 @@ data SignatureVerification =
     | SignatureUnimplemented  -- ^ unimplemented signature algorithm
     deriving (Show,Eq)
 
--- | Verify a SignedCertificate against a specified public key
-verifyCertificateSignature :: SignedCertificate -> PubKey -> SignatureVerification
-verifyCertificateSignature signedCert pubKey =
+-- | Verify a Signed object against a specified public key
+verifySignedSignature :: (Eq a, ASN1Object a) => SignedExact a -> PubKey -> SignatureVerification
+verifySignedSignature signedObj pubKey =
     verifySignature (signedAlg signed)
                     pubKey
-                    (getSignedData signedCert)
+                    (getSignedData signedObj)
                     (signedSignature signed)
-  where signed = getSigned signedCert
+  where signed = getSigned signedObj
 
 -- | verify signature using parameter
 verifySignature :: SignatureALG -- ^ Signature algorithm used
@@ -67,9 +68,7 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
         toDescr HashSHA384 = hashDescrSHA384
         toDescr HashSHA512 = hashDescrSHA512
 
-        hashDescr          = toDescr hashALG
-
-        verifyF (PubKeyRSA key) = Just $ RSA.verify hashDescr key
+        verifyF (PubKeyRSA key) = Just $ RSA.verify (toDescr hashALG) key
         verifyF (PubKeyDSA key)
             | hashALG == HashSHA1 && False = Just $ \a -> DSA.verify SHA1.hash key (dsaToSignature a)
             | otherwise           = Nothing
