@@ -95,24 +95,25 @@ validate checks store cc@(CertificateChain (_:_)) = do
 validateWith :: Parameters -> CertificateStore -> Checks -> CertificateChain -> IO [FailedReason]
 validateWith _      _     _      (CertificateChain [])           = return [EmptyChain]
 validateWith params store checks (CertificateChain (top:rchain)) =
-    exhaustive isExhaustive (doNameCheck (checkFQHN checks) top)
-                            (doCheckChain 0 top rchain)
+    doNameCheck (checkFQHN checks) top |> doCheckChain 0 top rchain
   where isExhaustive = checkExhaustive checks
         a |> b = exhaustive isExhaustive a b
+
         doCheckChain :: Int -> SignedCertificate -> [SignedCertificate] -> IO [FailedReason]
         doCheckChain level current chain = do
             r <- doCheckCertificate (getCertificate current)
             -- check if we have a trusted certificate in the store belonging to this issuer.
-            (return r) |> (case findCertificate (certIssuerDN cert) store of
+            return r |> (case findCertificate (certIssuerDN cert) store of
                 Just trustedSignedCert      -> return $ checkSignature current trustedSignedCert
                 Nothing | isSelfSigned cert -> return [SelfSigned]
                         | null chain        -> return [UnknownCA]
                         | otherwise         ->
-                            (return $ checkCA cert) |> case findIssuer (certIssuerDN cert) chain of
+                            case findIssuer (certIssuerDN cert) chain of
                                 Nothing                  -> return [UnknownCA]
-                                Just (issuer, remaining) -> do
-                                    exhaustive isExhaustive (return $ checkSignature current issuer)
-                                                            (doCheckChain (level+1) issuer remaining))
+                                Just (issuer, remaining) ->
+                                    return (checkCA $ getCertificate issuer)
+                                    |> return (checkSignature current issuer)
+                                    |> doCheckChain (level+1) issuer remaining)
           where cert = getCertificate current
         -- in a strict ordering check the next certificate has to be the issuer.
         -- otherwise we dynamically reorder the chain to have the necessary certificate
@@ -141,6 +142,7 @@ validateWith params store checks (CertificateChain (top:rchain)) =
         doNameCheck Nothing     _    = return []
         doNameCheck (Just fqhn) cert =
             return (validateCertificateName fqhn (getCertificate cert))
+
         doCheckCertificate cert =
             exhaustiveList (checkExhaustive checks)
                 [ (checkTimeValidity checks, return (validateTime (parameterTime params) cert))
