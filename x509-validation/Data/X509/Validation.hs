@@ -181,9 +181,9 @@ validateCertificateName fqhn cert =
   where (commonName, altNames) = getNames cert
 
         findMatch :: [FailedReason] -> [[FailedReason]] -> [FailedReason]
-        findMatch acc []      = NameMismatch fqhn:acc
+        findMatch _   []      = [NameMismatch fqhn]
         findMatch _   ([]:_)  = []
-        findMatch acc (x :xs) = findMatch (x++acc) xs
+        findMatch acc (_ :xs) = findMatch acc xs
 
         matchDomain :: [String] -> [FailedReason]
         matchDomain l
