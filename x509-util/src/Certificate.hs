@@ -86,7 +86,7 @@ showCert signedCert = do
     case X509.certPubKey cert of
         X509.PubKeyRSA pubkey -> do
             putStrLn "public key RSA:"
-            printf "  len    : %d\n" (RSA.public_size pubkey)
+            printf "  len    : %d bits\n" (RSA.public_size pubkey * 8)
             printf "  modulus: %x\n" (RSA.public_n pubkey)
             printf "  e      : %x\n" (RSA.public_e pubkey)
         X509.PubKeyDSA pubkey -> do
