@@ -1,5 +1,5 @@
 Name:                x509-validation
-Version:             1.4.0
+Version:             1.4.1
 Description:         X.509 Certificate and CRL validation
 License:             BSD3
 License-file:        LICENSE
@@ -21,7 +21,8 @@ Library
                    , asn1-types
                    , x509
                    , x509-store
-                   , crypto-pubkey
+                   , crypto-pubkey >= 0.1.4
+                   , crypto-pubkey-types >= 0.4.0
                    , cryptohash
                    , containers
                    , directory

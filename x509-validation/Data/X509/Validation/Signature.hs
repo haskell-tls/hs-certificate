@@ -75,4 +75,4 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
         verifyF _ = Nothing
 
         -- TODO : need to work out how to get R/S from the bytestring
-        dsaToSignature _ = (0,0)
+        dsaToSignature _ = DSA.Signature 0 0
