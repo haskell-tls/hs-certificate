@@ -18,6 +18,7 @@ import Data.Maybe
 import System.Exit
 import System.X509
 import Data.X509.CertificateStore
+import Data.X509.Validation
 
 -- for signing/verifying certificate
 import qualified Crypto.Hash.SHA1 as SHA1
@@ -197,6 +198,8 @@ data X509Opts =
       DumpedRaw
     | DumpedText
     | ShowHash
+    | Validate
+    | ValidationHost String
     deriving (Show,Eq)
 
 readPEMFile file = do
@@ -207,13 +210,21 @@ readSignedObject file = do
     content <- B.readFile file
     return $ either error (map (X509.decodeSignedObject . pemContent)) $ pemParseBS content
 
-doCertMain opts files =
-    readSignedObject (head files) >>= \objs -> forM_ objs $ \o ->
+doCertMain opts files = do
+    objs <- readSignedObject (head files)
+    forM_ objs $ \o ->
         case o of
             Left err     -> error ("decoding Certificate failed: " ++ show err)
             Right signed -> do
                 showCert signed
                 when (ShowHash `elem` opts) $ hashCert signed
+    when (Validate `elem` opts) $ do
+        let cc = CertificateChain (rights objs)
+        store  <- getSystemCertificateStore
+        failed <- validate validationChecks store cc
+        if failed /= []
+            then putStrLn ("validation failed: " ++ show failed)
+            else putStrLn "validation success"
   where
         hashCert signedCert = do
             putStrLn ("subject(MD5) old: " ++ hexdump' (X509.hashDN_old subject))
@@ -224,6 +235,11 @@ doCertMain opts files =
                 subject = X509.certSubjectDN cert
                 issuer  = X509.certIssuerDN cert
                 cert    = X509.signedObject $ X509.getSigned signedCert
+        validationChecks = (defaultChecks "") { checkFQHN       = foldl accHost Nothing opts
+                                              , checkExhaustive = True
+                                              }
+        accHost Nothing (ValidationHost h) = Just h
+        accHost a       _                  = a
 
 doCRLMain opts files = do
     readSignedObject (head files) >>= \objs -> forM_ objs $ \o ->
@@ -257,10 +273,11 @@ doKeyMain files = do
 
 optionsCert =
     [ Option []     ["hash"] (NoArg ShowHash) "output certificate hash"
+    , Option ['v']  ["validate"] (NoArg Validate) "validate certificate"
+    , Option []     ["validation-host"] (ReqArg ValidationHost "host") "validation host use for validation"
     ]
 
-certMain = getoptMain optionsCert $ \o n ->
-    doCertMain o n
+certMain = getoptMain optionsCert $ \o n -> doCertMain o n
 crlMain = getoptMain [] $ \o n -> doCRLMain o n
 keyMain = getoptMain [] $ \o n -> doKeyMain n
 asn1Main = getoptMain [] $ \o n -> doASN1Main n

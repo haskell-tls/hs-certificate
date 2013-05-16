@@ -24,6 +24,7 @@ Executable           x509-util
                    , x509
                    , x509-store
                    , x509-system
+                   , x509-validation
                    , asn1-types >= 0.2
                    , asn1-encoding
                    , pem
