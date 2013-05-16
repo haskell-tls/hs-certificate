@@ -1,5 +1,5 @@
 Name:                x509
-Version:             1.4.0
+Version:             1.4.1
 Description:         X509 reader and writer
 License:             BSD3
 License-file:        LICENSE
@@ -21,7 +21,7 @@ Library
                    , asn1-types >= 0.2.0 && < 0.3.0
                    , asn1-encoding >= 0.8.0 && < 0.9.0
                    , asn1-parse >= 0.8.0 && < 0.9.0
-                   , crypto-pubkey-types >= 0.3 && < 0.4
+                   , crypto-pubkey-types >= 0.4 && < 0.5
                    , cryptohash
                    , containers
                    , directory
