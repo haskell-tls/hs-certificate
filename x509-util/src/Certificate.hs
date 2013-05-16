@@ -50,7 +50,13 @@ hexdump bs = concatMap hex $ B.unpack bs
 
 hexdump' = hexdump
 
-showDN (X509.DistinguishedName dn) = mapM_ (\(oid, ASN1CharacterString _ t) -> putStrLn ("  " ++ show oid ++ ": " ++ show t)) dn
+showDN (X509.DistinguishedName dn) = mapM_ toStr dn
+  where toStr (oid, cs@(ASN1CharacterString e t)) =
+            putStrLn ("  " ++ key ++ ": " ++ value)
+          where key = show oid
+                value = case asn1CharacterToString cs of
+                            Nothing -> show e ++ " " ++ show t ++ " (decoding to string failed)"
+                            Just s  -> show s ++ " (encoding : " ++ show e ++ ")"
 
 showExts es@(Extensions Nothing) = do
     return ()
