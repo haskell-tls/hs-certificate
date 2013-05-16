@@ -8,8 +8,6 @@ import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.X509
 import qualified Data.X509 as X509
---import Data.Certificate.KeyRSA as KeyRSA
---import Data.Certificate.KeyDSA as KeyDSA
 import Data.List (find)
 import Data.PEM (pemParseBS, pemContent, pemName)
 import System.Console.GetOpt
