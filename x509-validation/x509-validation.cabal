@@ -20,7 +20,7 @@ Library
                    , pem >= 0.1 && < 0.2
                    , asn1-types
                    , asn1-encoding
-                   , x509
+                   , x509 >= 1.4.2
                    , x509-store
                    , crypto-pubkey >= 0.1.4
                    , crypto-pubkey-types >= 0.4.0
