@@ -16,10 +16,10 @@ module Data.X509.Validation.Signature
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
 import qualified Crypto.PubKey.DSA as DSA
 import qualified Crypto.Hash.SHA1 as SHA1
-import Crypto.PubKey.HashDescr
 
 import Data.ByteString (ByteString)
 import Data.X509
+import Data.X509.Validation.Fingerprint
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
@@ -65,13 +65,6 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
                                                             else SignatureFailed
     | otherwise                       = SignaturePubkeyMismatch
   where
-        toDescr HashMD2    = hashDescrMD2
-        toDescr HashMD5    = hashDescrMD5
-        toDescr HashSHA1   = hashDescrSHA1
-        toDescr HashSHA224 = hashDescrSHA224
-        toDescr HashSHA256 = hashDescrSHA256
-        toDescr HashSHA384 = hashDescrSHA384
-        toDescr HashSHA512 = hashDescrSHA512
 
         verifyF (PubKeyRSA key) = Just $ RSA.verify (toDescr hashALG) key
         verifyF (PubKeyDSA key)

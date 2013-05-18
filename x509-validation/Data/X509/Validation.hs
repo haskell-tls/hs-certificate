@@ -16,6 +16,7 @@ module Data.X509.Validation
     , defaultChecks
     , validate
     , validateWith
+    , getFingerprint
     ) where
 
 import Control.Applicative
@@ -23,6 +24,7 @@ import Data.ASN1.Types
 import Data.X509
 import Data.X509.CertificateStore
 import Data.X509.Validation.Signature
+import Data.X509.Validation.Fingerprint
 import Data.Time.Clock
 import Data.Maybe
 import Data.List
