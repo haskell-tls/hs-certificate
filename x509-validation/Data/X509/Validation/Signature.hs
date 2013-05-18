@@ -21,6 +21,8 @@ import Crypto.PubKey.HashDescr
 import Data.ByteString (ByteString)
 import Data.X509
 import Data.ASN1.Types
+import Data.ASN1.Encoding
+import Data.ASN1.BinaryEncoding
 
 -- | A set of possible return from signature verification.
 --
@@ -73,9 +75,16 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
 
         verifyF (PubKeyRSA key) = Just $ RSA.verify (toDescr hashALG) key
         verifyF (PubKeyDSA key)
-            | hashALG == HashSHA1 && False = Just $ \a -> DSA.verify SHA1.hash key (dsaToSignature a)
+            | hashALG == HashSHA1 = Just $ \a b -> case dsaToSignature a of
+                                                    Nothing     -> False
+                                                    Just dsaSig -> DSA.verify SHA1.hash key dsaSig b
             | otherwise           = Nothing
         verifyF _ = Nothing
 
-        -- TODO : need to work out how to get R/S from the bytestring
-        dsaToSignature _ = DSA.Signature 0 0
+        dsaToSignature :: ByteString -> Maybe DSA.Signature
+        dsaToSignature b =
+            case decodeASN1' BER b of
+                Left _     -> Nothing
+                Right asn1 -> case fromASN1 asn1 of
+                                Left _            -> Nothing
+                                Right (dsaSig, _) -> Just dsaSig
