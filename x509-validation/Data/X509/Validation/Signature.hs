@@ -65,7 +65,6 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
                                                             else SignatureFailed
     | otherwise                       = SignaturePubkeyMismatch
   where
-
         verifyF (PubKeyRSA key) = Just $ RSA.verify (toDescr hashALG) key
         verifyF (PubKeyDSA key)
             | hashALG == HashSHA1 = Just $ \a b -> case dsaToSignature a of
