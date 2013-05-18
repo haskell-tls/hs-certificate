@@ -46,6 +46,10 @@ data FailedReason =
     | EmptyChain               -- ^ empty chain of certificate
     deriving (Show,Eq)
 
+-- | A set of checks to activate or parametrize to perform on certificates.
+--
+-- It's recommended to use 'defaultChecks' to create the structure,
+-- to better cope with future changes or expansion of the structure.
 data Checks = Checks
     {
     -- | check time validity of every certificate in the chain.
