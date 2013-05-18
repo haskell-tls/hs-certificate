@@ -105,7 +105,7 @@ validateWith params store checks (CertificateChain (top:rchain)) =
             -- check if we have a trusted certificate in the store belonging to this issuer.
             return r |> (case findCertificate (certIssuerDN cert) store of
                 Just trustedSignedCert      -> return $ checkSignature current trustedSignedCert
-                Nothing | isSelfSigned cert -> return [SelfSigned]
+                Nothing | isSelfSigned cert -> return [SelfSigned] |> return (checkSignature current current)
                         | null chain        -> return [UnknownCA]
                         | otherwise         ->
                             case findIssuer (certIssuerDN cert) chain of
