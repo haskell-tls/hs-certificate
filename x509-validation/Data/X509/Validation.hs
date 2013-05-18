@@ -52,7 +52,7 @@ data Checks = Checks
     -- the make sure that current time is between each validity bounds
     -- in the certificate
       checkTimeValidity   :: Bool
-    -- | Check that no certificate is included that doesn't
+    -- | Check that no certificate is included that shouldn't be included.
     -- unfortunately despite the specification violation, a lots of
     -- real world server serves useless and usually old certificates
     -- that are not relevant to the certificate sent, in their chain.
