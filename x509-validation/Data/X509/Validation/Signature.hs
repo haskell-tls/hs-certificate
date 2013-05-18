@@ -37,7 +37,10 @@ data SignatureVerification =
     deriving (Show,Eq)
 
 -- | Verify a Signed object against a specified public key
-verifySignedSignature :: (Eq a, ASN1Object a) => SignedExact a -> PubKey -> SignatureVerification
+verifySignedSignature :: (Show a, Eq a, ASN1Object a)
+                      => SignedExact a
+                      -> PubKey
+                      -> SignatureVerification
 verifySignedSignature signedObj pubKey =
     verifySignature (signedAlg signed)
                     pubKey

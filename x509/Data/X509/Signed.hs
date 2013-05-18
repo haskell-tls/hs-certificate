@@ -54,23 +54,25 @@ import qualified Data.ASN1.BinaryEncoding.Raw as Raw (toByteString)
 --
 -- When dealing with external certificate, use the SignedExact structure
 -- not this one.
-data (Eq a, ASN1Object a) => Signed a = Signed
+data (Show a, Eq a, ASN1Object a) => Signed a = Signed
     { signedObject    :: a            -- ^ Object to sign
     , signedAlg       :: SignatureALG -- ^ Signature Algorithm used
     , signedSignature :: B.ByteString -- ^ Signature as bytes
-    } deriving (Eq)
+    } deriving (Show, Eq)
 
 -- | Represent the signed object plus the raw data that we need to
 -- keep around for non compliant case to be able to verify signature.
-data (Eq a, ASN1Object a) => SignedExact a = SignedExact
+data (Show a, Eq a, ASN1Object a) => SignedExact a = SignedExact
     { getSigned          :: Signed a     -- ^ get the decoded Signed data
     , exactObjectRaw     :: B.ByteString -- ^ The raw representation of the object a
                                          -- TODO: in later version, replace with offset in exactRaw
     , encodeSignedObject :: B.ByteString -- ^ The raw representation of the whole signed structure
-    } deriving (Eq)
+    } deriving (Show, Eq)
 
 -- | Get the signed data for the signature
-getSignedData :: (Eq a, ASN1Object a) => SignedExact a -> B.ByteString
+getSignedData :: (Show a, Eq a, ASN1Object a)
+              => SignedExact a
+              -> B.ByteString
 getSignedData = exactObjectRaw
 
 -- | make a 'SignedExact' copy of a 'Signed' object
@@ -79,13 +81,15 @@ getSignedData = exactObjectRaw
 -- encoded object to have been made on a compliant DER ASN1 implementation.
 --
 -- It's better to use 'objectToSignedExact' instead of this.
-signedToExact :: (Eq a, ASN1Object a) => Signed a -> SignedExact a
+signedToExact :: (Show a, Eq a, ASN1Object a)
+              => Signed a
+              -> SignedExact a
 signedToExact signed = sExact
   where (sExact, ())      = objectToSignedExact fakeSigFunction (signedObject signed)
         fakeSigFunction _ = (signedSignature signed, signedAlg signed, ())
 
 -- | Transform an object into a 'SignedExact' object
-objectToSignedExact :: (Eq a, ASN1Object a)
+objectToSignedExact :: (Show a, Eq a, ASN1Object a)
                     => (ByteString -> (ByteString, SignatureALG, r)) -- ^ signature function
                     -> a                                             -- ^ object to sign
                     -> (SignedExact a, r)
@@ -108,11 +112,17 @@ objectToSignedExact signatureFunction object = (SignedExact signed objRaw signed
 -- | Transform an object into a 'Signed' object.
 --
 -- It's recommended to use the SignedExact object instead of Signed.
-objectToSigned :: (Eq a, ASN1Object a) => (ByteString -> (ByteString, SignatureALG, r)) -> a -> (Signed a, r)
+objectToSigned :: (Show a, Eq a, ASN1Object a)
+               => (ByteString
+               -> (ByteString, SignatureALG, r))
+               -> a
+               -> (Signed a, r)
 objectToSigned signatureFunction object = first getSigned $ objectToSignedExact signatureFunction object
 
 -- | Try to parse a bytestring that use the typical X509 signed structure format
-decodeSignedObject :: (Eq a, ASN1Object a) => ByteString -> Either String (SignedExact a)
+decodeSignedObject :: (Show a, Eq a, ASN1Object a)
+                   => ByteString
+                   -> Either String (SignedExact a)
 decodeSignedObject b = either (Left . show) parseSigned $ decodeASN1Repr' BER b
   where -- the following implementation is very inefficient.
         -- uses reverse and containing, move to a better solution eventually
