@@ -19,7 +19,7 @@ import Data.ByteString (ByteString)
 
 -- | A chain of X.509 certificates in exact form.
 newtype CertificateChain = CertificateChain [SignedExact Certificate]
-    deriving (Eq)
+    deriving (Show,Eq)
 
 -- | Represent a chain of X.509 certificates in bytestring form.
 newtype CertificateChainRaw = CertificateChainRaw [ByteString]
