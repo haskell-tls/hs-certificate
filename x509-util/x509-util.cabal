@@ -35,3 +35,4 @@ Executable           x509-util
 source-repository head
   type:     git
   location: git://github.com/vincenthz/hs-certificate
+  subdir:   x509-util

@@ -62,3 +62,4 @@ Test-Suite test-x509
 source-repository head
   type:     git
   location: git://github.com/vincenthz/hs-certificate
+  subdir:   x509
