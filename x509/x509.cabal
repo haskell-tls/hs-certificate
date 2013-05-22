@@ -35,6 +35,7 @@ Library
                      Data.X509.DistinguishedName
                      Data.X509.Cert
                      Data.X509.PublicKey
+                     Data.X509.PrivateKey
                      Data.X509.Ext
                      Data.X509.ExtensionRaw
                      Data.X509.CRL

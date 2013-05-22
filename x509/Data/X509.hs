@@ -16,7 +16,9 @@ module Data.X509
     , SignedCRL
     , Certificate(..)
     , PubKey(..)
+    , PrivKey(..)
     , pubkeyToAlg
+    , privkeyToAlg
     , module Data.X509.AlgorithmIdentifier
     , module Data.X509.Ext
     , module Data.X509.ExtensionRaw
@@ -68,6 +70,7 @@ import Data.X509.CertificateChain
 import Data.X509.DistinguishedName
 import Data.X509.Signed
 import Data.X509.PublicKey
+import Data.X509.PrivateKey
 import Data.X509.AlgorithmIdentifier
 
 import qualified Crypto.Hash.MD5 as MD5
