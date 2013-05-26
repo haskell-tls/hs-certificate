@@ -26,13 +26,16 @@ Library
                    , bytestring
                    , mtl
                    , pem >= 0.1 && < 0.2
-                   , x509
+                   , asn1-types
+                   , asn1-encoding
+                   , x509 >= 1.4.3
                    , containers
                    , directory
                    , filepath
                    , process
                    , time
   Exposed-modules:   Data.X509.CertificateStore
+                     Data.X509.File
   ghc-options:       -Wall
 
 source-repository head
