@@ -28,6 +28,7 @@ Library
                    , pem >= 0.1 && < 0.2
                    , asn1-types
                    , asn1-encoding
+                   , crypto-pubkey-types
                    , x509 >= 1.4.3
                    , containers
                    , directory
