@@ -80,14 +80,14 @@ data Parameters = Parameters
     } deriving (Show,Eq)
 
 -- | Default checks to perform
-defaultChecks :: String -- ^ fully qualified host name that we need to match in the certificate
+defaultChecks :: Maybe String -- ^ fully qualified host name that we need to match in the certificate
               -> Checks
 defaultChecks fqhn = Checks
     { checkTimeValidity   = True
     , checkStrictOrdering = False
     , checkCAConstraints  = True
     , checkExhaustive     = False
-    , checkFQHN           = Just fqhn
+    , checkFQHN           = fqhn
     }
 
 -- | validate a certificate chain.

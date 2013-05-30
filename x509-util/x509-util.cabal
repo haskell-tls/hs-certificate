@@ -1,5 +1,5 @@
 Name:                x509-util
-Version:             1.4.0
+Version:             1.4.1
 Description:         utility to parse, show, validate, sign and produce X509 certificates and chain.
 License:             BSD3
 License-file:        LICENSE
@@ -24,7 +24,7 @@ Executable           x509-util
                    , x509
                    , x509-store
                    , x509-system
-                   , x509-validation
+                   , x509-validation >= 1.4.3
                    , asn1-types >= 0.2
                    , asn1-encoding
                    , pem

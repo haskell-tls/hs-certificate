@@ -100,9 +100,6 @@ showCert signedCert = do
         X509.PubKeyUnknown oid ws -> do
             printf "public key unknown: %s\n" (show oid)
             printf "  raw bytes: %s\n" (show ws)
-            --case decodeASN1 BER $ L.pack ws of
-            --    Left err -> printf "  asn1 decoding failed: %s\n" (show err)
-            --    Right l  -> printf "  asn1 decoding:\n" >> showASN1 4 l
         pk                        ->
             printf "public key: %s\n" (show pk)
     case X509.certExtensions cert of
@@ -181,19 +178,6 @@ showASN1 at = prettyPrint at where
     putCS (ASN1CharacterString Character bs)   = putStr "characterstring:"
     putCS (ASN1CharacterString BMP t)          = putStr ("bmpstring: " ++ show t)
 
-{-
-    when (verify opts) $ getSystemCertificateStore >>= flip verifyCert x509
-  where
-        verifyCert store x509@(X509.X509 cert _ _ sigalg sig) = do
-            case findCertificate (X509.certIssuerDN cert) store of
-                Nothing                        -> putStrLn "couldn't find signing certificate"
-                Just (X509.X509 syscert _ _ _ _) -> do
-                    verifyAlg (B.concat $ L.toChunks $ X509.getSigningData x509)
-                              (B.pack sig)
-                              sigalg
-                              (X509.certPubKey syscert)
--}
-
 data X509Opts =
       DumpedRaw
     | DumpedText
@@ -235,9 +219,9 @@ doCertMain opts files = do
                 subject = X509.certSubjectDN cert
                 issuer  = X509.certIssuerDN cert
                 cert    = X509.signedObject $ X509.getSigned signedCert
-        validationChecks = (defaultChecks "") { checkFQHN       = foldl accHost Nothing opts
-                                              , checkExhaustive = True
-                                              }
+        validationChecks = (defaultChecks Nothing) { checkFQHN       = foldl accHost Nothing opts
+                                                   , checkExhaustive = True
+                                                   }
         accHost Nothing (ValidationHost h) = Just h
         accHost a       _                  = a
 
