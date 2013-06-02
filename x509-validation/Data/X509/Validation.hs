@@ -132,6 +132,11 @@ validateWith params store checks (CertificateChain (top:rchain)) =
             | otherwise =
                 (\x -> (x, filter (/= x) chain)) `fmap` find (matchSI issuerDN) chain
 
+        -- we check here that the certificate is allowed to be a certificate
+        -- authority, by checking the BasicConstraint extension. We also check,
+        -- if present the key usage extension for ability to cert sign. If this
+        -- extension is not present, then according to RFC 5280, it's safe to
+        -- assume that only cert sign (and crl sign) are allowed by this certificate.
         checkCA :: Certificate -> [FailedReason]
         checkCA cert
             | allowedSign && allowedCA = []
@@ -140,7 +145,7 @@ validateWith params store checks (CertificateChain (top:rchain)) =
           where extensions  = (certExtensions cert)
                 allowedSign = case extensionGet extensions of
                                 Just (ExtKeyUsage flags) -> KeyUsage_keyCertSign `elem` flags
-                                Nothing                  -> False
+                                Nothing                  -> True
                 allowedCA   = case extensionGet extensions of
                                 Just (ExtBasicConstraints True _) -> True
                                 _                                 -> False
