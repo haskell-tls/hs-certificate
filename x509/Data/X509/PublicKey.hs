@@ -22,14 +22,10 @@ import Data.X509.AlgorithmIdentifier
 
 import qualified Crypto.Types.PubKey.RSA as RSA
 import qualified Crypto.Types.PubKey.DSA as DSA
+import qualified Crypto.Types.PubKey.ECC as ECC
 import Data.Word
 
 import qualified Data.ByteString as B
-
--- FIXME this doesn't identify ECDSA_Hash_SHA384, but the curve name secp384r1
--- with implicit SHA384 hashing.
-data ECDSA_Hash = ECDSA_Hash_SHA384
-                deriving (Show,Eq)
 
 -- | Public key types known and used in X.509
 data PubKey =
@@ -37,7 +33,7 @@ data PubKey =
     | PubKeyDSA DSA.PublicKey -- ^ DSA public key
     | PubKeyDH (Integer,Integer,Integer,Maybe Integer,([Word8], Integer))
                                 -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
-    | PubKeyECDSA ECDSA_Hash B.ByteString
+    | PubKeyECDSA ECC.CurveName B.ByteString
     | PubKeyUnknown OID B.ByteString -- ^ unrecognized format
     deriving (Show,Eq)
 
@@ -70,7 +66,7 @@ instance ASN1Object PubKey where
                 _ -> Left "fromASN1: X509.PubKey: unknown DSA format"
         | pkalg == getObjectID PubKeyALG_ECDSA =
             case xs of
-                OID [1,3,132,0,34]:End Sequence:BitString bits:End Sequence:xs2 -> Right (PubKeyECDSA ECDSA_Hash_SHA384 (bitArrayGetData bits), xs2) -- secp384r1
+                OID [1,3,132,0,34]:End Sequence:BitString bits:End Sequence:xs2 -> Right (PubKeyECDSA ECC.SEC_p384r1 (bitArrayGetData bits), xs2)
                 _ -> Left "fromASN1: X509.PubKey: unknown ECDSA format"
         | otherwise = undefined
         where decodeASN1Err format bits xs2 f =
@@ -107,11 +103,12 @@ encodePK key = asn1Container Sequence (encodeInner key)
                                         ,IntVal (DSA.params_g params)]
         params = DSA.public_params pubkey
         bits   = encodeASN1' DER [IntVal $ DSA.public_y pubkey]
-    encodeInner (PubKeyECDSA ehash bits) =
+    encodeInner (PubKeyECDSA curveName bits) =
         asn1Container Sequence [pkalg,OID eOid] ++ [BitString $ toBitArray bits 0]
       where
-        eOid = case ehash of
-                    ECDSA_Hash_SHA384 -> [1,3,132,0,34]
+        eOid = case curveName of
+                    ECC.SEC_p384r1 -> [1,3,132,0,34]
+                    _              -> error ("undefined curve OID: " ++ show curveName)
     encodeInner (PubKeyDH _) = undefined
     encodeInner (PubKeyUnknown _ l) =
         asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray l 0]
