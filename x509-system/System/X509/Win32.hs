@@ -1,58 +1,65 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 module System.X509.Win32
-	( getSystemCertificateStore
-	) where
+    ( getSystemCertificateStore
+    ) where
 
-{-
-import Foreign.Marshal.Alloc (allocaBytes)
-import Foreign.Ptr (castPtr)
+import Foreign.Ptr
+import Foreign.Storable
+import Data.Word
 
-import Control.Exception (bracket, IOException)
-import Control.Applicative ((<$>))
+import Control.Monad (when)
+import Control.Applicative
 
-import System.Win32.Registry
-
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
-import qualified Data.ByteString.Lazy as L
 
 import Data.X509
-import Data.X509.Cert
-
-import Data.Bits
-import Data.CertificateStore
-
-defaultSystemPath :: FilePath
-defaultSystemPath = "SOFTWARE\\Microsoft\\SystemCertificates\\CA\\Certificates"
-
-listSubDirectories path = bracket openKey regCloseKey regEnumKeys
-	where openKey = regOpenKeyEx hKEY_LOCAL_MACHINE path (kEY_ENUMERATE_SUB_KEYS .|. kEY_READ)
-
-openValue path key toByteS = bracket openKey regCloseKey $ \hkey -> allocaBytes 4096 $ \mem -> do
-		regQueryValueEx hkey key mem 4096 >>= toByteS mem
-	where openKey = regOpenKeyEx hKEY_LOCAL_MACHINE path kEY_QUERY_VALUE
-
-fromBlob mem ty
-	| ty == rEG_BINARY = do
-		len <- B.c_strlen (castPtr mem)
-		B.create (fromIntegral len) (\bptr -> B.memcpy bptr mem len)
-	| otherwise        = error "certificate blob have unexpected type"
-
-data ReadErr =
-	  Exception IOException
-	| CertError String
-	deriving (Show,Eq)
-
-readCertificate dir hash = do
-    b <- openValue path "Blob" fromBlob
-    return $ decodeCertificate $ L.fromChunks [b]
-    where path = dir ++ "\\" ++ hash
-
-listIn dir = listSubDirectories dir >>= \hs -> (rights <$> mapM (readCertificate dir) hs)
-
-getSystemCertificateStore :: IO CertificateStore
-getSystemCertificateStore = makeCertificateStore <$> listIn defaultSystemPath
--}
 import Data.X509.CertificateStore
 
+import System.Win32.Types
+
+type HCertStore = Ptr Word8
+type PCCERT_Context = Ptr Word8
+
+foreign import stdcall unsafe "CertOpenSystemStoreW"
+    c_CertOpenSystemStore :: Ptr Word8 -> LPCTSTR -> IO HCertStore
+foreign import stdcall unsafe "CertCloseStore"
+    c_CertCloseStore :: HCertStore -> DWORD -> IO ()
+
+foreign import stdcall unsafe "CertEnumCertificatesInStore"
+    c_CertEnumCertificatesInStore :: HCertStore -> PCCERT_Context -> IO PCCERT_Context
+
+certOpenSystemStore :: IO HCertStore
+certOpenSystemStore = withTString "ROOT" $ \cstr ->
+    c_CertOpenSystemStore nullPtr cstr
+
+certFromContext :: PCCERT_Context -> IO (Either String SignedCertificate)
+certFromContext cctx = do
+    ty <- peek (castPtr cctx :: Ptr DWORD)
+    p  <- peek (castPtr (cctx `plusPtr` 4) :: Ptr (Ptr BYTE))
+    len <- peek (castPtr (cctx `plusPtr` 8) :: Ptr DWORD)
+    process ty p len
+  where process 1 p len = do
+            b <- B.create (fromIntegral len) $ \dst -> B.memcpy dst p (fromIntegral len)
+            return $ decodeSignedObject b
+        process ty _ _ =
+            return $ Left ("windows certificate store: not supported type: " ++ show ty)
+
 getSystemCertificateStore :: IO CertificateStore
-getSystemCertificateStore = return (makeCertificateStore [])
+getSystemCertificateStore = do
+    store <- certOpenSystemStore
+    when (store == nullPtr) $ error "no store"
+    certs <- loop store nullPtr
+    c_CertCloseStore store 0
+    return (makeCertificateStore certs)
+  where loop st ptr = do
+            r <- c_CertEnumCertificatesInStore st ptr
+            if r == nullPtr
+                then return []
+                else do
+                    ecert <- certFromContext r
+                    case ecert of
+                        Left _     -> loop st r
+                        Right cert -> (cert :) <$> (loop st r)
+

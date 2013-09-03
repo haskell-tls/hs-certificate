@@ -30,9 +30,10 @@ Library
                      System.X509.MacOS
   ghc-options:       -Wall
   if os(windows)
-     cpp-options: -DWINDOWS
-     Build-Depends:  Win32
-     Exposed-modules:  System.X509.Win32
+     cpp-options:     -DWINDOWS
+     Build-Depends:   Win32
+     extra-libraries: Crypt32
+     Exposed-modules: System.X509.Win32
   if os(OSX)
      cpp-options: -DMACOSX
 
