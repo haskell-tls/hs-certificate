@@ -32,7 +32,7 @@ openValue path key toByteS = bracket openKey regCloseKey $ \hkey -> allocaBytes 
 fromBlob mem ty
 	| ty == rEG_BINARY = do
 		len <- B.c_strlen (castPtr mem)
-		B.create (fromIntegral len) (\bptr -> B.memcpy bptr mem len)
+		B.create (fromIntegral len) (\bptr -> B.memcpy bptr mem (fromIntegral len))
 	| otherwise        = error "certificate blob have unexpected type"
 
 getSystemPath :: IO FilePath
