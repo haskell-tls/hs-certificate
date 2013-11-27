@@ -43,6 +43,8 @@ data FailedReason =
     | InvalidName String       -- ^ Invalid name in certificate
     | NameMismatch String      -- ^ connection name and certificate do not match
     | InvalidWildcard          -- ^ invalid wildcard in certificate
+    | LeafKeyUsageNotAllowed   -- ^ the requested key usage is not compatible with the leaf certificate's key usage
+    | LeafNotV3                -- ^ Only authorized an X509.V3 certificate as leaf certificate.
     | EmptyChain               -- ^ empty chain of certificate
     deriving (Show,Eq)
 
@@ -69,6 +71,13 @@ data Checks = Checks
     -- turn off, it's absolutely not safe to ignore a failed reason even it doesn't look serious
     -- (e.g. Expired) as other more serious checks would not have been performed.
     , checkExhaustive     :: Bool
+    -- | Check that the leaf certificate is version 3. If disable, version 2 certificate
+    -- is authorized in leaf position and key usage cannot be checked.
+    , checkLeafV3         :: Bool
+    -- | Check that the leaf certificate is authorized to be used for certain usage.
+    -- If set to empty list no check are performed, otherwise all the flags is the list
+    -- need to exists in the key usage extension
+    , checkLeafKeyUsage   :: [ExtKeyUsageFlag]
     -- | Check the top certificate names matching the fully qualified hostname (FQHN).
     -- it's not recommended to turn this check off, if no other name checks are performed.
     , checkFQHN           :: Maybe String
@@ -80,6 +89,9 @@ data Parameters = Parameters
     } deriving (Show,Eq)
 
 -- | Default checks to perform
+--
+-- It's not recommended to use Nothing as FQDN, doing so
+-- will ignore an important validation parameter check.
 defaultChecks :: Maybe String -- ^ fully qualified host name that we need to match in the certificate
               -> Checks
 defaultChecks fqhn = Checks
@@ -87,6 +99,8 @@ defaultChecks fqhn = Checks
     , checkStrictOrdering = False
     , checkCAConstraints  = True
     , checkExhaustive     = False
+    , checkLeafV3         = True
+    , checkLeafKeyUsage   = [KeyUsage_keyEncipherment]
     , checkFQHN           = fqhn
     }
 
@@ -101,9 +115,12 @@ validate checks store cc@(CertificateChain (_:_)) = do
 validateWith :: Parameters -> CertificateStore -> Checks -> CertificateChain -> IO [FailedReason]
 validateWith _      _     _      (CertificateChain [])           = return [EmptyChain]
 validateWith params store checks (CertificateChain (top:rchain)) =
-    doNameCheck (checkFQHN checks) top |> doCheckChain 0 top rchain
+    doLeafChecks |> doCheckChain 0 top rchain
   where isExhaustive = checkExhaustive checks
         a |> b = exhaustive isExhaustive a b
+
+        doLeafChecks = doNameCheck (checkFQHN checks) top |> doV3Check topCert |> doKeyUsageCheck topCert
+            where topCert = getCertificate top
 
         doCheckChain :: Int -> SignedCertificate -> [SignedCertificate] -> IO [FailedReason]
         doCheckChain level current chain = do
@@ -140,9 +157,9 @@ validateWith params store checks (CertificateChain (top:rchain)) =
         checkCA :: Certificate -> [FailedReason]
         checkCA cert
             | allowedSign && allowedCA = []
-            | otherwise                = if allowedSign then [] else [NotAllowedToSign]
-                                      ++ if allowedCA   then [] else [NotAnAuthority]
-          where extensions  = (certExtensions cert)
+            | otherwise                = (if allowedSign then [] else [NotAllowedToSign])
+                                      ++ (if allowedCA   then [] else [NotAnAuthority])
+          where extensions  = certExtensions cert
                 allowedSign = case extensionGet extensions of
                                 Just (ExtKeyUsage flags) -> KeyUsage_keyCertSign `elem` flags
                                 Nothing                  -> True
@@ -151,8 +168,21 @@ validateWith params store checks (CertificateChain (top:rchain)) =
                                 _                                 -> False
 
         doNameCheck Nothing     _    = return []
-        doNameCheck (Just fqhn) cert =
-            return (validateCertificateName fqhn (getCertificate cert))
+        doNameCheck (Just fqhn) cert = return (validateCertificateName fqhn (getCertificate cert))
+
+        doV3Check cert
+            | checkLeafV3 checks = case certVersion cert of
+                                        2 {- confusingly it means X509.V3 -} -> return []
+                                        _ -> return [LeafNotV3]
+            | otherwise = return []
+
+        doKeyUsageCheck cert = return $
+            case (certVersion cert, checkLeafKeyUsage checks) of
+                (2, usage) -> if intersect usage flags == usage then [] else [LeafKeyUsageNotAllowed]
+                _          -> []
+          where flags = case extensionGet $ certExtensions cert of
+                            Just (ExtKeyUsage keyflags) -> keyflags
+                            Nothing                     -> []
 
         doCheckCertificate cert =
             exhaustiveList (checkExhaustive checks)
