@@ -184,6 +184,7 @@ data X509Opts =
     | ShowHash
     | Validate
     | ValidationHost String
+    | Help
     deriving (Show,Eq)
 
 readPEMFile file = do
@@ -195,6 +196,9 @@ readSignedObject file = do
     return $ either error (map (X509.decodeSignedObject . pemContent)) $ pemParseBS content
 
 doCertMain opts files = do
+    when (Help `elem` opts) $ do
+        putStrLn $ usageInfo "usage: x509-util cert [options] <certificates>" optionsCert
+        exitSuccess
     objs <- readSignedObject (head files)
     forM_ objs $ \o ->
         case o of
@@ -259,6 +263,7 @@ optionsCert =
     [ Option []     ["hash"] (NoArg ShowHash) "output certificate hash"
     , Option ['v']  ["validate"] (NoArg Validate) "validate certificate"
     , Option []     ["validation-host"] (ReqArg ValidationHost "host") "validation host use for validation"
+    , Option ['h']  ["help"] (NoArg Help) "show help"
     ]
 
 certMain = getoptMain optionsCert $ \o n -> doCertMain o n
@@ -266,6 +271,7 @@ crlMain = getoptMain [] $ \o n -> doCRLMain o n
 keyMain = getoptMain [] $ \o n -> doKeyMain n
 asn1Main = getoptMain [] $ \o n -> doASN1Main n
 
+getoptMain :: [OptDescr a] -> ([a] -> [String] -> IO ()) -> [String] -> IO ()
 getoptMain opts f as =
     case getOpt Permute opts as of
         (o,n,[])  -> f o n
