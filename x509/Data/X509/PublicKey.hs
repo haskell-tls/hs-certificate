@@ -69,14 +69,14 @@ instance ASN1Object PubKey where
                 OID [1,3,132,0,34]:End Sequence:BitString bits:End Sequence:xs2 -> Right (PubKeyECDSA ECC.SEC_p384r1 (bitArrayGetData bits), xs2)
                 _ -> Left "fromASN1: X509.PubKey: unknown ECDSA format"
         | otherwise = undefined
-        where decodeASN1Err format bits xs2 f =
+      where decodeASN1Err format bits xs2 f =
                 case decodeASN1' BER (bitArrayGetData bits) of
                     Left err -> Left ("fromASN1: X509.PubKey " ++ format ++ " bitarray cannot be parsed: " ++ show err)
                     Right s  -> case f s of
                                     Left err -> Left err
                                     Right (r, xsinner) -> Right (r, xsinner ++ xs2)
-              toPubKeyRSA = either Left (\(rsaKey, r) -> Right (PubKeyRSA rsaKey, r))
-            
+            toPubKeyRSA = either Left (\(rsaKey, r) -> Right (PubKeyRSA rsaKey, r))
+
     fromASN1 l = Left ("fromASN1: X509.PubKey: unknown format:" ++ show l)
     toASN1 a = \xs -> encodePK a ++ xs
 
