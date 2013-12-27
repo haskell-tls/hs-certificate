@@ -23,6 +23,7 @@ module Data.X509.Ext
     -- * Accessor turning extension into a specific one
     , extensionGet
     , extensionDecode
+    , extensionEncode
     ) where
 
 import qualified Data.ByteString as B
@@ -85,6 +86,10 @@ extensionDecode = doDecode undefined
         doDecode dummy (ExtensionRaw oid _ asn1)
             | extOID dummy == oid = Just (extDecode asn1)
             | otherwise           = Nothing
+
+-- | Encode an Extension to extensionRaw
+extensionEncode :: Extension a => Bool -> a -> ExtensionRaw
+extensionEncode critical ext = ExtensionRaw (extOID ext) critical (extEncode ext)
 
 -- | Basic Constraints
 data ExtBasicConstraints = ExtBasicConstraints Bool (Maybe Integer)
