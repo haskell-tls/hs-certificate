@@ -130,9 +130,9 @@ decodeSignedObject b = either (Left . show) parseSigned $ decodeASN1Repr' BER b
             let (objRepr,rem1)   = getConstructedEndRepr l2
                 (sigAlgSeq,rem2) = getConstructedEndRepr rem1
                 (sigSeq,_)       = getConstructedEndRepr rem2
-                obj              = onContainer objRepr (either Left (Right . fst) . fromASN1 . map fst)
+                obj              = onContainer objRepr (either Left Right . fromASN1 . map fst)
              in case (obj, map fst sigSeq) of
-                    (Right o, [BitString signature]) ->
+                    (Right (o,[]), [BitString signature]) ->
                         let rawObj = Raw.toByteString $ concatMap snd objRepr
                          in case fromASN1 $ map fst sigAlgSeq of
                                 Left s           -> Left ("signed object error sigalg: " ++ s)
@@ -147,8 +147,9 @@ decodeSignedObject b = either (Left . show) parseSigned $ decodeASN1Repr' BER b
                                                 , exactObjectRaw     = rawObj
                                                 , encodeSignedObject = b
                                                 }
+                    (Right (_,remObj), _) ->
+                        Left $ ("signed object error: remaining stream in object: " ++ show remObj)
                     (Left err, _) -> Left $ ("signed object error: " ++ show err)
-                    _             -> Left $ "signed object structure error"
         onContainer ((Start _, _) : l) f =
             case reverse l of
                 ((End _, _) : l2) -> f $ reverse l2
