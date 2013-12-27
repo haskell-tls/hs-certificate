@@ -224,4 +224,4 @@ bitsToFlags bits = concat $ flip map [0..(bitArrayLength bits-1)] $ \i -> do
 
 flagsToBits :: Enum a => [a] -> BitArray
 flagsToBits flags = foldl bitArraySetBit bitArrayEmpty $ map (fromIntegral . fromEnum) flags
-        where bitArrayEmpty = BitArray 2 (B.pack [0,0])
+  where bitArrayEmpty = toBitArray (B.pack [0,0]) 7
