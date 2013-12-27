@@ -11,6 +11,7 @@ import qualified Data.ByteString as B
 import Control.Applicative
 import Control.Monad
 
+import Data.List (nub)
 import Data.ASN1.Types
 import Data.X509
 import qualified Crypto.Types.PubKey.RSA as RSA
@@ -81,7 +82,18 @@ instance Arbitrary UTCTime where
     arbitrary = posixSecondsToUTCTime . fromIntegral <$> (arbitrary :: Gen Int)
 
 instance Arbitrary Extensions where
-    arbitrary = pure (Extensions Nothing)
+    arbitrary = Extensions <$> oneof
+        [ pure Nothing
+        , Just <$> (listOf1 $ oneof
+            [ extensionEncode <$> arbitrary <*> (arbitrary :: Gen ExtKeyUsage)
+            ]
+            )
+        ]
+
+instance Arbitrary ExtKeyUsageFlag where
+    arbitrary = elements $ enumFrom KeyUsage_digitalSignature
+instance Arbitrary ExtKeyUsage where
+    arbitrary = ExtKeyUsage . nub <$> listOf1 arbitrary
 
 instance Arbitrary Certificate where
     arbitrary = Certificate <$> pure 2
@@ -107,17 +119,22 @@ instance Arbitrary CRL where
                     <*> arbitrary
                     <*> arbitrary
 
-assertEq a b
-    | a == b    = True
-    | otherwise = error (show b ++ " got: " ++ show a)
-
 property_unmarshall_marshall_id :: (Show o, Arbitrary o, ASN1Object o, Eq o) => o -> Bool
-property_unmarshall_marshall_id o = (fromASN1 (toASN1 o []) `assertEq` Right (o, []))
+property_unmarshall_marshall_id o =
+    case got of
+        Right (gotObject, [])
+            | gotObject == o -> True
+            | otherwise      -> error ("object is different: " ++ show gotObject ++ " expecting " ++ show o)
+        Right (gotObject, l) -> error ("state remaining: " ++ show l ++ " marshalled: " ++ show oMarshalled ++ " parsed: " ++ show gotObject)
+        Left e               -> error ("parsing failed: " ++ show e ++ " object: " ++ show o ++ " marshalled as: " ++ show oMarshalled)
+  where got = fromASN1 oMarshalled
+        oMarshalled = toASN1 o []
 
 main = defaultMain
     [ testGroup "asn1 objects unmarshall.marshall=id"
         [ testProperty "pubkey" (property_unmarshall_marshall_id :: PubKey -> Bool)
         , testProperty "signature alg" (property_unmarshall_marshall_id :: SignatureALG -> Bool)
+        , testProperty "extensions" (property_unmarshall_marshall_id :: Extensions -> Bool)
         , testProperty "certificate" (property_unmarshall_marshall_id :: Certificate -> Bool)
         , testProperty "crl" (property_unmarshall_marshall_id :: CRL -> Bool)
         ]
