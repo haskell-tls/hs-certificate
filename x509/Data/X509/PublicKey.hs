@@ -60,7 +60,7 @@ instance ASN1Object PubKey where
                                                                                         , DSA.params_g = g
                                                                                         }
                                                                            , DSA.public_y = dsapub }
-                             in Right (PubKeyDSA pubkey, xs2)
+                             in Right (PubKeyDSA pubkey, [])
                         _ -> Left "fromASN1: X509.PubKey: unknown DSA format"
                         )
                 _ -> Left "fromASN1: X509.PubKey: unknown DSA format"
