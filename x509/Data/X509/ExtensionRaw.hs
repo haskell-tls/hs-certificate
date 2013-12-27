@@ -30,8 +30,12 @@ newtype Extensions = Extensions (Maybe [ExtensionRaw])
     deriving (Show,Eq)
 
 instance ASN1Object Extensions where
-    toASN1 exts = \xs -> encodeExts exts ++ xs
-    fromASN1 = runParseASN1State parseExtensions
+    toASN1 (Extensions Nothing) = \xs -> xs
+    toASN1 (Extensions (Just exts)) = \xs ->
+        asn1Container (Container Context 3) (asn1Container Sequence (concatMap encodeExt exts)) ++ xs
+    fromASN1 s = runParseASN1State (Extensions <$> parseExtensions) s
+      where parseExtensions = onNextContainerMaybe (Container Context 3) $
+                              onNextContainer Sequence (getMany getObject)
 
 instance ASN1Object ExtensionRaw where
     toASN1 extraw = \xs -> encodeExt extraw ++ xs
@@ -48,34 +52,6 @@ instance ASN1Object ExtensionRaw where
                 Right r  -> Right (ExtensionRaw oid critical r, remainingStream)
     fromASN1 l                                      =
         Left ("fromASN1: X509.ExtensionRaw: unknown format:" ++ show l)
-
-
-parseExtensions :: ParseASN1 Extensions
-parseExtensions = Extensions <$> (
-    onNextContainerMaybe (Container Context 3) $
-        onNextContainer Sequence (getMany getObject)
-    )
-{-
-  where getSequences = do
-            n <- hasNext
-            if n
-                then getNextContainer Sequence >>= \sq -> liftM (sq :) getSequences
-                else return []
-        extractExtension [OID oid,Boolean b,OctetString obj] =
-            case decodeASN1' BER obj of
-                Left _  -> Nothing
-                Right r -> Just (oid, b, r)
-        extractExtension [OID oid,OctetString obj]              =
-            case decodeASN1' BER obj of
-                Left _  -> Nothing
-                Right r -> Just (oid, False, r)
-        extractExtension _                                      =
-            Nothing
--}
-
-encodeExts :: Extensions -> [ASN1]
-encodeExts (Extensions Nothing)  = []
-encodeExts (Extensions (Just l)) = asn1Container (Container Context 3) $ concatMap encodeExt l
 
 encodeExt :: ExtensionRaw -> [ASN1]
 encodeExt (ExtensionRaw oid critical asn1) =
