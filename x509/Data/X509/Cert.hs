@@ -94,7 +94,7 @@ parseCertificate =
                 <*> getObject
                 <*> getObject
                 <*> getObject
-        
+
 encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
     eVer ++ eSerial ++ eAlgId ++ eIssuer ++ eValidity ++ eSubject ++ epkinfo ++ eexts
