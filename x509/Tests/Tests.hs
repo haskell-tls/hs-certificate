@@ -11,7 +11,7 @@ import qualified Data.ByteString as B
 import Control.Applicative
 import Control.Monad
 
-import Data.List (nub)
+import Data.List (nub, sort)
 import Data.ASN1.Types
 import Data.X509
 import qualified Crypto.Types.PubKey.RSA as RSA
@@ -93,7 +93,7 @@ instance Arbitrary Extensions where
 instance Arbitrary ExtKeyUsageFlag where
     arbitrary = elements $ enumFrom KeyUsage_digitalSignature
 instance Arbitrary ExtKeyUsage where
-    arbitrary = ExtKeyUsage . nub <$> listOf1 arbitrary
+    arbitrary = ExtKeyUsage . sort . nub <$> listOf1 arbitrary
 
 instance Arbitrary Certificate where
     arbitrary = Certificate <$> pure 2
