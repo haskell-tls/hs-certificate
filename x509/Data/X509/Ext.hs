@@ -13,6 +13,8 @@ module Data.X509.Ext
     , ExtBasicConstraints(..)
     , ExtKeyUsage(..)
     , ExtKeyUsageFlag(..)
+    , ExtExtendedKeyUsage(..)
+    , ExtKeyUsagePurpose(..)
     , ExtSubjectKeyId(..)
     , ExtSubjectAltName(..)
     , ExtAuthorityKeyId(..)
@@ -29,8 +31,9 @@ module Data.X509.Ext
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import Data.ASN1.Types
+import Data.ASN1.Parse
 import Data.ASN1.BitArray
-import Data.X509.Internal
+import Data.List (find)
 import Data.X509.ExtensionRaw
 import Data.X509.DistinguishedName
 import Control.Applicative
@@ -116,6 +119,41 @@ instance Extension ExtKeyUsage where
     extEncode (ExtKeyUsage flags) = [BitString $ flagsToBits flags]
     extDecode [BitString bits] = Right $ ExtKeyUsage $ bitsToFlags bits
     extDecode _ = Left "unknown sequence"
+
+data ExtKeyUsagePurpose =
+      KeyUsagePurpose_ServerAuth
+    | KeyUsagePurpose_ClientAuth
+    | KeyUsagePurpose_CodeSigning
+    | KeyUsagePurpose_EmailProtection
+    | KeyUsagePurpose_TimeStamping
+    | KeyUsagePurpose_OCSPSigning
+    | KeyUsagePurpose_Unknown OID
+    deriving (Show,Eq,Ord)
+
+extKeyUsagePurposedOID :: [(OID, ExtKeyUsagePurpose)]
+extKeyUsagePurposedOID =
+    [(keyUsagePurposePrefix 1, KeyUsagePurpose_ServerAuth)
+    ,(keyUsagePurposePrefix 2, KeyUsagePurpose_ClientAuth)
+    ,(keyUsagePurposePrefix 3, KeyUsagePurpose_CodeSigning)
+    ,(keyUsagePurposePrefix 4, KeyUsagePurpose_EmailProtection)
+    ,(keyUsagePurposePrefix 8, KeyUsagePurpose_TimeStamping)
+    ,(keyUsagePurposePrefix 9, KeyUsagePurpose_OCSPSigning)]
+  where keyUsagePurposePrefix r = [1,3,6,1,5,5,7,3,r]
+
+data ExtExtendedKeyUsage = ExtExtendedKeyUsage [ExtKeyUsagePurpose]
+    deriving (Show,Eq)
+
+instance Extension ExtExtendedKeyUsage where
+    extOID = const [2,5,29,37]
+    extEncode (ExtExtendedKeyUsage purposes) =
+        [Start Sequence] ++ map (OID . lookupRev) purposes ++ [End Sequence]
+      where lookupRev (KeyUsagePurpose_Unknown oid) = oid
+            lookupRev kup = maybe (error "unknown key usage purpose") fst $ find ((==) kup . snd) extKeyUsagePurposedOID
+    extDecode l = ExtExtendedKeyUsage `fmap` (flip runParseASN1 l $ onNextContainer Sequence $ getMany $ do
+        n <- getNext
+        case n of
+            OID o -> return $ maybe (KeyUsagePurpose_Unknown o) id $ lookup o extKeyUsagePurposedOID
+            _     -> error "invalid content in extended key usage")
 
 -- | Provide a way to identify a public key by a short hash.
 data ExtSubjectKeyId = ExtSubjectKeyId B.ByteString
