@@ -7,6 +7,7 @@ import Control.Applicative
 import Data.ASN1.Types
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.Encoding
+import Data.Maybe
 import qualified Data.X509 as X509
 import Data.PEM (pemParseLBS, pemContent, pemName, PEM)
 import qualified Data.ByteString.Lazy as L
@@ -31,17 +32,21 @@ readSignedObject filepath = foldl pemToSigned [] <$> readPEMs filepath
 
 -- | return all the public key that were successfully read from a file.
 readKeyFile :: FilePath -> IO [X509.PrivKey]
-readKeyFile path = foldl pemToKey [] <$> readPEMs path
+readKeyFile path = catMaybes . foldl pemToKey [] <$> readPEMs path
   where pemToKey acc pem = do
             case decodeASN1' BER (pemContent pem) of
                 Left _     -> acc
                 Right asn1 -> case pemName pem of
+                                "PRIVATE KEY" ->
+                                    tryRSA asn1 : tryDSA asn1 : acc
                                 "RSA PRIVATE KEY" ->
-                                    case fromASN1 asn1 of
-                                        Left _      -> acc
-                                        Right (k,_) -> X509.PrivKeyRSA k : acc
+                                    tryRSA asn1 : acc
                                 "DSA PRIVATE KEY" ->
-                                    case fromASN1 asn1 of
-                                        Left _      -> acc
-                                        Right (k,_) -> X509.PrivKeyDSA (DSA.toPrivateKey k) : acc
+                                    tryDSA asn1 : acc
                                 _                 -> acc
+        tryRSA asn1 = case fromASN1 asn1 of
+                    Left _      -> Nothing
+                    Right (k,_) -> Just $ X509.PrivKeyRSA k
+        tryDSA asn1 = case fromASN1 asn1 of
+                    Left _      -> Nothing
+                    Right (k,_) -> Just $ X509.PrivKeyDSA $ DSA.toPrivateKey k
