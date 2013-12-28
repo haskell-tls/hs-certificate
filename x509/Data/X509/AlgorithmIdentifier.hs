@@ -67,7 +67,7 @@ oidSig oid = maybe (SignatureALG_Unknown oid) id $ lookup oid sig_table
 
 sigOID :: SignatureALG -> OID
 sigOID (SignatureALG_Unknown oid) = oid
-sigOID sig = maybe [] fst $ find ((==) sig . snd) sig_table
+sigOID sig = maybe (error ("unknown OID for " ++ show sig)) fst $ find ((==) sig . snd) sig_table
 
 instance ASN1Object SignatureALG where
     fromASN1 (Start Sequence:OID oid:Null:End Sequence:xs) =
