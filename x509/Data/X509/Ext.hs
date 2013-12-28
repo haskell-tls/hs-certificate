@@ -191,8 +191,8 @@ data DistributionPoint =
 
 instance Extension ExtCrlDistributionPoints where
     extOID _ = [2,5,29,31]
-    extEncode = undefined
-    extDecode = undefined
+    extEncode = error "extEncode ExtCrlDistributionPoints unimplemented"
+    extDecode = error "extDecode ExtCrlDistributionPoints unimplemented"
     --extEncode (ExtCrlDistributionPoints )
 
 parseGeneralNames :: ParseASN1 [AltName]

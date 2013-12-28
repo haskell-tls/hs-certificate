@@ -68,7 +68,7 @@ instance ASN1Object PubKey where
             case xs of
                 OID [1,3,132,0,34]:End Sequence:BitString bits:End Sequence:xs2 -> Right (PubKeyECDSA ECC.SEC_p384r1 (bitArrayGetData bits), xs2)
                 _ -> Left "fromASN1: X509.PubKey: unknown ECDSA format"
-        | otherwise = undefined
+        | otherwise = error ("unknown public key OID: " ++ show pkalg)
       where decodeASN1Err format bits xs2 f =
                 case decodeASN1' BER (bitArrayGetData bits) of
                     Left err -> Left ("fromASN1: X509.PubKey " ++ format ++ " bitarray cannot be parsed: " ++ show err)
@@ -109,6 +109,6 @@ encodePK key = asn1Container Sequence (encodeInner key)
         eOid = case curveName of
                     ECC.SEC_p384r1 -> [1,3,132,0,34]
                     _              -> error ("undefined curve OID: " ++ show curveName)
-    encodeInner (PubKeyDH _) = undefined
+    encodeInner (PubKeyDH _) = error "encodeInner: unimplemented public key DH"
     encodeInner (PubKeyUnknown _ l) =
         asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray l 0]
