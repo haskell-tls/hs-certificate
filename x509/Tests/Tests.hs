@@ -95,6 +95,16 @@ instance Arbitrary ExtKeyUsageFlag where
 instance Arbitrary ExtKeyUsage where
     arbitrary = ExtKeyUsage . sort . nub <$> listOf1 arbitrary
 
+instance Arbitrary ExtKeyUsagePurpose where
+    arbitrary = elements [ KeyUsagePurpose_ServerAuth
+                         , KeyUsagePurpose_ClientAuth
+                         , KeyUsagePurpose_CodeSigning
+                         , KeyUsagePurpose_EmailProtection
+                         , KeyUsagePurpose_TimeStamping
+                         , KeyUsagePurpose_OCSPSigning ]
+instance Arbitrary ExtExtendedKeyUsage where
+    arbitrary = ExtExtendedKeyUsage . nub <$> listOf1 arbitrary
+
 instance Arbitrary Certificate where
     arbitrary = Certificate <$> pure 2
                             <*> arbitrary
@@ -130,10 +140,20 @@ property_unmarshall_marshall_id o =
   where got = fromASN1 oMarshalled
         oMarshalled = toASN1 o []
 
+property_extension_id :: (Show e, Eq e, Extension e) => e -> Bool
+property_extension_id e = case extDecode (extEncode e) of
+                                Left err -> error err
+                                Right v | v == e    -> True
+                                        | otherwise -> error ("expected " ++ show e ++ " got: " ++ show v)
+
 main = defaultMain
-    [ testGroup "asn1 objects unmarshall.marshall=id"
+    [ testGroup "marshall"
         [ testProperty "pubkey" (property_unmarshall_marshall_id :: PubKey -> Bool)
         , testProperty "signature alg" (property_unmarshall_marshall_id :: SignatureALG -> Bool)
+        , testGroup "extension"
+            [ testProperty "key-usage" (property_extension_id :: ExtKeyUsage -> Bool)
+            , testProperty "extended-key-usage" (property_extension_id :: ExtExtendedKeyUsage -> Bool)
+            ]
         , testProperty "extensions" (property_unmarshall_marshall_id :: Extensions -> Bool)
         , testProperty "certificate" (property_unmarshall_marshall_id :: Certificate -> Bool)
         , testProperty "crl" (property_unmarshall_marshall_id :: CRL -> Bool)
