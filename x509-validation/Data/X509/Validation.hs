@@ -44,6 +44,7 @@ data FailedReason =
     | NameMismatch String      -- ^ connection name and certificate do not match
     | InvalidWildcard          -- ^ invalid wildcard in certificate
     | LeafKeyUsageNotAllowed   -- ^ the requested key usage is not compatible with the leaf certificate's key usage
+    | LeafKeyPurposeNotAllowed -- ^ the requested key purpose is not compatible with the leaf certificate's extended key usage
     | LeafNotV3                -- ^ Only authorized an X509.V3 certificate as leaf certificate.
     | EmptyChain               -- ^ empty chain of certificate
     deriving (Show,Eq)
@@ -80,6 +81,12 @@ data Checks = Checks
     -- the check will pass and behave as if the certificate key is not restricted to
     -- any specific usage.
     , checkLeafKeyUsage   :: [ExtKeyUsageFlag]
+    -- | Check that the leaf certificate is authorized to be used for certain purpose.
+    -- If set to empty list no check are performed, otherwise all the flags is the list
+    -- need to exists in the extended key usage extension if present. If the extension is not
+    -- present, then the check will pass and behave as if the certificate is not restricted
+    -- to any specific purpose.
+    , checkLeafKeyPurpose :: [ExtKeyUsagePurpose]
     -- | Check the top certificate names matching the fully qualified hostname (FQHN).
     -- it's not recommended to turn this check off, if no other name checks are performed.
     , checkFQHN           :: Maybe String
@@ -103,6 +110,7 @@ defaultChecks fqhn = Checks
     , checkExhaustive     = False
     , checkLeafV3         = True
     , checkLeafKeyUsage   = []
+    , checkLeafKeyPurpose = []
     , checkFQHN           = fqhn
     }
 
@@ -180,9 +188,13 @@ validateWith params store checks (CertificateChain (top:rchain)) =
 
         doKeyUsageCheck cert = return $
                compareListIfExistAndNotNull mflags (checkLeafKeyUsage checks) LeafKeyUsageNotAllowed
+            ++ compareListIfExistAndNotNull mpurposes (checkLeafKeyPurpose checks) LeafKeyPurposeNotAllowed
           where mflags = case extensionGet $ certExtensions cert of
                             Just (ExtKeyUsage keyflags) -> Just keyflags
                             Nothing                     -> Nothing
+                mpurposes = case extensionGet $ certExtensions cert of
+                            Just (ExtExtendedKeyUsage keyPurposes) -> Just keyPurposes
+                            Nothing                                -> Nothing
                 -- compare a list of things to an expected list. the expected list
                 -- need to be a subset of the list (if not Nothing), and is not will
                 -- return [err]
