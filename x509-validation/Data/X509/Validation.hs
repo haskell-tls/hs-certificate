@@ -76,7 +76,9 @@ data Checks = Checks
     , checkLeafV3         :: Bool
     -- | Check that the leaf certificate is authorized to be used for certain usage.
     -- If set to empty list no check are performed, otherwise all the flags is the list
-    -- need to exists in the key usage extension
+    -- need to exists in the key usage extension. If the extension is not present,
+    -- the check will pass and behave as if the certificate key is not restricted to
+    -- any specific usage.
     , checkLeafKeyUsage   :: [ExtKeyUsageFlag]
     -- | Check the top certificate names matching the fully qualified hostname (FQHN).
     -- it's not recommended to turn this check off, if no other name checks are performed.
@@ -100,7 +102,7 @@ defaultChecks fqhn = Checks
     , checkCAConstraints  = True
     , checkExhaustive     = False
     , checkLeafV3         = True
-    , checkLeafKeyUsage   = [KeyUsage_keyEncipherment]
+    , checkLeafKeyUsage   = []
     , checkFQHN           = fqhn
     }
 
@@ -177,12 +179,18 @@ validateWith params store checks (CertificateChain (top:rchain)) =
             | otherwise = return []
 
         doKeyUsageCheck cert = return $
-            case (certVersion cert, checkLeafKeyUsage checks) of
-                (2, usage) -> if intersect usage flags == usage then [] else [LeafKeyUsageNotAllowed]
-                _          -> []
-          where flags = case extensionGet $ certExtensions cert of
-                            Just (ExtKeyUsage keyflags) -> keyflags
-                            Nothing                     -> []
+               compareListIfExistAndNotNull mflags (checkLeafKeyUsage checks) LeafKeyUsageNotAllowed
+          where mflags = case extensionGet $ certExtensions cert of
+                            Just (ExtKeyUsage keyflags) -> Just keyflags
+                            Nothing                     -> Nothing
+                -- compare a list of things to an expected list. the expected list
+                -- need to be a subset of the list (if not Nothing), and is not will
+                -- return [err]
+                compareListIfExistAndNotNull Nothing     _        _   = []
+                compareListIfExistAndNotNull (Just list) expected err
+                    | null expected                       = []
+                    | intersect expected list == expected = []
+                    | otherwise                           = [err]
 
         doCheckCertificate cert =
             exhaustiveList (checkExhaustive checks)
