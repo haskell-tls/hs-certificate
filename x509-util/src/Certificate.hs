@@ -64,6 +64,7 @@ showExts es@(Extensions (Just exts)) = do
     putStrLn "known extensions decoded: "
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtBasicConstraints)
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtKeyUsage)
+    showKnownExtension (X509.extensionGet es :: Maybe X509.ExtExtendedKeyUsage)
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtSubjectKeyId)
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtSubjectAltName)
     showKnownExtension (X509.extensionGet es :: Maybe X509.ExtAuthorityKeyId)

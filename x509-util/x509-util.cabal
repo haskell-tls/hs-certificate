@@ -21,10 +21,10 @@ Executable           x509-util
                    , bytestring
                    , text >= 0.11
                    , crypto-pubkey-types
-                   , x509
+                   , x509 >= 1.4.7
                    , x509-store
                    , x509-system
-                   , x509-validation >= 1.4.3
+                   , x509-validation >= 1.4.7
                    , asn1-types >= 0.2
                    , asn1-encoding
                    , pem
