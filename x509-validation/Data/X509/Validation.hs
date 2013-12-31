@@ -15,7 +15,9 @@ module Data.X509.Validation
     , SignatureFailure(..)
     , Parameters(..)
     , Checks(..)
+    , Hooks(..)
     , defaultChecks
+    , defaultHooks
     , validate
     , validateWith
     , getFingerprint
@@ -98,7 +100,22 @@ data Checks = Checks
     , checkFQHN           :: Bool
     } deriving (Show,Eq)
 
--- | Validation parameters
+-- | A set of hooks to manipulate the way the verification works.
+--
+-- BEWARE, it's easy to change behavior leading to compromised security.
+data Hooks = Hooks
+    {
+    -- | check the the issuer 'DistinguishedName' match the subject 'DistinguishedName'
+    -- of a certificate.
+      hookMatchSubjectIssuer :: DistinguishedName -> Certificate -> Bool
+    -- | validate that the parametrized time valide with the certificate in argument
+    , hookValidateTime       :: UTCTime -> Certificate -> [FailedReason]
+    -- | validate the certificate leaf name with the DNS named used to connect
+    , hookValidateName       :: FQHN -> Certificate -> [FailedReason]
+    }
+
+-- | Validation parameters. List all the conditions where/when we want the certificate checks
+-- to happen.
 data Parameters = Parameters
     { parameterTime :: UTCTime -- ^ the time when we want the certificate check to happen.
                                -- usually should be the time as of now.
@@ -107,6 +124,11 @@ data Parameters = Parameters
 
 -- | Default checks to perform
 --
+-- The default checks are:
+-- * Each certificate time is valid
+-- * CA constraints is enforced for signing certificate
+-- * Leaf certificate is X.509 v3
+-- * Check that the FQHN match
 defaultChecks :: Checks
 defaultChecks = Checks
     { checkTimeValidity   = True
@@ -119,19 +141,25 @@ defaultChecks = Checks
     , checkFQHN           = True
     }
 
+-- | Default hooks in the validation process
+defaultHooks :: Hooks
+defaultHooks = Hooks
+    { hookMatchSubjectIssuer = matchSI
+    , hookValidateTime       = validateTime
+    , hookValidateName       = validateCertificateName
     }
 
 -- | validate a certificate chain.
-validate :: Checks -> CertificateStore -> CertificateChain -> IO [FailedReason]
-validate _      _     (CertificateChain [])             = return [EmptyChain]
-validate checks store cc@(CertificateChain (_:_)) = do
-    validateWith params store checks cc
+validate :: Hooks -> Checks -> CertificateStore -> FQHN -> CertificateChain -> IO [FailedReason]
+validate _     _      _     _    (CertificateChain [])       = return [EmptyChain]
+validate hooks checks store fqhn cc@(CertificateChain (_:_)) = do
     params <- Parameters <$> getCurrentTime <*> pure fqhn
+    validateWith params hooks checks store cc
 
 -- | Validate a certificate chain with explicit parameters
-validateWith :: Parameters -> CertificateStore -> Checks -> CertificateChain -> IO [FailedReason]
-validateWith _      _     _      (CertificateChain [])           = return [EmptyChain]
-validateWith params store checks (CertificateChain (top:rchain)) =
+validateWith :: Parameters -> Hooks -> Checks -> CertificateStore -> CertificateChain -> IO [FailedReason]
+validateWith _      _     _      _     (CertificateChain [])           = return [EmptyChain]
+validateWith params hooks checks store (CertificateChain (top:rchain)) =
     doLeafChecks |> doCheckChain 0 top rchain
   where isExhaustive = checkExhaustive checks
         a |> b = exhaustive isExhaustive a b
@@ -161,10 +189,11 @@ validateWith params store checks (CertificateChain (top:rchain)) =
             | checkStrictOrdering checks =
                 case chain of
                     []     -> error "not possible"
-                    (c:cs) | matchSI issuerDN c -> Just (c, cs)
-                           | otherwise          -> Nothing
+                    (c:cs) | matchSubjectIdentifier issuerDN (getCertificate c) -> Just (c, cs)
+                           | otherwise                                          -> Nothing
             | otherwise =
-                (\x -> (x, filter (/= x) chain)) `fmap` find (matchSI issuerDN) chain
+                (\x -> (x, filter (/= x) chain)) `fmap` find (matchSubjectIdentifier issuerDN . getCertificate) chain
+        matchSubjectIdentifier = hookMatchSubjectIssuer hooks
 
         -- we check here that the certificate is allowed to be a certificate
         -- authority, by checking the BasicConstraint extension. We also check,
@@ -173,6 +202,7 @@ validateWith params store checks (CertificateChain (top:rchain)) =
         -- assume that only cert sign (and crl sign) are allowed by this certificate.
         checkCA :: Int -> Certificate -> [FailedReason]
         checkCA level cert
+            | not (checkCAConstraints checks)          = []
             | and [allowedSign,allowedCA,allowedDepth] = []
             | otherwise = (if allowedSign then [] else [NotAllowedToSign])
                        ++ (if allowedCA   then [] else [NotAnAuthority])
@@ -220,7 +250,7 @@ validateWith params store checks (CertificateChain (top:rchain)) =
 
         doCheckCertificate cert =
             exhaustiveList (checkExhaustive checks)
-                [ (checkTimeValidity checks, return (validateTime (parameterTime params) cert))
+                [ (checkTimeValidity checks, return ((hookValidateTime hooks) (parameterTime params) cert))
                 ]
         isSelfSigned :: Certificate -> Bool
         isSelfSigned cert = certSubjectDN cert == certIssuerDN cert
@@ -291,8 +321,8 @@ validateCertificateName fqhn cert =
 
 -- | return true if the 'subject' certificate's issuer match
 -- the 'issuer' certificate's subject
-matchSI :: DistinguishedName -> SignedCertificate -> Bool
-matchSI issuerDN issuer = certSubjectDN (getCertificate issuer) == issuerDN
+matchSI :: DistinguishedName -> Certificate -> Bool
+matchSI issuerDN issuer = certSubjectDN issuer == issuerDN
 
 exhaustive :: Monad m => Bool -> m [FailedReason] -> m [FailedReason] -> m [FailedReason]
 exhaustive isExhaustive f1 f2 = f1 >>= cont
