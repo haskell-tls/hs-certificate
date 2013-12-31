@@ -10,7 +10,8 @@
 -- Follows RFC5280 / RFC6818
 --
 module Data.X509.Validation
-    ( FailedReason(..)
+    ( FQHN
+    , FailedReason(..)
     , SignatureFailure(..)
     , Parameters(..)
     , Checks(..)
@@ -29,6 +30,9 @@ import Data.X509.Validation.Fingerprint
 import Data.Time.Clock
 import Data.Maybe
 import Data.List
+
+-- | a Fully Qualified Host Name, e.g. www.example.com
+type FQHN = String
 
 -- | Possible reason of certificate and chain failure
 data FailedReason =
@@ -91,21 +95,20 @@ data Checks = Checks
     , checkLeafKeyPurpose :: [ExtKeyUsagePurpose]
     -- | Check the top certificate names matching the fully qualified hostname (FQHN).
     -- it's not recommended to turn this check off, if no other name checks are performed.
-    , checkFQHN           :: Maybe String
+    , checkFQHN           :: Bool
     } deriving (Show,Eq)
 
 -- | Validation parameters
 data Parameters = Parameters
-    { parameterTime :: UTCTime
+    { parameterTime :: UTCTime -- ^ the time when we want the certificate check to happen.
+                               -- usually should be the time as of now.
+    , parameterFQHN :: FQHN    -- ^ fqhn to match
     } deriving (Show,Eq)
 
 -- | Default checks to perform
 --
--- It's not recommended to use Nothing as FQDN, doing so
--- will ignore an important validation parameter check.
-defaultChecks :: Maybe String -- ^ fully qualified host name that we need to match in the certificate
-              -> Checks
-defaultChecks fqhn = Checks
+defaultChecks :: Checks
+defaultChecks = Checks
     { checkTimeValidity   = True
     , checkStrictOrdering = False
     , checkCAConstraints  = True
@@ -113,15 +116,17 @@ defaultChecks fqhn = Checks
     , checkLeafV3         = True
     , checkLeafKeyUsage   = []
     , checkLeafKeyPurpose = []
-    , checkFQHN           = fqhn
+    , checkFQHN           = True
+    }
+
     }
 
 -- | validate a certificate chain.
 validate :: Checks -> CertificateStore -> CertificateChain -> IO [FailedReason]
 validate _      _     (CertificateChain [])             = return [EmptyChain]
 validate checks store cc@(CertificateChain (_:_)) = do
-    params <- Parameters <$> getCurrentTime
     validateWith params store checks cc
+    params <- Parameters <$> getCurrentTime <*> pure fqhn
 
 -- | Validate a certificate chain with explicit parameters
 validateWith :: Parameters -> CertificateStore -> Checks -> CertificateChain -> IO [FailedReason]
@@ -131,7 +136,7 @@ validateWith params store checks (CertificateChain (top:rchain)) =
   where isExhaustive = checkExhaustive checks
         a |> b = exhaustive isExhaustive a b
 
-        doLeafChecks = doNameCheck (checkFQHN checks) top |> doV3Check topCert |> doKeyUsageCheck topCert
+        doLeafChecks = doNameCheck top |> doV3Check topCert |> doKeyUsageCheck topCert
             where topCert = getCertificate top
 
         doCheckChain :: Int -> SignedCertificate -> [SignedCertificate] -> IO [FailedReason]
@@ -184,8 +189,10 @@ validateWith params store checks (CertificateChain (top:rchain)) =
                                     Just pl | fromIntegral pl >= level -> True
                                             | otherwise                -> False
 
-        doNameCheck Nothing     _    = return []
-        doNameCheck (Just fqhn) cert = return (validateCertificateName fqhn (getCertificate cert))
+        doNameCheck cert
+            | not (checkFQHN checks) = return []
+            | otherwise              = return $ (hookValidateName hooks) fqhn (getCertificate cert)
+          where fqhn = parameterFQHN params
 
         doV3Check cert
             | checkLeafV3 checks = case certVersion cert of
@@ -243,7 +250,7 @@ getNames cert = (commonName >>= asn1CharacterToString, altNames)
 -- | Validate that the fqhn is matched by at least one name in the certificate.
 -- The name can be either the common name or one of the alternative names if
 -- the SubjectAltName extension is present.
-validateCertificateName :: String -> Certificate -> [FailedReason]
+validateCertificateName :: FQHN -> Certificate -> [FailedReason]
 validateCertificateName fqhn cert =
     case commonName of
         Nothing -> [NoCommonName]
