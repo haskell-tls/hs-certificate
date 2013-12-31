@@ -11,6 +11,7 @@ module Data.X509.Validation.Signature
     ( verifySignedSignature
     , verifySignature
     , SignatureVerification(..)
+    , SignatureFailure(..)
     ) where
 
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
@@ -26,14 +27,20 @@ import Data.ASN1.BinaryEncoding
 
 -- | A set of possible return from signature verification.
 --
--- Only SignaturePass should be accepted as success.
+-- When SignatureFailed is return, the signature shouldn't be
+-- accepted.
 --
 -- Other values are only useful to differentiate the failure
 -- reason, but are all equivalent to failure.
 --
 data SignatureVerification =
-      SignaturePass           -- ^ verification succeeded
-    | SignatureFailed         -- ^ verification failed
+      SignaturePass                    -- ^ verification succeeded
+    | SignatureFailed SignatureFailure -- ^ verification failed
+    deriving (Show,Eq)
+
+-- | Various failure possible during signature checking
+data SignatureFailure =
+      SignatureInvalid        -- ^ signature doesn't verify
     | SignaturePubkeyMismatch -- ^ algorithm and public key mismatch, cannot proceed
     | SignatureUnimplemented  -- ^ unimplemented signature algorithm
     deriving (Show,Eq)
@@ -56,14 +63,14 @@ verifySignature :: SignatureALG -- ^ Signature algorithm used
                 -> ByteString   -- ^ Certificate data that need to be verified
                 -> ByteString   -- ^ Signature to verify
                 -> SignatureVerification
-verifySignature (SignatureALG_Unknown _) _ _ _ = SignatureUnimplemented
+verifySignature (SignatureALG_Unknown _) _ _ _ = SignatureFailed SignatureUnimplemented
 verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
     | pubkeyToAlg pubkey == pubkeyALG = case verifyF pubkey of
-                                            Nothing -> SignatureUnimplemented
+                                            Nothing -> SignatureFailed SignatureUnimplemented
                                             Just f  -> if f cdata signature
                                                             then SignaturePass
-                                                            else SignatureFailed
-    | otherwise                       = SignaturePubkeyMismatch
+                                                            else SignatureFailed SignatureInvalid
+    | otherwise                       = SignatureFailed SignaturePubkeyMismatch
   where
         verifyF (PubKeyRSA key) = Just $ RSA.verify (toDescr hashALG) key
         verifyF (PubKeyDSA key)

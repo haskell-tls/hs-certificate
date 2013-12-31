@@ -11,6 +11,7 @@
 --
 module Data.X509.Validation
     ( FailedReason(..)
+    , SignatureFailure(..)
     , Parameters(..)
     , Checks(..)
     , defaultChecks
@@ -38,7 +39,6 @@ data FailedReason =
     | UnknownCA                -- ^ unknown Certificate Authority (CA)
     | NotAllowedToSign         -- ^ certificate is not allowed to sign
     | NotAnAuthority           -- ^ not a CA
-    | InvalidSignature         -- ^ signature failed
     | NoCommonName             -- ^ Certificate doesn't have any common name (CN)
     | InvalidName String       -- ^ Invalid name in certificate
     | NameMismatch String      -- ^ connection name and certificate do not match
@@ -47,6 +47,7 @@ data FailedReason =
     | LeafKeyPurposeNotAllowed -- ^ the requested key purpose is not compatible with the leaf certificate's extended key usage
     | LeafNotV3                -- ^ Only authorized an X509.V3 certificate as leaf certificate.
     | EmptyChain               -- ^ empty chain of certificate
+    | InvalidSignature SignatureFailure -- ^ signature failed
     deriving (Show,Eq)
 
 -- | A set of checks to activate or parametrize to perform on certificates.
@@ -214,8 +215,8 @@ validateWith params store checks (CertificateChain (top:rchain)) =
         -- check signature of 'signedCert' against the 'signingCert'
         checkSignature signedCert signingCert =
             case verifySignedSignature signedCert (certPubKey $ getCertificate signingCert) of
-                SignaturePass -> []
-                _             -> [InvalidSignature]
+                SignaturePass     -> []
+                SignatureFailed r -> [InvalidSignature r]
 
 -- | Validate that the current time is between validity bounds
 validateTime :: UTCTime -> Certificate -> [FailedReason]
