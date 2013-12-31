@@ -145,7 +145,7 @@ validateWith params store checks (CertificateChain (top:rchain)) =
                             case findIssuer (certIssuerDN cert) chain of
                                 Nothing                  -> return [UnknownCA]
                                 Just (issuer, remaining) ->
-                                    return (checkCA $ getCertificate issuer)
+                                    return (checkCA level $ getCertificate issuer)
                                     |> return (checkSignature current issuer)
                                     |> doCheckChain (level+1) issuer remaining)
           where cert = getCertificate current
@@ -165,18 +165,23 @@ validateWith params store checks (CertificateChain (top:rchain)) =
         -- if present the key usage extension for ability to cert sign. If this
         -- extension is not present, then according to RFC 5280, it's safe to
         -- assume that only cert sign (and crl sign) are allowed by this certificate.
-        checkCA :: Certificate -> [FailedReason]
-        checkCA cert
-            | allowedSign && allowedCA = []
-            | otherwise                = (if allowedSign then [] else [NotAllowedToSign])
-                                      ++ (if allowedCA   then [] else [NotAnAuthority])
+        checkCA :: Int -> Certificate -> [FailedReason]
+        checkCA level cert
+            | and [allowedSign,allowedCA,allowedDepth] = []
+            | otherwise = (if allowedSign then [] else [NotAllowedToSign])
+                       ++ (if allowedCA   then [] else [NotAnAuthority])
+                       ++ (if allowedDepth then [] else [AuthorityTooDeep])
           where extensions  = certExtensions cert
                 allowedSign = case extensionGet extensions of
                                 Just (ExtKeyUsage flags) -> KeyUsage_keyCertSign `elem` flags
                                 Nothing                  -> True
-                allowedCA   = case extensionGet extensions of
-                                Just (ExtBasicConstraints True _) -> True
-                                _                                 -> False
+                (allowedCA,pathLen) = case extensionGet extensions of
+                                Just (ExtBasicConstraints True pl) -> (True, pl)
+                                _                                  -> (False, Nothing)
+                allowedDepth = case pathLen of
+                                    Nothing                            -> True
+                                    Just pl | fromIntegral pl >= level -> True
+                                            | otherwise                -> False
 
         doNameCheck Nothing     _    = return []
         doNameCheck (Just fqhn) cert = return (validateCertificateName fqhn (getCertificate cert))
