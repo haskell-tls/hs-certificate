@@ -39,6 +39,7 @@ data FailedReason =
     | UnknownCA                -- ^ unknown Certificate Authority (CA)
     | NotAllowedToSign         -- ^ certificate is not allowed to sign
     | NotAnAuthority           -- ^ not a CA
+    | AuthorityTooDeep         -- ^ Violation of the optional Basic constraint's path length
     | NoCommonName             -- ^ Certificate doesn't have any common name (CN)
     | InvalidName String       -- ^ Invalid name in certificate
     | NameMismatch String      -- ^ connection name and certificate do not match
