@@ -210,7 +210,7 @@ doCertMain opts files = do
     when (Validate `elem` opts) $ do
         let cc = CertificateChain (rights objs)
         store  <- getSystemCertificateStore
-        failed <- validate validationChecks store cc
+        failed <- validate defaultHooks validationChecks store (maybe "" id fqhn) cc
         if failed /= []
             then putStrLn ("validation failed: " ++ show failed)
             else putStrLn "validation success"
@@ -224,9 +224,8 @@ doCertMain opts files = do
                 subject = X509.certSubjectDN cert
                 issuer  = X509.certIssuerDN cert
                 cert    = X509.signedObject $ X509.getSigned signedCert
-        validationChecks = (defaultChecks Nothing) { checkFQHN       = foldl accHost Nothing opts
-                                                   , checkExhaustive = True
-                                                   }
+        validationChecks = defaultChecks { checkExhaustive = True, checkFQHN = isJust fqhn }
+        fqhn = foldl accHost Nothing opts
         accHost Nothing (ValidationHost h) = Just h
         accHost a       _                  = a
 
