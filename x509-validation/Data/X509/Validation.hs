@@ -26,9 +26,16 @@ module Data.X509.Validation
     , validate
     , validateWith
     , getFingerprint
+    -- * Cache for validation
+    , CacheID
+    , CacheQueryCallback
+    , CacheAddCallback
+    , withValidationCache
     ) where
 
 import Control.Applicative
+import Control.Monad (when)
+import Data.ByteString (ByteString)
 import Data.ASN1.Types
 import Data.X509
 import Data.X509.CertificateStore
@@ -125,6 +132,39 @@ data Hooks = Hooks
 -- and returns a list of failed reason or empty list for success
 type ValidationCallback = CertificateChain
                        -> IO [FailedReason]
+
+-- | identification of the connection.
+--
+-- for tcp connection, it's recommended to use: fqhn:port, fqhn:service or ip:port
+type CacheID = ByteString
+
+-- | Validation cache query callback type
+type CacheQueryCallback = CacheID     -- ^ connection's identification
+                       -> Fingerprint -- ^ fingerprint of the leaf certificate
+                       -> IO Bool     -- ^ return if the operation is succesful or not
+
+-- | Validation cache callback type
+type CacheAddCallback = CacheID     -- ^ connection's identification
+                     -> Fingerprint -- ^ fingerprint of the leaf certificate
+                     -> IO ()
+
+-- | validation with a cache
+withValidationCache :: CacheQueryCallback -- ^ the validation cache callback
+                    -> CacheAddCallback   -- ^ callback to add to cache on success
+                    -> HashALG            -- ^ the hash algorithm we want to use for hashing the leaf certificate
+                    -> CacheID            -- ^ identification of the connection
+                    -> ValidationCallback -- ^ the validation callback itself
+                    -> CertificateChain   -- ^ the certificate chain we want to validate
+                    -> IO [FailedReason]
+withValidationCache _          _        _       _     _                   (CertificateChain [])      = return [EmptyChain]
+withValidationCache cacheQuery cacheAdd hashAlg ident validateFunction cc@(CertificateChain (top:_)) = do
+    cacheValidated <- cacheQuery ident fingerPrint
+    if cacheValidated
+        then return []
+        else do failedReasons <- validateFunction cc
+                when (null failedReasons) $ cacheAdd ident fingerPrint
+                return failedReasons
+  where fingerPrint = getFingerprint top hashAlg
 
 -- | Validation parameters. List all the conditions where/when we want the certificate checks
 -- to happen.
