@@ -12,8 +12,10 @@
 module Data.X509.Validation
     ( FQHN
     , Fingerprint(..)
+    -- * Failed validation types
     , FailedReason(..)
     , SignatureFailure(..)
+    -- * Validation configuration types
     , Parameters(..)
     , Checks(..)
     , Hooks(..)
