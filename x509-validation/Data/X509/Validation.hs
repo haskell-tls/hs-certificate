@@ -112,6 +112,8 @@ data Hooks = Hooks
     , hookValidateTime       :: UTCTime -> Certificate -> [FailedReason]
     -- | validate the certificate leaf name with the DNS named used to connect
     , hookValidateName       :: FQHN -> Certificate -> [FailedReason]
+    -- | user filter to modify the list of failure reasons
+    , hookFilterReason       :: [FailedReason] -> [FailedReason]
     }
 
 -- | Validation parameters. List all the conditions where/when we want the certificate checks
@@ -147,6 +149,7 @@ defaultHooks = Hooks
     { hookMatchSubjectIssuer = matchSI
     , hookValidateTime       = validateTime
     , hookValidateName       = validateCertificateName
+    , hookFilterReason       = id
     }
 
 -- | validate a certificate chain.
@@ -165,7 +168,7 @@ validate hooks checks store fqhn cc@(CertificateChain (_:_)) = do
 validateWith :: Parameters -> Hooks -> Checks -> CertificateStore -> CertificateChain -> IO [FailedReason]
 validateWith _      _     _      _     (CertificateChain [])           = return [EmptyChain]
 validateWith params hooks checks store (CertificateChain (top:rchain)) =
-    return doLeafChecks |> doCheckChain 0 top rchain
+   (hookFilterReason hooks) <$> (return doLeafChecks |> doCheckChain 0 top rchain)
   where isExhaustive = checkExhaustive checks
         a |> b = exhaustive isExhaustive a b
 
