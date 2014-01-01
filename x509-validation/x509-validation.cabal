@@ -16,6 +16,7 @@ Cabal-Version:       >=1.6
 Library
   Build-Depends:     base >= 3 && < 5
                    , bytestring
+                   , byteable
                    , mtl
                    , containers
                    , directory

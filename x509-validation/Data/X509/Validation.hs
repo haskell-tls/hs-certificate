@@ -11,6 +11,7 @@
 --
 module Data.X509.Validation
     ( FQHN
+    , Fingerprint(..)
     , FailedReason(..)
     , SignatureFailure(..)
     , Parameters(..)

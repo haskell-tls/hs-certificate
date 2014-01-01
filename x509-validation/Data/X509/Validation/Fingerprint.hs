@@ -6,7 +6,8 @@
 -- Portability : unknown
 --
 module Data.X509.Validation.Fingerprint
-    ( getFingerprint
+    ( Fingerprint(..)
+    , getFingerprint
     , toDescr
     ) where
 
@@ -14,14 +15,22 @@ import Crypto.PubKey.HashDescr
 import Data.X509
 import Data.ASN1.Types
 import Data.ByteString (ByteString)
+import Data.Byteable
+
+-- | Fingerprint of a certificate
+newtype Fingerprint = Fingerprint ByteString
+    deriving (Show,Eq)
+
+instance Byteable Fingerprint where
+    toBytes (Fingerprint bs) = bs
 
 -- | Get the fingerprint of the whole signed object
 -- using the hashing algorithm specified
 getFingerprint :: (Show a, Eq a, ASN1Object a)
                => SignedExact a -- ^ object to fingerprint
                -> HashALG       -- ^ algorithm to compute the fingerprint
-               -> ByteString    -- ^ fingerprint in binary form
-getFingerprint sobj halg = hashF $ encodeSignedObject sobj
+               -> Fingerprint   -- ^ fingerprint in binary form
+getFingerprint sobj halg = Fingerprint $ hashF $ encodeSignedObject sobj
   where hashDescr = toDescr halg
         hashF     = hashFunction hashDescr
 
