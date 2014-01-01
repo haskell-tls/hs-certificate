@@ -150,7 +150,12 @@ defaultHooks = Hooks
     }
 
 -- | validate a certificate chain.
-validate :: Hooks -> Checks -> CertificateStore -> FQHN -> CertificateChain -> IO [FailedReason]
+validate :: Hooks
+         -> Checks
+         -> CertificateStore
+         -> FQHN
+         -> CertificateChain
+         -> IO [FailedReason]
 validate _     _      _     _    (CertificateChain [])       = return [EmptyChain]
 validate hooks checks store fqhn cc@(CertificateChain (_:_)) = do
     params <- Parameters <$> getCurrentTime <*> pure fqhn
@@ -160,11 +165,11 @@ validate hooks checks store fqhn cc@(CertificateChain (_:_)) = do
 validateWith :: Parameters -> Hooks -> Checks -> CertificateStore -> CertificateChain -> IO [FailedReason]
 validateWith _      _     _      _     (CertificateChain [])           = return [EmptyChain]
 validateWith params hooks checks store (CertificateChain (top:rchain)) =
-    doLeafChecks |> doCheckChain 0 top rchain
+    return doLeafChecks |> doCheckChain 0 top rchain
   where isExhaustive = checkExhaustive checks
         a |> b = exhaustive isExhaustive a b
 
-        doLeafChecks = doNameCheck top |> doV3Check topCert |> doKeyUsageCheck topCert
+        doLeafChecks = doNameCheck top ++ doV3Check topCert ++ doKeyUsageCheck topCert
             where topCert = getCertificate top
 
         doCheckChain :: Int -> SignedCertificate -> [SignedCertificate] -> IO [FailedReason]
@@ -220,17 +225,17 @@ validateWith params hooks checks store (CertificateChain (top:rchain)) =
                                             | otherwise                -> False
 
         doNameCheck cert
-            | not (checkFQHN checks) = return []
-            | otherwise              = return $ (hookValidateName hooks) fqhn (getCertificate cert)
+            | not (checkFQHN checks) = []
+            | otherwise              = (hookValidateName hooks) fqhn (getCertificate cert)
           where fqhn = parameterFQHN params
 
         doV3Check cert
             | checkLeafV3 checks = case certVersion cert of
-                                        2 {- confusingly it means X509.V3 -} -> return []
-                                        _ -> return [LeafNotV3]
-            | otherwise = return []
+                                        2 {- confusingly it means X509.V3 -} -> []
+                                        _ -> [LeafNotV3]
+            | otherwise = []
 
-        doKeyUsageCheck cert = return $
+        doKeyUsageCheck cert =
                compareListIfExistAndNotNull mflags (checkLeafKeyUsage checks) LeafKeyUsageNotAllowed
             ++ compareListIfExistAndNotNull mpurposes (checkLeafKeyPurpose checks) LeafKeyPurposeNotAllowed
           where mflags = case extensionGet $ certExtensions cert of
