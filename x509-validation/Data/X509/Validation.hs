@@ -18,6 +18,8 @@ module Data.X509.Validation
     , Hooks(..)
     , defaultChecks
     , defaultHooks
+    -- * Validation
+    , ValidationCallback
     , validate
     , validateWith
     , getFingerprint
@@ -116,6 +118,11 @@ data Hooks = Hooks
     , hookFilterReason       :: [FailedReason] -> [FailedReason]
     }
 
+-- | a validation callback that takes a certificate to verify
+-- and returns a list of failed reason or empty list for success
+type ValidationCallback = CertificateChain
+                       -> IO [FailedReason]
+
 -- | Validation parameters. List all the conditions where/when we want the certificate checks
 -- to happen.
 data Parameters = Parameters
@@ -157,15 +164,14 @@ validate :: Hooks
          -> Checks
          -> CertificateStore
          -> FQHN
-         -> CertificateChain
-         -> IO [FailedReason]
+         -> ValidationCallback
 validate _     _      _     _    (CertificateChain [])       = return [EmptyChain]
 validate hooks checks store fqhn cc@(CertificateChain (_:_)) = do
     params <- Parameters <$> getCurrentTime <*> pure fqhn
     validateWith params hooks checks store cc
 
 -- | Validate a certificate chain with explicit parameters
-validateWith :: Parameters -> Hooks -> Checks -> CertificateStore -> CertificateChain -> IO [FailedReason]
+validateWith :: Parameters -> Hooks -> Checks -> CertificateStore -> ValidationCallback
 validateWith _      _     _      _     (CertificateChain [])           = return [EmptyChain]
 validateWith params hooks checks store (CertificateChain (top:rchain)) =
    (hookFilterReason hooks) <$> (return doLeafChecks |> doCheckChain 0 top rchain)
