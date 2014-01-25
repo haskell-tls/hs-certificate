@@ -10,43 +10,38 @@
 -- Follows RFC5280 / RFC6818
 --
 module Data.X509.Validation
-    ( FQHN
+    (
+      module Data.X509.Validation.Types
     , Fingerprint(..)
     -- * Failed validation types
     , FailedReason(..)
     , SignatureFailure(..)
     -- * Validation configuration types
-    , Parameters(..)
-    , Checks(..)
-    , Hooks(..)
+    , ValidationChecks(..)
+    , ValidationHooks(..)
     , defaultChecks
     , defaultHooks
     -- * Validation
-    , ValidationCallback
     , validate
-    , validateWith
+    , validateDefault
     , getFingerprint
-    -- * Cache for validation
-    , CacheID
-    , CacheQueryCallback
-    , CacheAddCallback
-    , withValidationCache
+    -- * Cache
+    , module Data.X509.Validation.Cache
     ) where
 
 import Control.Applicative
 import Control.Monad (when)
-import Data.ByteString (ByteString)
+import Data.Default.Class
 import Data.ASN1.Types
 import Data.X509
 import Data.X509.CertificateStore
 import Data.X509.Validation.Signature
 import Data.X509.Validation.Fingerprint
+import Data.X509.Validation.Cache
+import Data.X509.Validation.Types
 import Data.Time.Clock
 import Data.Maybe
 import Data.List
-
--- | a Fully Qualified Host Name, e.g. www.example.com
-type FQHN = String
 
 -- | Possible reason of certificate and chain failure
 data FailedReason =
@@ -66,6 +61,7 @@ data FailedReason =
     | LeafKeyPurposeNotAllowed -- ^ the requested key purpose is not compatible with the leaf certificate's extended key usage
     | LeafNotV3                -- ^ Only authorized an X509.V3 certificate as leaf certificate.
     | EmptyChain               -- ^ empty chain of certificate
+    | CacheSaysNo String       -- ^ the cache explicitely denied this certificate
     | InvalidSignature SignatureFailure -- ^ signature failed
     deriving (Show,Eq)
 
@@ -73,12 +69,15 @@ data FailedReason =
 --
 -- It's recommended to use 'defaultChecks' to create the structure,
 -- to better cope with future changes or expansion of the structure.
-data Checks = Checks
+data ValidationChecks = ValidationChecks
     {
     -- | check time validity of every certificate in the chain.
     -- the make sure that current time is between each validity bounds
     -- in the certificate
       checkTimeValidity   :: Bool
+    -- | The time when the validity check happens. When set to Nothing,
+    -- the current time will be used
+    , checkAtTime         :: Maybe UTCTime
     -- | Check that no certificate is included that shouldn't be included.
     -- unfortunately despite the specification violation, a lots of
     -- real world server serves useless and usually old certificates
@@ -115,7 +114,7 @@ data Checks = Checks
 -- | A set of hooks to manipulate the way the verification works.
 --
 -- BEWARE, it's easy to change behavior leading to compromised security.
-data Hooks = Hooks
+data ValidationHooks = ValidationHooks
     {
     -- | check the the issuer 'DistinguishedName' match the subject 'DistinguishedName'
     -- of a certificate.
@@ -123,56 +122,10 @@ data Hooks = Hooks
     -- | validate that the parametrized time valide with the certificate in argument
     , hookValidateTime       :: UTCTime -> Certificate -> [FailedReason]
     -- | validate the certificate leaf name with the DNS named used to connect
-    , hookValidateName       :: FQHN -> Certificate -> [FailedReason]
+    , hookValidateName       :: HostName -> Certificate -> [FailedReason]
     -- | user filter to modify the list of failure reasons
     , hookFilterReason       :: [FailedReason] -> [FailedReason]
     }
-
--- | a validation callback that takes a certificate to verify
--- and returns a list of failed reason or empty list for success
-type ValidationCallback = CertificateChain
-                       -> IO [FailedReason]
-
--- | identification of the connection.
---
--- for tcp connection, it's recommended to use: fqhn:port, fqhn:service or ip:port
-type CacheID = ByteString
-
--- | Validation cache query callback type
-type CacheQueryCallback = CacheID     -- ^ connection's identification
-                       -> Fingerprint -- ^ fingerprint of the leaf certificate
-                       -> IO Bool     -- ^ return if the operation is succesful or not
-
--- | Validation cache callback type
-type CacheAddCallback = CacheID     -- ^ connection's identification
-                     -> Fingerprint -- ^ fingerprint of the leaf certificate
-                     -> IO ()
-
--- | validation with a cache
-withValidationCache :: CacheQueryCallback -- ^ the validation cache callback
-                    -> CacheAddCallback   -- ^ callback to add to cache on success
-                    -> HashALG            -- ^ the hash algorithm we want to use for hashing the leaf certificate
-                    -> CacheID            -- ^ identification of the connection
-                    -> ValidationCallback -- ^ the validation callback itself
-                    -> CertificateChain   -- ^ the certificate chain we want to validate
-                    -> IO [FailedReason]
-withValidationCache _          _        _       _     _                   (CertificateChain [])      = return [EmptyChain]
-withValidationCache cacheQuery cacheAdd hashAlg ident validateFunction cc@(CertificateChain (top:_)) = do
-    cacheValidated <- cacheQuery ident fingerPrint
-    if cacheValidated
-        then return []
-        else do failedReasons <- validateFunction cc
-                when (null failedReasons) $ cacheAdd ident fingerPrint
-                return failedReasons
-  where fingerPrint = getFingerprint top hashAlg
-
--- | Validation parameters. List all the conditions where/when we want the certificate checks
--- to happen.
-data Parameters = Parameters
-    { parameterTime :: UTCTime -- ^ the time when we want the certificate check to happen.
-                               -- usually should be the time as of now.
-    , parameterFQHN :: FQHN    -- ^ fqhn to match
-    } deriving (Show,Eq)
 
 -- | Default checks to perform
 --
@@ -181,9 +134,10 @@ data Parameters = Parameters
 -- * CA constraints is enforced for signing certificate
 -- * Leaf certificate is X.509 v3
 -- * Check that the FQHN match
-defaultChecks :: Checks
-defaultChecks = Checks
+defaultChecks :: ValidationChecks
+defaultChecks = ValidationChecks
     { checkTimeValidity   = True
+    , checkAtTime         = Nothing
     , checkStrictOrdering = False
     , checkCAConstraints  = True
     , checkExhaustive     = False
@@ -193,30 +147,66 @@ defaultChecks = Checks
     , checkFQHN           = True
     }
 
+instance Default ValidationChecks where
+    def = defaultChecks
+
 -- | Default hooks in the validation process
-defaultHooks :: Hooks
-defaultHooks = Hooks
+defaultHooks :: ValidationHooks
+defaultHooks = ValidationHooks
     { hookMatchSubjectIssuer = matchSI
     , hookValidateTime       = validateTime
     , hookValidateName       = validateCertificateName
     , hookFilterReason       = id
     }
 
--- | validate a certificate chain.
-validate :: Hooks
-         -> Checks
-         -> CertificateStore
-         -> FQHN
-         -> ValidationCallback
-validate _     _      _     _    (CertificateChain [])       = return [EmptyChain]
-validate hooks checks store fqhn cc@(CertificateChain (_:_)) = do
-    params <- Parameters <$> getCurrentTime <*> pure fqhn
-    validateWith params hooks checks store cc
+instance Default ValidationHooks where
+    def = defaultHooks
+
+-- | Validate using the default hooks and checks and the SHA256 mechanism as hashing mechanism
+validateDefault :: CertificateStore  -- ^ The trusted certificate store for CA
+                -> ValidationCache   -- ^ the validation cache callbacks
+                -> ServiceID         -- ^ identification of the connection
+                -> CertificateChain  -- ^ the certificate chain we want to validate
+                -> IO [FailedReason] -- ^ the return failed reasons (empty list is no failure)
+validateDefault = validate HashSHA256 defaultHooks defaultChecks
+
+-- | X509 validation
+--
+-- the function first interrogate the cache and if the validation fail,
+-- proper verification is done. If the verification pass, the
+-- add to cache callback is called.
+validate :: HashALG           -- ^ the hash algorithm we want to use for hashing the leaf certificate
+         -> ValidationHooks   -- ^ Hooks to use
+         -> ValidationChecks  -- ^ Checks to do
+         -> CertificateStore  -- ^ The trusted certificate store for CA
+         -> ValidationCache   -- ^ the validation cache callbacks
+         -> ServiceID         -- ^ identification of the connection
+         -> CertificateChain  -- ^ the certificate chain we want to validate
+         -> IO [FailedReason] -- ^ the return failed reasons (empty list is no failure)
+validate _ _ _ _ _ _ (CertificateChain []) = return [EmptyChain]
+validate hashAlg hooks checks store cache ident cc@(CertificateChain (top:_)) = do
+    cacheResult <- (cacheQuery cache) ident fingerPrint (getCertificate top)
+    case cacheResult of
+        ValidationCachePass     -> return []
+        ValidationCacheDenied s -> return [CacheSaysNo s]
+        ValidationCacheUnknown  -> do
+            validationTime <- maybe getCurrentTime return $ checkAtTime checks
+            failedReasons <- doValidate validationTime hooks checks store ident cc
+            when (null failedReasons) $ (cacheAdd cache) ident fingerPrint (getCertificate top)
+            return failedReasons
+  where fingerPrint = getFingerprint top hashAlg
+
 
 -- | Validate a certificate chain with explicit parameters
-validateWith :: Parameters -> Hooks -> Checks -> CertificateStore -> ValidationCallback
-validateWith _      _     _      _     (CertificateChain [])           = return [EmptyChain]
-validateWith params hooks checks store (CertificateChain (top:rchain)) =
+doValidate :: UTCTime
+           -> ValidationHooks
+           -> ValidationChecks
+           -> CertificateStore
+           -> ServiceID
+           -> CertificateChain
+           -> IO [FailedReason]
+doValidate _              _     _      _     _        (CertificateChain [])           = return [EmptyChain]
+doValidate validationTime hooks checks store (fqhn,_) (CertificateChain (top:rchain)) =
    (hookFilterReason hooks) <$> (return doLeafChecks |> doCheckChain 0 top rchain)
   where isExhaustive = checkExhaustive checks
         a |> b = exhaustive isExhaustive a b
@@ -279,7 +269,6 @@ validateWith params hooks checks store (CertificateChain (top:rchain)) =
         doNameCheck cert
             | not (checkFQHN checks) = []
             | otherwise              = (hookValidateName hooks) fqhn (getCertificate cert)
-          where fqhn = parameterFQHN params
 
         doV3Check cert
             | checkLeafV3 checks = case certVersion cert of
@@ -307,7 +296,7 @@ validateWith params hooks checks store (CertificateChain (top:rchain)) =
 
         doCheckCertificate cert =
             exhaustiveList (checkExhaustive checks)
-                [ (checkTimeValidity checks, return ((hookValidateTime hooks) (parameterTime params) cert))
+                [ (checkTimeValidity checks, return ((hookValidateTime hooks) validationTime cert))
                 ]
         isSelfSigned :: Certificate -> Bool
         isSelfSigned cert = certSubjectDN cert == certIssuerDN cert
@@ -337,7 +326,7 @@ getNames cert = (commonName >>= asn1CharacterToString, altNames)
 -- | Validate that the fqhn is matched by at least one name in the certificate.
 -- The name can be either the common name or one of the alternative names if
 -- the SubjectAltName extension is present.
-validateCertificateName :: FQHN -> Certificate -> [FailedReason]
+validateCertificateName :: HostName -> Certificate -> [FailedReason]
 validateCertificateName fqhn cert =
     case commonName of
         Nothing -> [NoCommonName]
