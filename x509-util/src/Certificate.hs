@@ -210,7 +210,8 @@ doCertMain opts files = do
     when (Validate `elem` opts) $ do
         let cc = CertificateChain (rights objs)
         store  <- getSystemCertificateStore
-        failed <- validate defaultHooks validationChecks store (maybe "" id fqhn) cc
+        failed <- validate HashSHA1 defaultHooks validationChecks store (exceptionValidationCache [])
+                        (maybe ("", "") (\f -> (f,"")) fqhn) cc
         if failed /= []
             then putStrLn ("validation failed: " ++ show failed)
             else putStrLn "validation success"
