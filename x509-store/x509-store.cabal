@@ -37,6 +37,7 @@ Library
                    , x509 >= 1.4.3 && < 1.5
   Exposed-modules:   Data.X509.CertificateStore
                      Data.X509.File
+                     Data.X509.Memory
   ghc-options:       -Wall
 
 source-repository head
