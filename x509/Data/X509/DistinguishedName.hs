@@ -66,18 +66,14 @@ parseDN :: ParseASN1 DistinguishedName
 parseDN = DistinguishedName <$> onNextContainer Sequence parseDNInner
 
 parseDNInner :: ParseASN1 [(OID, ASN1CharacterString)]
-parseDNInner = do
-    n <- hasNext
-    if n
-        then liftM2 (:) parseOneDN parseDNInner
-        else return []
+parseDNInner = concat `fmap` getMany parseOneDN
 
-parseOneDN :: ParseASN1 (OID, ASN1CharacterString)
-parseOneDN = onNextContainer Set $ do
+parseOneDN :: ParseASN1 [(OID, ASN1CharacterString)]
+parseOneDN = onNextContainer Set $ getMany $ do
     s <- getNextContainer Sequence
     case s of
         [OID oid, ASN1String cs] -> return (oid, cs)
-        _                        -> throwError "expecting sequence"
+        _                        -> throwError ("expecting [OID,String] got " ++ show s)
 
 encodeDNinner :: DistinguishedName -> [ASN1]
 encodeDNinner (DistinguishedName dn) = concatMap dnSet dn
