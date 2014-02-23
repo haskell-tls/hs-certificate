@@ -66,7 +66,10 @@ instance ASN1Object PubKey where
                 _ -> Left "fromASN1: X509.PubKey: unknown DSA format"
         | pkalg == getObjectID PubKeyALG_ECDSA =
             case xs of
-                OID [1,3,132,0,34]:End Sequence:BitString bits:End Sequence:xs2 -> Right (PubKeyECDSA ECC.SEC_p384r1 (bitArrayGetData bits), xs2)
+                OID curveOid:End Sequence:BitString bits:End Sequence:xs2 ->
+                    case fromObjectID curveOid of
+                        Just curveName -> Right (PubKeyECDSA curveName (bitArrayGetData bits), xs2)
+                        Nothing        -> Left ("fromASN1: X509.Pubkey: ECDSA unknown curve " ++ show curveOid)
                 _ -> Left "fromASN1: X509.PubKey: unknown ECDSA format"
         | otherwise = error ("unknown public key OID: " ++ show pkalg)
       where decodeASN1Err format bits xs2 f =

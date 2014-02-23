@@ -26,7 +26,7 @@ Library
                    , asn1-types >= 0.2 && < 0.3
                    , asn1-encoding >= 0.8 && < 0.9
                    , asn1-parse >= 0.8 && < 0.9
-                   , crypto-pubkey-types >= 0.4 && < 0.5
+                   , crypto-pubkey-types >= 0.4.2.1 && < 0.5
                    , cryptohash >= 0.9 && < 0.12
   Exposed-modules:   Data.X509
   Other-modules:     Data.X509.Internal
