@@ -120,6 +120,7 @@ instance Extension ExtKeyUsage where
     extDecode [BitString bits] = Right $ ExtKeyUsage $ bitsToFlags bits
     extDecode _ = Left "unknown sequence"
 
+-- | Key usage purposes for the ExtendedKeyUsage extension
 data ExtKeyUsagePurpose =
       KeyUsagePurpose_ServerAuth
     | KeyUsagePurpose_ClientAuth
@@ -140,6 +141,7 @@ extKeyUsagePurposedOID =
     ,(keyUsagePurposePrefix 9, KeyUsagePurpose_OCSPSigning)]
   where keyUsagePurposePrefix r = [1,3,6,1,5,5,7,3,r]
 
+-- | Extended key usage extension
 data ExtExtendedKeyUsage = ExtExtendedKeyUsage [ExtKeyUsagePurpose]
     deriving (Show,Eq)
 
