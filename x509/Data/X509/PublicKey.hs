@@ -47,9 +47,9 @@ data PubKey =
 instance ASN1Object PubKey where
     fromASN1 (Start Sequence:Start Sequence:OID pkalg:xs)
         | pkalg == getObjectID PubKeyALG_RSA =
-            case xs of
-                Null:End Sequence:BitString bits:End Sequence:xs2 -> decodeASN1Err "RSA" bits xs2 (toPubKeyRSA . fromASN1)
-                _ -> Left "fromASN1: X509.PubKey: unknown RSA format"
+            case removeNull xs of
+                End Sequence:BitString bits:End Sequence:xs2 -> decodeASN1Err "RSA" bits xs2 (toPubKeyRSA . fromASN1)
+                _ -> Left ("fromASN1: X509.PubKey: unknown RSA format: " ++ show xs)
         | pkalg == getObjectID PubKeyALG_DSA   =
             case xs of
                 Start Sequence:IntVal p:IntVal q:IntVal g:End Sequence:End Sequence:BitString bits:End Sequence:xs2 ->
@@ -79,6 +79,9 @@ instance ASN1Object PubKey where
                                     Left err -> Left err
                                     Right (r, xsinner) -> Right (r, xsinner ++ xs2)
             toPubKeyRSA = either Left (\(rsaKey, r) -> Right (PubKeyRSA rsaKey, r))
+
+            removeNull (Null:xs) = xs
+            removeNull l         = l
 
     fromASN1 l = Left ("fromASN1: X509.PubKey: unknown format:" ++ show l)
     toASN1 a = \xs -> encodePK a ++ xs
