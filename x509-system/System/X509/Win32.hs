@@ -36,15 +36,17 @@ certOpenSystemStore = withTString "ROOT" $ \cstr ->
 
 certFromContext :: PCCERT_Context -> IO (Either String SignedCertificate)
 certFromContext cctx = do
-    ty <- peek (castPtr cctx :: Ptr DWORD)
-    p  <- peek (castPtr (cctx `plusPtr` 4) :: Ptr (Ptr BYTE))
-    len <- peek (castPtr (cctx `plusPtr` 8) :: Ptr DWORD)
+    ty  <- peek (castPtr cctx :: Ptr DWORD)
+    p   <- peek (castPtr (cctx `plusPtr` pbCertEncodedPos) :: Ptr (Ptr BYTE))
+    len <- peek (castPtr (cctx `plusPtr` cbCertEncodedPos) :: Ptr DWORD)
     process ty p len
   where process 1 p len = do
             b <- B.create (fromIntegral len) $ \dst -> B.memcpy dst p (fromIntegral len)
             return $ decodeSignedObject b
         process ty _ _ =
             return $ Left ("windows certificate store: not supported type: " ++ show ty)
+        pbCertEncodedPos = alignment (undefined :: Ptr (Ptr Bytes))
+        cbCertEncoded    = pbCertEncodedPos + sizeOf (undefined :: Ptr (Ptr Bytes))
 
 getSystemCertificateStore :: IO CertificateStore
 getSystemCertificateStore = do
