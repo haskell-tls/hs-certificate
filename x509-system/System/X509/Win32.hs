@@ -45,8 +45,8 @@ certFromContext cctx = do
             return $ decodeSignedObject b
         process ty _ _ =
             return $ Left ("windows certificate store: not supported type: " ++ show ty)
-        pbCertEncodedPos = alignment (undefined :: Ptr (Ptr Bytes))
-        cbCertEncoded    = pbCertEncodedPos + sizeOf (undefined :: Ptr (Ptr Bytes))
+        pbCertEncodedPos = alignment (undefined :: Ptr (Ptr BYTE))
+        cbCertEncodedPos = pbCertEncodedPos + sizeOf (undefined :: Ptr (Ptr BYTE))
 
 getSystemCertificateStore :: IO CertificateStore
 getSystemCertificateStore = do
