@@ -353,7 +353,7 @@ validateCertificateName fqhn cert =
         wildcardMatch l
             -- <star>.com or <star> is always invalid
             | length l < 2 = [InvalidWildcard]
-            -- some TLD like .uk got small subTLS like (.co.uk), and we don't want to accept *.co.uk
+            -- some TLD like .uk got small subTLD like (.co.uk), and we don't want to accept *.co.uk
             | length (head l) <= 2 && length (head $ drop 1 l) <= 3 && length l < 3 = [InvalidWildcard]
             | l == take (length l) (reverse $ splitDot fqhn) = [] -- success: we got a match
             | otherwise                                      = [NameMismatch fqhn]
