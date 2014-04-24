@@ -40,13 +40,17 @@ envPathOverride :: String
 envPathOverride = "SYSTEM_CERTIFICATE_PATH"
 
 listDirectoryCerts :: FilePath -> IO [FilePath]
-listDirectoryCerts path = (map (path </>) . filter isCert <$> getDirectoryContents path)
+listDirectoryCerts path = (map (path </>) . filter isCert <$> getDirContents)
                       >>= filterM doesFileExist
     where isHashedFile s = length s == 10
                         && isDigit (s !! 9)
                         && (s !! 8) == '.'
                         && all isHexDigit (take 8 s)
           isCert x = (not $ isPrefixOf "." x) && (not $ isHashedFile x)
+
+          getDirContents = E.catch (getDirectoryContents path) emptyPaths
+            where emptyPaths :: E.IOException -> IO [FilePath]
+                  emptyPaths _ = return []
 
 getSystemCertificateStore :: IO CertificateStore
 getSystemCertificateStore = makeCertificateStore . concat <$> (getSystemPath >>= listDirectoryCerts >>= mapM readCertificates)
