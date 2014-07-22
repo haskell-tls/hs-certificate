@@ -119,8 +119,8 @@ showRSAKey :: (RSA.KeyPair) -> String
 showRSAKey (RSA.KeyPair privkey) = unlines
     [ "len-modulus:      " ++ (show $ RSA.public_size pubkey)
     , "modulus:          " ++ (show $ RSA.public_n pubkey)
-    , "public exponant:  " ++ (show $ RSA.public_e pubkey)
-    , "private exponant: " ++ (show $ RSA.private_d privkey)
+    , "public exponent:  " ++ (show $ RSA.public_e pubkey)
+    , "private exponent: " ++ (show $ RSA.private_d privkey)
     , "p1:               " ++ (show $ RSA.private_p privkey)
     , "p2:               " ++ (show $ RSA.private_q privkey)
     , "exp1:             " ++ (show $ RSA.private_dP privkey)
