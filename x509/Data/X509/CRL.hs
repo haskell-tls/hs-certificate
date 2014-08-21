@@ -9,6 +9,8 @@
 --
 -- follows RFC5280 / RFC6818.
 --
+{-# LANGUAGE FlexibleContexts #-}
+
 module Data.X509.CRL
     ( CRL(..)
     , RevokedCertificate(..)
