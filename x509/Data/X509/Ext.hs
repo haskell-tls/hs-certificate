@@ -7,6 +7,8 @@
 --
 -- extension processing module.
 --
+{-# LANGUAGE FlexibleContexts #-}
+
 module Data.X509.Ext
     ( Extension(..)
     -- * Common extension usually found in x509v3

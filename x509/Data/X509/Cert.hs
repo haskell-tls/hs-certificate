@@ -7,6 +7,8 @@
 --
 -- X.509 Certificate types and functions
 --
+{-# LANGUAGE FlexibleContexts #-}
+
 module Data.X509.Cert (Certificate(..)) where
 
 import Data.ASN1.Types
