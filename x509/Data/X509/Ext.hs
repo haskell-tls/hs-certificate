@@ -32,6 +32,7 @@ module Data.X509.Ext
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
+import Data.ASN1.Stream
 import Data.ASN1.Types
 import Data.ASN1.Parse
 import Data.ASN1.BitArray
@@ -40,6 +41,7 @@ import Data.X509.ExtensionRaw
 import Data.X509.DistinguishedName
 import Control.Applicative
 import Control.Monad.Error
+
 
 -- | key usage flag that is found in the key usage extension field.
 data ExtKeyUsageFlag =
@@ -240,14 +242,17 @@ instance Extension ExtCrlDistributionPoints where
 parseGeneralNames :: ParseASN1 [AltName]
 parseGeneralNames = do
     c <- getNextContainer Sequence
-    r <- sequence $ map toStringy c
-    return r
+    return $ walkList c
   where
-        toStringy (Other Context 1 b) = return $ AltNameRFC822 $ BC.unpack b
-        toStringy (Other Context 2 b) = return $ AltNameDNS $ BC.unpack b
-        toStringy (Other Context 6 b) = return $ AltNameURI $ BC.unpack b
-        toStringy (Other Context 7 b) = return $ AltNameIP  b
-        toStringy b                   = throwError ("GeneralNames: not coping with anything else " ++ show b)
+    walkList [] = []
+    walkList ((Other Context 1 b):ls) = (AltNameRFC822 $ BC.unpack b)
+                                         : walkList ls
+    walkList ((Other Context 2 b):ls) = (AltNameDNS $ BC.unpack b) : walkList ls
+    walkList ((Other Context 6 b):ls) = (AltNameURI $ BC.unpack b) : walkList ls
+    walkList ((Other Context 7 b):ls) = (AltNameIP  b) : walkList ls
+    walkList ((Start _):ls) =
+        let (_, rest) = getConstructedEnd 0 ls in walkList rest
+    walkList (_:ls) = walkList ls
 
 encodeGeneralNames :: [AltName] -> [ASN1]
 encodeGeneralNames names =
