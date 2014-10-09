@@ -71,7 +71,7 @@ showExts es@(Extensions (Just exts)) = do
     where
         showExt (ExtensionRaw oid critical asn1) = do
             putStrLn ("  OID:  " ++ show oid ++ " critical: " ++ show critical)
-            putStrLn ("        " ++ show asn1)
+            showASN1 8 asn1
         showKnownExtension Nothing  = return ()
         showKnownExtension (Just e) = putStrLn ("  " ++ show e)
 
