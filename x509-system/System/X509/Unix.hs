@@ -16,7 +16,7 @@ module System.X509.Unix
     ( getSystemCertificateStore
     ) where
 
-import System.Directory (getDirectoryContents, doesFileExist)
+import System.Directory (getDirectoryContents, doesFileExist, doesDirectoryExist)
 import System.Environment (getEnv)
 import System.FilePath ((</>))
 
@@ -33,33 +33,50 @@ import qualified Control.Exception as E
 
 import Data.Char
 
-defaultSystemPath :: FilePath
-defaultSystemPath = "/etc/ssl/certs/"
+defaultSystemPaths :: [FilePath]
+defaultSystemPaths =
+    [ "/etc/ssl/certs/"                 -- linux
+    , "/system/etc/security/cacerts/"   -- android
+    , "/usr/local/share/certs/"         -- freebsd
+    , "/etc/ssl/cert.pem"               -- openbsd
+    ]
 
 envPathOverride :: String
 envPathOverride = "SYSTEM_CERTIFICATE_PATH"
 
-listDirectoryCerts :: FilePath -> IO [FilePath]
-listDirectoryCerts path = (map (path </>) . filter isCert <$> getDirContents)
-                      >>= filterM doesFileExist
+listDirectoryCerts :: FilePath -> IO (Maybe [FilePath])
+listDirectoryCerts path = do
+    isDir  <- doesDirectoryExist path
+    isFile <- doesFileExist path
+    if isDir
+        then (fmap (map (path </>) . filter isCert) <$> getDirContents)
+             >>= maybe (return Nothing) (\l -> Just <$> filterM doesFileExist l)
+        else if isFile then return $ Just [path] else return Nothing
     where isHashedFile s = length s == 10
                         && isDigit (s !! 9)
                         && (s !! 8) == '.'
                         && all isHexDigit (take 8 s)
           isCert x = (not $ isPrefixOf "." x) && (not $ isHashedFile x)
 
-          getDirContents = E.catch (getDirectoryContents path) emptyPaths
-            where emptyPaths :: E.IOException -> IO [FilePath]
-                  emptyPaths _ = return []
+          getDirContents = E.catch (Just <$> getDirectoryContents path) emptyPaths
+            where emptyPaths :: E.IOException -> IO (Maybe [FilePath])
+                  emptyPaths _ = return Nothing
 
 getSystemCertificateStore :: IO CertificateStore
-getSystemCertificateStore = makeCertificateStore . concat <$> (getSystemPath >>= listDirectoryCerts >>= mapM readCertificates)
+getSystemCertificateStore = makeCertificateStore <$> (getSystemPaths >>= findFirst)
+  where findFirst [] = return []
+        findFirst (p:ps) = do
+            r <- listDirectoryCerts p
+            case r of
+                Nothing    -> findFirst ps
+                Just []    -> findFirst ps
+                Just files -> concat <$> mapM readCertificates files
 
-getSystemPath :: IO FilePath
-getSystemPath = E.catch (getEnv envPathOverride) inDefault
+getSystemPaths :: IO [FilePath]
+getSystemPaths = E.catch ((:[]) <$> getEnv envPathOverride) inDefault
     where
-        inDefault :: E.IOException -> IO FilePath
-        inDefault _ = return defaultSystemPath
+        inDefault :: E.IOException -> IO [FilePath]
+        inDefault _ = return defaultSystemPaths
 
 readCertificates :: FilePath -> IO [SignedCertificate]
 readCertificates file = E.catch (either (const []) (rights . map getCert) . pemParseBS <$> B.readFile file) skipIOError
