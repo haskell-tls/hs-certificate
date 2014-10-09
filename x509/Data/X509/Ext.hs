@@ -26,6 +26,7 @@ module Data.X509.Ext
     , ReasonFlag(..)
     -- * Accessor turning extension into a specific one
     , extensionGet
+    , extensionGetE
     , extensionDecode
     , extensionEncode
     ) where
@@ -77,6 +78,15 @@ extensionGet (Extensions (Just l)) = findExt l
   where findExt []     = Nothing
         findExt (x:xs) = case extensionDecode x of
                             Just (Right e) -> Just e
+                            _              -> findExt xs
+
+-- | Get a specific extension from a lists of raw extensions
+extensionGetE :: Extension a => Extensions -> Maybe (Either String a)
+extensionGetE (Extensions Nothing)  = Nothing
+extensionGetE (Extensions (Just l)) = findExt l
+  where findExt []     = Nothing
+        findExt (x:xs) = case extensionDecode x of
+                            Just r         -> Just r
                             _              -> findExt xs
 
 -- | Try to decode an ExtensionRaw.
