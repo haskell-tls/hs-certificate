@@ -62,18 +62,19 @@ showExts es@(Extensions Nothing) = do
 showExts es@(Extensions (Just exts)) = do
     mapM_ showExt exts
     putStrLn "known extensions decoded: "
-    showKnownExtension (X509.extensionGet es :: Maybe X509.ExtBasicConstraints)
-    showKnownExtension (X509.extensionGet es :: Maybe X509.ExtKeyUsage)
-    showKnownExtension (X509.extensionGet es :: Maybe X509.ExtExtendedKeyUsage)
-    showKnownExtension (X509.extensionGet es :: Maybe X509.ExtSubjectKeyId)
-    showKnownExtension (X509.extensionGet es :: Maybe X509.ExtSubjectAltName)
-    showKnownExtension (X509.extensionGet es :: Maybe X509.ExtAuthorityKeyId)
+    showKnownExtension "basic-constraint" (X509.extensionGetE es :: Maybe (Either String X509.ExtBasicConstraints))
+    showKnownExtension "key-usage" (X509.extensionGetE es :: Maybe (Either String X509.ExtKeyUsage))
+    showKnownExtension "extended-key-usage" (X509.extensionGetE es :: Maybe (Either String X509.ExtExtendedKeyUsage))
+    showKnownExtension "subject-key-id" (X509.extensionGetE es :: Maybe (Either String X509.ExtSubjectKeyId))
+    showKnownExtension "subject-alt-name" (X509.extensionGetE es :: Maybe (Either String X509.ExtSubjectAltName))
+    showKnownExtension "authority-key-id" (X509.extensionGetE es :: Maybe (Either String X509.ExtAuthorityKeyId))
     where
         showExt (ExtensionRaw oid critical asn1) = do
             putStrLn ("  OID:  " ++ show oid ++ " critical: " ++ show critical)
             showASN1 8 asn1
-        showKnownExtension Nothing  = return ()
-        showKnownExtension (Just e) = putStrLn ("  " ++ show e)
+        showKnownExtension _ Nothing  = return ()
+        showKnownExtension n (Just (Left e)) = putStrLn ("  " ++ n ++ ": ERROR: " ++ show e)
+        showKnownExtension _ (Just (Right e)) = putStrLn ("  " ++ show e)
 
 showCert :: SignedCertificate -> IO ()
 showCert signedCert = do
