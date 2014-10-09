@@ -193,6 +193,8 @@ data AltName =
     | AltNameDNS String
     | AltNameURI String
     | AltNameIP  B.ByteString
+    | AltNameXMPP String
+    | AltNameDNSSRV String
     deriving (Show,Eq,Ord)
 
 -- | Provide a way to supply alternate name that can be
@@ -248,26 +250,59 @@ instance Extension ExtCrlDistributionPoints where
     --extEncode (ExtCrlDistributionPoints )
 
 parseGeneralNames :: ParseASN1 [AltName]
-parseGeneralNames = do
-    c <- getNextContainer Sequence
-    r <- sequence $ map toStringy c
-    return r
+parseGeneralNames = onNextContainer Sequence $ getMany getAddr
   where
-        toStringy (Other Context 1 b) = return $ AltNameRFC822 $ BC.unpack b
-        toStringy (Other Context 2 b) = return $ AltNameDNS $ BC.unpack b
-        toStringy (Other Context 6 b) = return $ AltNameURI $ BC.unpack b
-        toStringy (Other Context 7 b) = return $ AltNameIP  b
-        toStringy b                   = throwError ("GeneralNames: not coping with anything else " ++ show b)
+        getAddr = do
+            m <- onNextContainerMaybe (Container Context 0) getComposedAddr
+            case m of
+                Nothing -> getSimpleAddr
+                Just r  -> return r
+        getComposedAddr = do
+            n <- getNext
+            case n of
+                OID [1,3,6,1,5,5,7,8,5] -> do -- xmpp addr
+                    c <- getNextContainerMaybe (Container Context 0)
+                    case c of
+                        Just [ASN1String cs] ->
+                            case asn1CharacterToString cs of
+                                Nothing -> throwError ("GeneralNames: invalid string for XMPP Addr")
+                                Just s  -> return $ AltNameXMPP s
+                        _ -> throwError ("GeneralNames: expecting string for XMPP Addr got: " ++ show c)
+                OID [1,3,6,1,5,5,7,8,7] -> do -- DNSSRV addr
+                    c <- getNextContainerMaybe (Container Context 0)
+                    case c of
+                        Just [ASN1String cs] ->
+                            case asn1CharacterToString cs of
+                                Nothing -> throwError ("GeneralNames: invalid string for DNSSrv Addr")
+                                Just s  -> return $ AltNameDNSSRV s
+                        _ -> throwError ("GeneralNames: expecting string for DNSSRV Addr got: " ++ show c)
+                OID unknown -> throwError ("GeneralNames: unknown OID " ++ show unknown)
+                _           -> throwError ("GeneralNames: expecting OID but got " ++ show n)
+
+        getSimpleAddr = do
+            n <- getNext
+            case n of
+                (Other Context 1 b) -> return $ AltNameRFC822 $ BC.unpack b
+                (Other Context 2 b) -> return $ AltNameDNS $ BC.unpack b
+                (Other Context 6 b) -> return $ AltNameURI $ BC.unpack b
+                (Other Context 7 b) -> return $ AltNameIP  b
+                _                   -> throwError ("GeneralNames: not coping with unknown stream " ++ show n)
 
 encodeGeneralNames :: [AltName] -> [ASN1]
 encodeGeneralNames names =
     [Start Sequence]
-    ++ map encodeAltName names
+    ++ concatMap encodeAltName names
     ++ [End Sequence]
-  where encodeAltName (AltNameRFC822 n) = Other Context 1 $ BC.pack n
-        encodeAltName (AltNameDNS n)    = Other Context 2 $ BC.pack n
-        encodeAltName (AltNameURI n)    = Other Context 6 $ BC.pack n
-        encodeAltName (AltNameIP n)     = Other Context 7 $ n
+  where encodeAltName (AltNameRFC822 n) = [Other Context 1 $ BC.pack n]
+        encodeAltName (AltNameDNS n)    = [Other Context 2 $ BC.pack n]
+        encodeAltName (AltNameURI n)    = [Other Context 6 $ BC.pack n]
+        encodeAltName (AltNameIP n)     = [Other Context 7 $ n]
+        encodeAltName (AltNameXMPP n)   = [Start (Container Context 0),OID[1,3,6,1,5,5,7,8,5]
+                                          ,Start (Container Context 0), ASN1String $ asn1CharacterString UTF8 n, End (Container Context 0)
+                                          ,End (Container Context 0)]
+        encodeAltName (AltNameDNSSRV n) = [Start (Container Context 0),OID[1,3,6,1,5,5,7,8,5]
+                                          ,Start (Container Context 0), ASN1String $ asn1CharacterString UTF8 n, End (Container Context 0)
+                                          ,End (Container Context 0)]
 
 bitsToFlags :: Enum a => BitArray -> [a]
 bitsToFlags bits = concat $ flip map [0..(bitArrayLength bits-1)] $ \i -> do
