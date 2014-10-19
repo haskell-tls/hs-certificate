@@ -80,8 +80,8 @@ instance ASN1Object PubKey where
                                     Right (r, xsinner) -> Right (r, xsinner ++ xs2)
             toPubKeyRSA = either Left (\(rsaKey, r) -> Right (PubKeyRSA rsaKey, r))
 
-            removeNull (Null:xs) = xs
-            removeNull l         = l
+            removeNull (Null:r) = r
+            removeNull l        = l
 
     fromASN1 l = Left ("fromASN1: X509.PubKey: unknown format:" ++ show l)
     toASN1 a = \xs -> encodePK a ++ xs
