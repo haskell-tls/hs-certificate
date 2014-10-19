@@ -29,12 +29,11 @@ Library
                    , directory
                    , filepath
                    , process
-                   , time
                    , pem >= 0.1 && < 0.3
-                   , asn1-types >= 0.2 && < 0.3
-                   , asn1-encoding >= 0.8 && < 0.9
+                   , asn1-types >= 0.3 && < 0.4
+                   , asn1-encoding >= 0.9 && < 0.10
                    , crypto-pubkey-types >= 0.3 && < 0.5
-                   , x509 >= 1.4.3 && < 1.5
+                   , x509 >= 1.5.0 && < 1.6
   Exposed-modules:   Data.X509.CertificateStore
                      Data.X509.File
                      Data.X509.Memory

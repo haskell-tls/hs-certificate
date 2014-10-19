@@ -19,7 +19,7 @@ module Data.X509.CRL
 import Control.Applicative
 import Control.Monad.Error
 
-import Data.Time.Clock (UTCTime)
+import Data.Hourglass (DateTime)
 import Data.ASN1.Types
 
 import Data.X509.DistinguishedName
@@ -32,8 +32,8 @@ data CRL = CRL
     { crlVersion             :: Integer
     , crlSignatureAlg        :: SignatureALG
     , crlIssuer              :: DistinguishedName
-    , crlThisUpdate          :: UTCTime
-    , crlNextUpdate          :: Maybe UTCTime
+    , crlThisUpdate          :: DateTime
+    , crlNextUpdate          :: Maybe DateTime
     , crlRevokedCertificates :: [RevokedCertificate]
     , crlExtensions          :: Extensions
     } deriving (Show,Eq)
@@ -41,7 +41,7 @@ data CRL = CRL
 -- | Describe a revoked certificate identifiable by serial number.
 data RevokedCertificate = RevokedCertificate
     { revokedSerialNumber :: Integer
-    , revokedDate         :: UTCTime
+    , revokedDate         :: DateTime
     , revokedExtensions   :: Extensions
     } deriving (Show,Eq)
 

@@ -12,7 +12,7 @@
 module Data.X509.Cert (Certificate(..)) where
 
 import Data.ASN1.Types
-import Data.Time.Clock (UTCTime)
+import Data.Hourglass (DateTime)
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad.Error
 import Data.X509.Internal
@@ -42,7 +42,7 @@ data Certificate = Certificate
         , certSerial       :: Integer                -- ^ Serial number
         , certSignatureAlg :: SignatureALG           -- ^ Signature algorithm
         , certIssuerDN     :: DistinguishedName      -- ^ Issuer DN
-        , certValidity     :: (UTCTime, UTCTime)     -- ^ Validity period
+        , certValidity     :: (DateTime, DateTime)   -- ^ Validity period
         , certSubjectDN    :: DistinguishedName      -- ^ Subject DN
         , certPubKey       :: PubKey                 -- ^ Public key
         , certExtensions   :: Extensions             -- ^ Extensions
@@ -65,7 +65,7 @@ parseCertHeaderSerial = do
         IntVal v -> return v
         _        -> throwError ("missing serial" ++ show n)
 
-parseCertHeaderValidity :: ParseASN1 (UTCTime, UTCTime)
+parseCertHeaderValidity :: ParseASN1 (DateTime, DateTime)
 parseCertHeaderValidity = getNextContainer Sequence >>= toTimeBound
   where toTimeBound [ ASN1Time _ t1 _, ASN1Time _ t2 _ ] = return (t1,t2)
         toTimeBound _                                    = throwError "bad validity format"

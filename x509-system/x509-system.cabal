@@ -21,10 +21,9 @@ Library
                    , directory
                    , filepath
                    , process
-                   , time
                    , pem >= 0.1 && < 0.3
-                   , x509 >= 1.4 && < 1.5
-                   , x509-store >= 1.4 && < 1.5
+                   , x509 >= 1.5 && < 1.6
+                   , x509-store >= 1.5 && < 1.6
   Exposed-modules:   System.X509
                      System.X509.Unix
                      System.X509.MacOS

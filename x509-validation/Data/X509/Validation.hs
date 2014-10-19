@@ -39,7 +39,8 @@ import Data.X509.Validation.Signature
 import Data.X509.Validation.Fingerprint
 import Data.X509.Validation.Cache
 import Data.X509.Validation.Types
-import Data.Time.Clock
+import Data.Hourglass
+import System.Hourglass
 import Data.Maybe
 import Data.List
 
@@ -77,7 +78,7 @@ data ValidationChecks = ValidationChecks
       checkTimeValidity   :: Bool
     -- | The time when the validity check happens. When set to Nothing,
     -- the current time will be used
-    , checkAtTime         :: Maybe UTCTime
+    , checkAtTime         :: Maybe DateTime
     -- | Check that no certificate is included that shouldn't be included.
     -- unfortunately despite the specification violation, a lots of
     -- real world server serves useless and usually old certificates
@@ -120,7 +121,7 @@ data ValidationHooks = ValidationHooks
     -- of a certificate.
       hookMatchSubjectIssuer :: DistinguishedName -> Certificate -> Bool
     -- | validate that the parametrized time valide with the certificate in argument
-    , hookValidateTime       :: UTCTime -> Certificate -> [FailedReason]
+    , hookValidateTime       :: DateTime -> Certificate -> [FailedReason]
     -- | validate the certificate leaf name with the DNS named used to connect
     , hookValidateName       :: HostName -> Certificate -> [FailedReason]
     -- | user filter to modify the list of failure reasons
@@ -190,7 +191,7 @@ validate hashAlg hooks checks store cache ident cc@(CertificateChain (top:_)) = 
         ValidationCachePass     -> return []
         ValidationCacheDenied s -> return [CacheSaysNo s]
         ValidationCacheUnknown  -> do
-            validationTime <- maybe getCurrentTime return $ checkAtTime checks
+            validationTime <- maybe (timeConvert <$> timeCurrent) return $ checkAtTime checks
             failedReasons <- doValidate validationTime hooks checks store ident cc
             when (null failedReasons) $ (cacheAdd cache) ident fingerPrint (getCertificate top)
             return failedReasons
@@ -198,7 +199,7 @@ validate hashAlg hooks checks store cache ident cc@(CertificateChain (top:_)) = 
 
 
 -- | Validate a certificate chain with explicit parameters
-doValidate :: UTCTime
+doValidate :: DateTime
            -> ValidationHooks
            -> ValidationChecks
            -> CertificateStore
@@ -308,7 +309,7 @@ doValidate validationTime hooks checks store (fqhn,_) (CertificateChain (top:rch
                 SignatureFailed r -> [InvalidSignature r]
 
 -- | Validate that the current time is between validity bounds
-validateTime :: UTCTime -> Certificate -> [FailedReason]
+validateTime :: DateTime -> Certificate -> [FailedReason]
 validateTime currentTime cert
     | currentTime < before = [InFuture]
     | currentTime > after  = [Expired]

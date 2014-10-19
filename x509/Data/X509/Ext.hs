@@ -39,6 +39,7 @@ import Data.ASN1.BitArray
 import Data.List (find)
 import Data.X509.ExtensionRaw
 import Data.X509.DistinguishedName
+import Data.X509.Internal
 import Control.Applicative
 import Control.Monad.Error
 
