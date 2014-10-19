@@ -14,7 +14,6 @@ module Data.X509.Cert (Certificate(..)) where
 import Data.ASN1.Types
 import Data.Hourglass (DateTime)
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad.Error
 import Data.X509.Internal
 import Data.X509.PublicKey
 import Data.X509.AlgorithmIdentifier

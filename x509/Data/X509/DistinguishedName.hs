@@ -19,7 +19,6 @@ import Control.Applicative
 import Data.Monoid
 import Data.ASN1.Types
 import Data.X509.Internal
-import Control.Monad.Error
 
 -- | A list of OID and strings.
 newtype DistinguishedName = DistinguishedName { getDistinguishedElements :: [(OID, ASN1CharacterString)] }

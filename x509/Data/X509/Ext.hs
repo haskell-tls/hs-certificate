@@ -41,7 +41,6 @@ import Data.X509.ExtensionRaw
 import Data.X509.DistinguishedName
 import Data.X509.Internal
 import Control.Applicative
-import Control.Monad.Error
 
 -- | key usage flag that is found in the key usage extension field.
 data ExtKeyUsageFlag =

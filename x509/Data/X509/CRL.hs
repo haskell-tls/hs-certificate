@@ -17,7 +17,6 @@ module Data.X509.CRL
     ) where
 
 import Control.Applicative
-import Control.Monad.Error
 
 import Data.Hourglass (DateTime)
 import Data.ASN1.Types
