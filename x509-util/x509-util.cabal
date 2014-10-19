@@ -20,11 +20,11 @@ Executable           x509-util
   Build-depends:     base >= 3 && < 5
                    , bytestring
                    , crypto-pubkey-types
-                   , x509 >= 1.4.13
+                   , x509 >= 1.5.0
                    , x509-store
                    , x509-system
                    , x509-validation >= 1.5.0
-                   , asn1-types >= 0.2
+                   , asn1-types >= 0.3
                    , asn1-encoding
                    , pem
                    , cryptohash
