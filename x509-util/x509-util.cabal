@@ -19,7 +19,6 @@ Executable           x509-util
   Buildable:         True
   Build-depends:     base >= 3 && < 5
                    , bytestring
-                   , text >= 0.11
                    , crypto-pubkey-types
                    , x509 >= 1.4.13
                    , x509-store

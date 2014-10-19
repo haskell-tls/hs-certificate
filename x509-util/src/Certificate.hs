@@ -4,8 +4,6 @@ import Data.Either
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as LC
 import qualified Data.ByteString as B
-import qualified Data.Text.Lazy as T
-import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.X509
 import qualified Data.X509 as X509
 import Data.List (find)
