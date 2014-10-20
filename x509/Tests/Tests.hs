@@ -1,10 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
-import Test.Framework (defaultMain, testGroup)
-import Test.Framework.Providers.QuickCheck2 (testProperty)
-
-import Test.QuickCheck
+import Test.Tasty
+import Test.Tasty.QuickCheck
 
 import qualified Data.ByteString as B
 
@@ -147,7 +145,7 @@ property_extension_id e = case extDecode (extEncode e) of
                                 Right v | v == e    -> True
                                         | otherwise -> error ("expected " ++ show e ++ " got: " ++ show v)
 
-main = defaultMain
+main = defaultMain $ testGroup "X509"
     [ testGroup "marshall"
         [ testProperty "pubkey" (property_unmarshall_marshall_id :: PubKey -> Bool)
         , testProperty "signature alg" (property_unmarshall_marshall_id :: SignatureALG -> Bool)
