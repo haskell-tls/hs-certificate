@@ -54,7 +54,7 @@ Test-Suite test-x509
                    , test-framework
                    , test-framework-quickcheck2
                    , test-framework-hunit
-                   , time
+                   , hourglass
                    , asn1-types
                    , x509
                    , crypto-pubkey-types

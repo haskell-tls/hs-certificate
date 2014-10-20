@@ -17,8 +17,7 @@ import Data.X509
 import qualified Crypto.Types.PubKey.RSA as RSA
 import qualified Crypto.Types.PubKey.DSA as DSA
 
-import Data.Time.Clock
-import Data.Time.Clock.POSIX
+import Data.Hourglass
 
 instance Arbitrary RSA.PublicKey where
     arbitrary = do
@@ -78,8 +77,10 @@ instance Arbitrary DistinguishedName where
     arbitrary = DistinguishedName <$> (choose (1,5) >>= \l -> replicateM l arbitraryDE)
       where arbitraryDE = (,) <$> arbitrary <*> arbitrary
 
-instance Arbitrary UTCTime where
-    arbitrary = posixSecondsToUTCTime . fromIntegral <$> (arbitrary :: Gen Int)
+instance Arbitrary DateTime where
+    arbitrary = timeConvert <$> (arbitrary :: Gen Elapsed)
+instance Arbitrary Elapsed where
+    arbitrary = Elapsed . Seconds <$> (choose (1, 100000000))
 
 instance Arbitrary Extensions where
     arbitrary = Extensions <$> oneof
