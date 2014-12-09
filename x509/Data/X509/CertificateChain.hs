@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- |
 -- Module      : Data.X509.CertificateChain
 -- License     : BSD-style
@@ -16,14 +17,15 @@ module Data.X509.CertificateChain
 import Data.X509.Cert (Certificate)
 import Data.X509.Signed (SignedExact, decodeSignedObject, encodeSignedObject)
 import Data.ByteString (ByteString)
+import Data.Monoid (Monoid)
 
 -- | A chain of X.509 certificates in exact form.
 newtype CertificateChain = CertificateChain [SignedExact Certificate]
-    deriving (Show,Eq)
+    deriving (Show,Eq,Monoid)
 
 -- | Represent a chain of X.509 certificates in bytestring form.
 newtype CertificateChainRaw = CertificateChainRaw [ByteString]
-    deriving (Show,Eq)
+    deriving (Show,Eq,Monoid)
 
 -- | Decode a CertificateChainRaw into a CertificateChain if every
 -- raw certificate are decoded correctly, otherwise return the index of the
