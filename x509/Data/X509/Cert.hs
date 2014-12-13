@@ -12,7 +12,7 @@
 module Data.X509.Cert (Certificate(..)) where
 
 import Data.ASN1.Types
-import Data.Hourglass (DateTime)
+import Data.Hourglass (DateTime, TimezoneOffset(TimezoneOffset))
 import Control.Applicative ((<$>), (<*>))
 import Data.X509.Internal
 import Data.X509.PublicKey
@@ -41,7 +41,7 @@ data Certificate = Certificate
         , certSerial       :: Integer                -- ^ Serial number
         , certSignatureAlg :: SignatureALG           -- ^ Signature algorithm
         , certIssuerDN     :: DistinguishedName      -- ^ Issuer DN
-        , certValidity     :: (DateTime, DateTime)   -- ^ Validity period
+        , certValidity     :: (DateTime, DateTime)   -- ^ Validity period (UTC)
         , certSubjectDN    :: DistinguishedName      -- ^ Subject DN
         , certPubKey       :: PubKey                 -- ^ Public key
         , certExtensions   :: Extensions             -- ^ Extensions
@@ -104,8 +104,8 @@ encodeCertificateHeader cert =
         eAlgId    = toASN1 (certSignatureAlg cert) []
         eIssuer   = toASN1 (certIssuerDN cert) []
         (t1, t2)  = certValidity cert
-        eValidity = asn1Container Sequence [ASN1Time TimeGeneralized t1 Nothing
-                                           ,ASN1Time TimeGeneralized t2 Nothing]
+        eValidity = asn1Container Sequence [ASN1Time TimeGeneralized t1 (Just (TimezoneOffset 0))
+                                           ,ASN1Time TimeGeneralized t2 (Just (TimezoneOffset 0))]
         eSubject  = toASN1 (certSubjectDN cert) []
         epkinfo   = toASN1 (certPubKey cert) []
         eexts     = toASN1 (certExtensions cert) []
