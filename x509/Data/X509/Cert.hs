@@ -19,6 +19,7 @@ import Data.X509.PublicKey
 import Data.X509.AlgorithmIdentifier
 import Data.X509.DistinguishedName
 import Data.X509.ExtensionRaw
+import Data.Hourglass
 
 data CertKeyUsage =
           CertKeyUsageDigitalSignature
@@ -104,8 +105,12 @@ encodeCertificateHeader cert =
         eAlgId    = toASN1 (certSignatureAlg cert) []
         eIssuer   = toASN1 (certIssuerDN cert) []
         (t1, t2)  = certValidity cert
-        eValidity = asn1Container Sequence [ASN1Time TimeGeneralized t1 (Just (TimezoneOffset 0))
-                                           ,ASN1Time TimeGeneralized t2 (Just (TimezoneOffset 0))]
+        eValidity = asn1Container Sequence [ASN1Time (timeType t1) t1 (Just (TimezoneOffset 0))
+                                           ,ASN1Time (timeType t2) t2 (Just (TimezoneOffset 0))]
         eSubject  = toASN1 (certSubjectDN cert) []
         epkinfo   = toASN1 (certPubKey cert) []
         eexts     = toASN1 (certExtensions cert) []
+        timeType t =
+            if t >= timeConvert (Date 2050 January 1)
+            then TimeGeneralized
+            else TimeUTC
