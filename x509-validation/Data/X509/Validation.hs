@@ -325,13 +325,16 @@ getNames cert = (commonName >>= asn1CharacterToString, altNames)
                   unAltName _              = Nothing
 
 -- | Validate that the fqhn is matched by at least one name in the certificate.
--- The name can be either the common name or one of the alternative names if
--- the SubjectAltName extension is present.
+-- The name can be either one of the alternative names if the SubjectAltName
+-- extension is present or the common name.
 validateCertificateName :: HostName -> Certificate -> [FailedReason]
-validateCertificateName fqhn cert =
-    case commonName of
-        Nothing -> [NoCommonName]
-        Just cn -> findMatch [] $ map (matchDomain . splitDot) (cn : altNames)
+validateCertificateName fqhn cert
+    | not $ null altNames =
+        findMatch [] $ map (matchDomain . splitDot) altNames
+    | otherwise =
+        case commonName of
+            Nothing -> [NoCommonName]
+            Just cn -> findMatch [] $ [matchDomain $ splitDot $ cn]
   where (commonName, altNames) = getNames cert
 
         findMatch :: [FailedReason] -> [[FailedReason]] -> [FailedReason]
