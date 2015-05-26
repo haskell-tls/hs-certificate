@@ -55,6 +55,8 @@ sig_table =
         , ([1,2,840,113549,1,1,2], SignatureALG HashMD2 PubKeyALG_RSA)
         , ([1,2,840,113549,1,1,11], SignatureALG HashSHA256 PubKeyALG_RSA)
         , ([1,2,840,113549,1,1,12], SignatureALG HashSHA384 PubKeyALG_RSA)
+        , ([1,2,840,113549,1,1,13], SignatureALG HashSHA512 PubKeyALG_RSA)
+        , ([1,2,840,113549,1,1,14], SignatureALG HashSHA224 PubKeyALG_RSA)
         , ([1,2,840,10040,4,3],    SignatureALG HashSHA1 PubKeyALG_DSA)
         , ([1,2,840,10045,4,3,1],  SignatureALG HashSHA224 PubKeyALG_ECDSA)
         , ([1,2,840,10045,4,3,2],  SignatureALG HashSHA256 PubKeyALG_ECDSA)
