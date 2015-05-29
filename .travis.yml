@@ -1,0 +1,105 @@
+env:
+ - CABALVER=1.16 GHCVER=7.0.4
+ - CABALVER=1.16 GHCVER=7.4.2
+ - CABALVER=1.18 GHCVER=7.6.3
+ - CABALVER=1.18 GHCVER=7.8.3
+ - CABALVER=1.22 GHCVER=7.10.1
+ - CABALVER=head GHCVER=head
+
+matrix:
+  allow_failures:
+   - env: CABALVER=head GHCVER=head
+
+before_install:
+ - travis_retry sudo add-apt-repository -y ppa:hvr/ghc
+ - travis_retry sudo apt-get update
+ - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER # see note about happy/alex
+ - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
+
+install:
+ - cd x509
+ - cabal --version
+ - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
+ - travis_retry cabal update
+ - if [ "${GHCVER}" = "7.0.4" ]; then
+    cabal install --only-dependencies;
+   else
+    cabal install --only-dependencies --enable-tests;
+   fi
+ - cd ../x509-store
+ - if [ "${GHCVER}" = "7.0.4" ]; then
+    cabal install --only-dependencies;
+   else
+    cabal install --only-dependencies --enable-tests;
+   fi
+ - cd ../x509-system
+ - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
+ - if [ "${GHCVER}" = "7.0.4" ]; then
+    cabal install --only-dependencies;
+   else
+    cabal install --only-dependencies --enable-tests;
+   fi
+ - cd ../x509-validation
+ - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
+ - if [ "${GHCVER}" = "7.0.4" ]; then
+    cabal install --only-dependencies;
+   else
+    cabal install --only-dependencies --enable-tests;
+   fi
+
+script:
+ - cd ../x509
+ - if [ "${GHCVER}" != "7.0.4" ]; then
+      cabal configure --enable-tests -v2;
+   else
+      cabal configure -v2;
+   fi
+ - cabal build
+ - if [ "${GHCVER}" != "7.0.4" ]; then
+       cabal test;
+   fi;
+ - cabal check
+ - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
+   cd dist/;
+   if [ -f "$SRC_TGZ" ]; then
+      cabal install --force-reinstalls "$SRC_TGZ";
+   else
+      echo "expected '$SRC_TGZ' not found";
+      exit 1;
+   fi
+ - cd ../x509-store
+ - cabal configure -v2
+ - cabal build
+ - cabal check
+ - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
+   cd dist/;
+   if [ -f "$SRC_TGZ" ]; then
+      cabal install --force-reinstalls "$SRC_TGZ";
+   else
+      echo "expected '$SRC_TGZ' not found";
+      exit 1;
+   fi
+ - cd ../x509-system
+ - cabal configure -v2
+ - cabal build
+ - cabal check
+ - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
+   cd dist/;
+   if [ -f "$SRC_TGZ" ]; then
+      cabal install --force-reinstalls "$SRC_TGZ";
+   else
+      echo "expected '$SRC_TGZ' not found";
+      exit 1;
+   fi
+ - cd ../x509-validation
+ - cabal configure -v2
+ - cabal build
+ - cabal check
+ - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
+   cd dist/;
+   if [ -f "$SRC_TGZ" ]; then
+      cabal install --force-reinstalls "$SRC_TGZ";
+   else
+      echo "expected '$SRC_TGZ' not found";
+      exit 1;
+   fi
