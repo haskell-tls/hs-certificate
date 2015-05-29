@@ -27,22 +27,11 @@ install:
     cabal install --only-dependencies --enable-tests;
    fi
  - cd ../x509-store
- - if [ "${GHCVER}" = "7.0.4" ]; then
-    cabal install --only-dependencies;
-   else
-    cabal install --only-dependencies --enable-tests;
-   fi
+ - cabal install --only-dependencies;
  - cd ../x509-system
- - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
- - if [ "${GHCVER}" = "7.0.4" ]; then
-    cabal install --only-dependencies;
-   else
-    cabal install --only-dependencies --enable-tests;
-   fi
+ - cabal install --only-dependencies;
  - cd ../x509-validation
- - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
- - if [ "${GHCVER}" = "7.0.4" ]; then
-    cabal install --only-dependencies;
+ - cabal install --only-dependencies;
    else
     cabal install --only-dependencies --enable-tests;
    fi
@@ -59,6 +48,7 @@ script:
        cabal test;
    fi;
  - cabal check
+ - cabal sdist
  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
    cd dist/;
    if [ -f "$SRC_TGZ" ]; then
@@ -67,10 +57,11 @@ script:
       echo "expected '$SRC_TGZ' not found";
       exit 1;
    fi
- - cd ../x509-store
+ - cd ../../x509-store
  - cabal configure -v2
  - cabal build
  - cabal check
+ - cabal sdist
  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
    cd dist/;
    if [ -f "$SRC_TGZ" ]; then
@@ -79,10 +70,11 @@ script:
       echo "expected '$SRC_TGZ' not found";
       exit 1;
    fi
- - cd ../x509-system
+ - cd ../../x509-system
  - cabal configure -v2
  - cabal build
  - cabal check
+ - cabal sdist
  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
    cd dist/;
    if [ -f "$SRC_TGZ" ]; then
@@ -91,10 +83,11 @@ script:
       echo "expected '$SRC_TGZ' not found";
       exit 1;
    fi
- - cd ../x509-validation
+ - cd ../../x509-validation
  - cabal configure -v2
  - cabal build
  - cabal check
+ - cabal sdist
  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
    cd dist/;
    if [ -f "$SRC_TGZ" ]; then
