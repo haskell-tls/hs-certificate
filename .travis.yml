@@ -27,14 +27,11 @@ install:
     cabal install --only-dependencies --enable-tests;
    fi
  - cd ../x509-store
- - cabal install --only-dependencies;
+ - cabal install --only-dependencies
  - cd ../x509-system
- - cabal install --only-dependencies;
+ - cabal install --only-dependencies
  - cd ../x509-validation
- - cabal install --only-dependencies;
-   else
-    cabal install --only-dependencies --enable-tests;
-   fi
+ - cabal install --only-dependencies
 
 script:
  - cd ../x509
