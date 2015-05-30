@@ -27,6 +27,8 @@ module Data.X509.Validation
     , getFingerprint
     -- * Cache
     , module Data.X509.Validation.Cache
+    -- * Internal
+    , validateCertificateName
     ) where
 
 import Control.Applicative

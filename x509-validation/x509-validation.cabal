@@ -11,7 +11,7 @@ Build-Type:          Simple
 Category:            Data
 stability:           experimental
 Homepage:            http://github.com/vincenthz/hs-certificate
-Cabal-Version:       >=1.6
+Cabal-Version:       >=1.8
 
 Library
   Build-Depends:     base >= 3 && < 5
@@ -39,6 +39,22 @@ Library
                      Data.X509.Validation.Cache
                      Data.X509.Validation.Types
   ghc-options:       -Wall
+
+Test-Suite test-x509-validation
+  type:              exitcode-stdio-1.0
+  hs-source-dirs:    Tests
+  Main-is:           Tests.hs
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , mtl
+                   , tasty
+                   , tasty-hunit
+                   , hourglass
+                   , asn1-types
+                   , x509
+                   , x509-validation
+                   , crypto-pubkey-types
+  ghc-options:       -Wall -fno-warn-orphans -fno-warn-missing-signatures
 
 source-repository head
   type:     git
