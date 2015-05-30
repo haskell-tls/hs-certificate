@@ -33,6 +33,8 @@ Library
                    , crypto-pubkey >= 0.1.4 && < 0.3
                    , crypto-pubkey-types >= 0.4 && < 0.5
                    , cryptohash >= 0.9 && < 0.12
+                   , publicsuffix >= 0 && < 1
+                   , text >= 1 && < 1.3
   Exposed-modules:   Data.X509.Validation
   Other-modules:     Data.X509.Validation.Signature
                      Data.X509.Validation.Fingerprint

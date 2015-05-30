@@ -45,6 +45,8 @@ import Data.Hourglass
 import System.Hourglass
 import Data.Maybe
 import Data.List
+import Data.PublicSuffix
+import qualified Data.Text as T
 
 -- | Possible reason of certificate and chain failure
 data FailedReason =
@@ -346,23 +348,25 @@ validateCertificateName fqhn cert
 
         matchDomain :: [String] -> [FailedReason]
         matchDomain l
+            | publicSuffix name == name     = [NameMismatch fqhn]
             | length (filter (== "") l) > 0 = [InvalidName (intercalate "." l)]
             | head l == "*"                 = wildcardMatch (reverse $ drop 1 l)
             | l == splitDot fqhn            = [] -- success: we got a match
             | otherwise                     = [NameMismatch fqhn]
+            where name = T.pack $ intercalate "." l
 
         -- only 1 wildcard is valid, and if multiples are present
         -- they won't have a wildcard meaning but will be match as normal star
         -- character to the fqhn and inevitably will fail.
         --
         -- e.g. *.*.server.com will try to litteraly match the '*' subdomain of server.com
+        --
+        -- 'l' is a list of domain labels, without the leading asterisk.
         wildcardMatch l
-            -- <star>.com or <star> is always invalid
-            | length l < 2 = [InvalidWildcard]
-            -- some TLD like .uk got small subTLD like (.co.uk), and we don't want to accept *.co.uk
-            | length (head l) <= 2 && length (head $ drop 1 l) <= 3 && length l < 3 = [InvalidWildcard]
-            | l == take (length l) (reverse $ splitDot fqhn) = [] -- success: we got a match
-            | otherwise                                      = [NameMismatch fqhn]
+            | publicSuffix name == name             = [InvalidWildcard]
+            | l == (init $ reverse $ splitDot fqhn) = [] -- success: we got a match
+            | otherwise                             = [NameMismatch fqhn]
+            where name = T.pack $ intercalate "." $ reverse l
 
         splitDot :: String -> [String]
         splitDot [] = [""]
