@@ -13,14 +13,6 @@ stability:           experimental
 Homepage:            http://github.com/vincenthz/hs-certificate
 Cabal-Version:       >=1.8
 
-Flag test
-  Description:       Build unit test
-  Default:           False
-
-Flag executable
-  Description:       Build the executable
-  Default:           False
-
 Library
   Build-Depends:     base >= 3 && < 5
                    , bytestring
