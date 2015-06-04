@@ -1,5 +1,5 @@
 Name:                x509
-Version:             1.5.1
+Version:             1.5.999
 Description:         X509 reader and writer
 License:             BSD3
 License-file:        LICENSE
@@ -16,6 +16,7 @@ Cabal-Version:       >=1.8
 Library
   Build-Depends:     base >= 3 && < 5
                    , bytestring
+                   , memory
                    , mtl
                    , containers
                    , directory
@@ -26,8 +27,7 @@ Library
                    , asn1-types >= 0.3.0 && < 0.4
                    , asn1-encoding >= 0.9 && < 0.10
                    , asn1-parse >= 0.9 && < 0.10
-                   , crypto-pubkey-types >= 0.4.2.1 && < 0.5
-                   , cryptohash >= 0.9 && < 0.12
+                   , cryptonite
   Exposed-modules:   Data.X509
   Other-modules:     Data.X509.Internal
                      Data.X509.CertificateChain
@@ -39,6 +39,7 @@ Library
                      Data.X509.Ext
                      Data.X509.ExtensionRaw
                      Data.X509.CRL
+                     Data.X509.OID
                      Data.X509.Signed
   ghc-options:       -Wall
 
@@ -54,7 +55,7 @@ Test-Suite test-x509
                    , hourglass
                    , asn1-types
                    , x509
-                   , crypto-pubkey-types
+                   , cryptonite
   ghc-options:       -Wall -fno-warn-orphans -fno-warn-missing-signatures
 
 source-repository head

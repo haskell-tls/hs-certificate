@@ -8,12 +8,12 @@
 module Data.X509.Validation.Fingerprint
     ( Fingerprint(..)
     , getFingerprint
-    , toDescr
     ) where
 
-import Crypto.PubKey.HashDescr
+import Crypto.Hash
 import Data.X509
 import Data.ASN1.Types
+import Data.ByteArray (convert)
 import Data.ByteString (ByteString)
 import Data.Byteable
 
@@ -30,16 +30,12 @@ getFingerprint :: (Show a, Eq a, ASN1Object a)
                => SignedExact a -- ^ object to fingerprint
                -> HashALG       -- ^ algorithm to compute the fingerprint
                -> Fingerprint   -- ^ fingerprint in binary form
-getFingerprint sobj halg = Fingerprint $ hashF $ encodeSignedObject sobj
-  where hashDescr = toDescr halg
-        hashF     = hashFunction hashDescr
-
--- | Convert a hash algorithm into a Hash Description
-toDescr :: HashALG -> HashDescr
-toDescr HashMD2    = hashDescrMD2
-toDescr HashMD5    = hashDescrMD5
-toDescr HashSHA1   = hashDescrSHA1
-toDescr HashSHA224 = hashDescrSHA224
-toDescr HashSHA256 = hashDescrSHA256
-toDescr HashSHA384 = hashDescrSHA384
-toDescr HashSHA512 = hashDescrSHA512
+getFingerprint sobj halg = Fingerprint $ mkHash halg $ encodeSignedObject sobj
+  where
+    mkHash HashMD2    = convert . hashWith MD2
+    mkHash HashMD5    = convert . hashWith MD5
+    mkHash HashSHA1   = convert . hashWith SHA1
+    mkHash HashSHA224 = convert . hashWith SHA224
+    mkHash HashSHA256 = convert . hashWith SHA256
+    mkHash HashSHA384 = convert . hashWith SHA384
+    mkHash HashSHA512 = convert . hashWith SHA512

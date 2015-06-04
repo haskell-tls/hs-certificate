@@ -15,12 +15,12 @@ module Data.X509.Validation.Signature
     ) where
 
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
+import Crypto.PubKey.HashDescr
 import qualified Crypto.PubKey.DSA as DSA
-import qualified Crypto.Hash.SHA1 as SHA1
+import Crypto.Hash
 
 import Data.ByteString (ByteString)
 import Data.X509
-import Data.X509.Validation.Fingerprint
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
@@ -72,11 +72,11 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
                                                             else SignatureFailed SignatureInvalid
     | otherwise                       = SignatureFailed SignaturePubkeyMismatch
   where
-        verifyF (PubKeyRSA key) = Just $ RSA.verify (toDescr hashALG) key
+        verifyF (PubKeyRSA key) = Just $ rsaVerify hashALG key
         verifyF (PubKeyDSA key)
             | hashALG == HashSHA1 = Just $ \a b -> case dsaToSignature a of
                                                     Nothing     -> False
-                                                    Just dsaSig -> DSA.verify SHA1.hash key dsaSig b
+                                                    Just dsaSig -> DSA.verify SHA1 key dsaSig b
             | otherwise           = Nothing
         verifyF _ = Nothing
 
@@ -84,6 +84,17 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
         dsaToSignature b =
             case decodeASN1' BER b of
                 Left _     -> Nothing
-                Right asn1 -> case fromASN1 asn1 of
-                                Left _            -> Nothing
-                                Right (dsaSig, _) -> Just dsaSig
+                Right asn1 ->
+                    case asn1 of
+                        Start Sequence:IntVal r:IntVal s:End Sequence:_ ->
+                            Just $ DSA.Signature { DSA.sign_r = r, DSA.sign_s = s }
+                        _ ->
+                            Nothing
+
+        rsaVerify HashMD2    = RSA.verify hashDescrMD2
+        rsaVerify HashMD5    = RSA.verify hashDescrMD5
+        rsaVerify HashSHA1   = RSA.verify hashDescrSHA1
+        rsaVerify HashSHA224 = RSA.verify hashDescrSHA224
+        rsaVerify HashSHA256 = RSA.verify hashDescrSHA256
+        rsaVerify HashSHA384 = RSA.verify hashDescrSHA384
+        rsaVerify HashSHA512 = RSA.verify hashDescrSHA512

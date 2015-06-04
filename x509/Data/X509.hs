@@ -61,6 +61,7 @@ import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import qualified Data.ByteString as B
+import qualified Data.ByteArray as BA
 
 import Data.X509.Cert
 import Data.X509.Ext
@@ -73,8 +74,7 @@ import Data.X509.PublicKey
 import Data.X509.PrivateKey
 import Data.X509.AlgorithmIdentifier
 
-import qualified Crypto.Hash.MD5 as MD5
-import qualified Crypto.Hash.SHA1 as SHA1
+import Crypto.Hash
 
 -- | A Signed Certificate
 type SignedCertificate = SignedExact Certificate
@@ -103,7 +103,7 @@ decodeSignedCRL = decodeSignedObject
 -- OpenSSL algorithm is odd, and has been replicated here somewhat.
 -- only lower the case of ascii character.
 hashDN :: DistinguishedName -> B.ByteString
-hashDN = shorten . SHA1.hash . encodeASN1' DER . flip toASN1 [] . DistinguishedNameInner . dnLowerUTF8
+hashDN = shorten . hashWith SHA1 . encodeASN1' DER . flip toASN1 [] . DistinguishedNameInner . dnLowerUTF8
     where dnLowerUTF8 (DistinguishedName l) = DistinguishedName $ map (second toLowerUTF8) l
           toLowerUTF8 (ASN1CharacterString _ s) = ASN1CharacterString UTF8 (B.map asciiToLower s)
           asciiToLower c
@@ -114,8 +114,8 @@ hashDN = shorten . SHA1.hash . encodeASN1' DER . flip toASN1 [] . DistinguishedN
 
 -- | Create an openssl style old hash of distinguished name
 hashDN_old :: DistinguishedName -> B.ByteString
-hashDN_old = shorten . MD5.hash . encodeASN1' DER . flip toASN1 []
+hashDN_old = shorten . hashWith MD5 . encodeASN1' DER . flip toASN1 []
 
-shorten :: B.ByteString -> B.ByteString
+shorten :: Digest a -> B.ByteString
 shorten b = B.pack $ map i [3,2,1,0]
-    where i n = B.index b n
+    where i n = BA.index b n

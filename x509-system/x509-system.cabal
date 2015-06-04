@@ -1,5 +1,5 @@
 Name:                x509-system
-Version:             1.5.0
+Version:             1.5.999
 Description:         System X.509 handling
 License:             BSD3
 License-file:        LICENSE
@@ -22,8 +22,8 @@ Library
                    , filepath
                    , process
                    , pem >= 0.1 && < 0.3
-                   , x509 >= 1.5 && < 1.6
-                   , x509-store >= 1.5 && < 1.6
+                   , x509 >= 1.5.999 && < 1.7
+                   , x509-store >= 1.5.999 && < 1.7
   Exposed-modules:   System.X509
                      System.X509.Unix
                      System.X509.MacOS

@@ -12,8 +12,8 @@ import Control.Monad
 import Data.List (nub, sort)
 import Data.ASN1.Types
 import Data.X509
-import qualified Crypto.Types.PubKey.RSA as RSA
-import qualified Crypto.Types.PubKey.DSA as DSA
+import qualified Crypto.PubKey.RSA as RSA
+import qualified Crypto.PubKey.DSA as DSA
 
 import Data.Hourglass
 
