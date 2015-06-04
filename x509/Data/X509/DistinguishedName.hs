@@ -30,6 +30,7 @@ data DnElement =
     | DnCountry          -- ^ Country
     | DnOrganization     -- ^ O
     | DnOrganizationUnit -- ^ OU
+    | DnEmailAddress     -- ^ Email Address (legacy)
     deriving (Show,Eq)
 
 instance OIDable DnElement where
@@ -37,6 +38,7 @@ instance OIDable DnElement where
     getObjectID DnCountry          = [2,5,4,6]
     getObjectID DnOrganization     = [2,5,4,10]
     getObjectID DnOrganizationUnit = [2,5,4,11]
+    getObjectID DnEmailAddress     = [1,2,840,113549,1,9,1]
 
 -- | Try to get a specific element in a 'DistinguishedName' structure
 getDnElement :: DnElement -> DistinguishedName -> Maybe ASN1CharacterString
