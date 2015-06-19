@@ -13,8 +13,8 @@ module Data.X509.PrivateKey
     ) where
 
 import Data.X509.AlgorithmIdentifier
-import qualified Crypto.Types.PubKey.RSA as RSA
-import qualified Crypto.Types.PubKey.DSA as DSA
+import qualified Crypto.PubKey.RSA as RSA
+import qualified Crypto.PubKey.DSA as DSA
 
 -- | Private key types known and used in X.509
 data PrivKey =
@@ -26,3 +26,4 @@ data PrivKey =
 privkeyToAlg :: PrivKey -> PubKeyALG
 privkeyToAlg (PrivKeyRSA _)         = PubKeyALG_RSA
 privkeyToAlg (PrivKeyDSA _)         = PubKeyALG_DSA
+
