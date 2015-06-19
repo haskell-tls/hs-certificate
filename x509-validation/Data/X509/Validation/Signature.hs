@@ -15,7 +15,6 @@ module Data.X509.Validation.Signature
     ) where
 
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
-import Crypto.PubKey.HashDescr
 import qualified Crypto.PubKey.DSA as DSA
 import Crypto.Hash
 
@@ -91,10 +90,10 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
                         _ ->
                             Nothing
 
-        rsaVerify HashMD2    = RSA.verify hashDescrMD2
-        rsaVerify HashMD5    = RSA.verify hashDescrMD5
-        rsaVerify HashSHA1   = RSA.verify hashDescrSHA1
-        rsaVerify HashSHA224 = RSA.verify hashDescrSHA224
-        rsaVerify HashSHA256 = RSA.verify hashDescrSHA256
-        rsaVerify HashSHA384 = RSA.verify hashDescrSHA384
-        rsaVerify HashSHA512 = RSA.verify hashDescrSHA512
+        rsaVerify HashMD2    = RSA.verify (Just MD2)
+        rsaVerify HashMD5    = RSA.verify (Just MD5)
+        rsaVerify HashSHA1   = RSA.verify (Just SHA1)
+        rsaVerify HashSHA224 = RSA.verify (Just SHA224)
+        rsaVerify HashSHA256 = RSA.verify (Just SHA256)
+        rsaVerify HashSHA384 = RSA.verify (Just SHA384)
+        rsaVerify HashSHA512 = RSA.verify (Just SHA512)

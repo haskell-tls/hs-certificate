@@ -31,7 +31,7 @@ Library
                    , asn1-encoding >= 0.9 && < 0.10
                    , x509 >= 1.5.999 && < 1.7
                    , x509-store >= 1.5.999 && < 1.7
-                   , cryptonite
+                   , cryptonite >= 0.3
   Exposed-modules:   Data.X509.Validation
   Other-modules:     Data.X509.Validation.Signature
                      Data.X509.Validation.Fingerprint
