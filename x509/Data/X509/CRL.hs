@@ -54,7 +54,7 @@ instance ASN1Object RevokedCertificate where
         Right (RevokedCertificate serial t (Extensions Nothing), xs)
     fromASN1 l = Left ("fromASN1: X509.RevokedCertificate: unknown format:" ++ show l)
     toASN1 (RevokedCertificate serial time _) = \xs ->
-        Start Sequence : IntVal serial : ASN1Time TimeGeneralized time Nothing : End Sequence : xs
+        Start Sequence : IntVal serial : ASN1Time TimeGeneralized time (Just (TimezoneOffset 0)) : End Sequence : xs
 
 parseCRL :: ParseASN1 CRL
 parseCRL = do
@@ -83,8 +83,8 @@ encodeCRL crl xs =
     [IntVal $ crlVersion crl] ++
     toASN1 (crlSignatureAlg crl) [] ++
     toASN1 (crlIssuer crl) [] ++
-    [ASN1Time TimeGeneralized (crlThisUpdate crl) Nothing] ++
-    (maybe [] (\t -> [ASN1Time TimeGeneralized t Nothing]) (crlNextUpdate crl)) ++
+    [ASN1Time TimeGeneralized (crlThisUpdate crl) (Just (TimezoneOffset 0))] ++
+    (maybe [] (\t -> [ASN1Time TimeGeneralized t (Just (TimezoneOffset 0))]) (crlNextUpdate crl)) ++
     [Start Sequence] ++
     revoked ++
     [End Sequence] ++
