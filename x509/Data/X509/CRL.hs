@@ -18,7 +18,7 @@ module Data.X509.CRL
 
 import Control.Applicative
 
-import Data.Hourglass (DateTime)
+import Data.Hourglass (DateTime, TimezoneOffset(..))
 import Data.ASN1.Types
 
 import Data.X509.DistinguishedName
