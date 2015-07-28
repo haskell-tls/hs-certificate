@@ -12,7 +12,6 @@
 module Data.X509.Cert (Certificate(..)) where
 
 import Data.ASN1.Types
-import Data.Hourglass (DateTime, TimezoneOffset(TimezoneOffset))
 import Control.Applicative ((<$>), (<*>))
 import Data.X509.Internal
 import Data.X509.PublicKey
