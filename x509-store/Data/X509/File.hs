@@ -24,11 +24,9 @@ readPEMs filepath = do
 readSignedObject :: (ASN1Object a, Eq a, Show a)
                  => FilePath
                  -> IO [X509.SignedExact a]
-readSignedObject filepath = foldl pemToSigned [] <$> readPEMs filepath
-  where pemToSigned acc pem =
-            case X509.decodeSignedObject $ pemContent pem of
-                Left _    -> acc
-                Right obj -> obj : acc
+readSignedObject filepath = decodePEMs <$> readPEMs filepath
+  where decodePEMs pems =
+          [ obj | pem <- pems, Right obj <- [X509.decodeSignedObject $ pemContent pem] ]
 
 -- | return all the public key that were successfully read from a file.
 readKeyFile :: FilePath -> IO [X509.PrivKey]
