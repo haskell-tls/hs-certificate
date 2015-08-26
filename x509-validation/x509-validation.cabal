@@ -21,9 +21,6 @@ Library
                    , network
                    , mtl
                    , containers
-                   , directory
-                   , filepath
-                   , process
                    , hourglass
                    , data-default-class
                    , pem >= 0.1 && < 0.3
