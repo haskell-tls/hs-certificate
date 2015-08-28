@@ -19,9 +19,6 @@ Library
                    , memory
                    , mtl
                    , containers
-                   , directory
-                   , filepath
-                   , process
                    , hourglass
                    , pem >= 0.1 && < 0.3
                    , asn1-types >= 0.3.0 && < 0.4
