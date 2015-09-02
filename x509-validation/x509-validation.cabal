@@ -1,12 +1,12 @@
 Name:                x509-validation
 Version:             1.6.0
-Description:         X.509 Certificate and CRL validation
+Description:         X.509 validation
 License:             BSD3
 License-file:        LICENSE
 Copyright:           Vincent Hanquez <vincent@snarc.org>
 Author:              Vincent Hanquez <vincent@snarc.org>
 Maintainer:          Vincent Hanquez <vincent@snarc.org>
-Synopsis:            X.509 Certificate and CRL validation
+Synopsis:            X.509 validation
 Build-Type:          Simple
 Category:            Data
 stability:           experimental
