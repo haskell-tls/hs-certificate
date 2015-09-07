@@ -57,7 +57,9 @@ data FailedReason =
     | NoCommonName             -- ^ Certificate doesn't have any common name (CN)
     | InvalidName String       -- ^ Invalid name in certificate
     | NameMismatch String      -- ^ connection name and certificate do not match
-    | InvalidWildcard          -- ^ invalid wildcard in certificate
+    | InvalidWildcard          -- ^ invalid wildcard in certificate. This is
+                               --   not used anymore. We keep it around only for
+                               --   backwards compatibility.
     | LeafKeyUsageNotAllowed   -- ^ the requested key usage is not compatible with the leaf certificate's key usage
     | LeafKeyPurposeNotAllowed -- ^ the requested key purpose is not compatible with the leaf certificate's extended key usage
     | LeafNotV3                -- ^ Only authorized an X509.V3 certificate as leaf certificate.
@@ -355,10 +357,6 @@ validateCertificateName fqhn cert
         --
         -- e.g. *.*.server.com will try to litteraly match the '*' subdomain of server.com
         wildcardMatch l
-            -- <star>.com or <star> is always invalid
-            | length l < 2 = [InvalidWildcard]
-            -- some TLD like .uk got small subTLD like (.co.uk), and we don't want to accept *.co.uk
-            | length (head l) <= 2 && length (head $ drop 1 l) <= 3 && length l < 3 = [InvalidWildcard]
             | l == take (length l) (reverse $ splitDot fqhn) = [] -- success: we got a match
             | otherwise                                      = [NameMismatch fqhn]
 
