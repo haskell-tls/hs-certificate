@@ -11,8 +11,9 @@ module Data.X509.Validation.Types
     , HostName
     ) where
 
-import Network.BSD (HostName)
 import Data.ByteString (ByteString)
+
+type HostName = String
 
 -- | identification of the connection consisting of the
 -- fully qualified host name (e.g. www.example.com) and
