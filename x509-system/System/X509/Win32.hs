@@ -11,11 +11,13 @@ import Data.Word
 
 import Control.Monad (when)
 import Control.Applicative
+import Control.Exception (catch)
 
 import qualified Data.ByteString.Internal as B
 
 import Data.X509
 import Data.X509.CertificateStore
+import Data.ASN1.Error
 
 import System.Win32.Types
 
@@ -64,4 +66,4 @@ getSystemCertificateStore = do
                     case ecert of
                         Left _     -> loop st r
                         Right cert -> (cert :) <$> (loop st r)
-
+                    `catch` \(_ :: ASN1Error) -> loop st r
