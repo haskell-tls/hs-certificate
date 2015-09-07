@@ -354,11 +354,10 @@ validateCertificateName fqhn cert
         -- character to the fqhn and inevitably will fail.
         --
         -- e.g. *.*.server.com will try to litteraly match the '*' subdomain of server.com
+        --
+        -- Also '*' is not accepted as a valid wildcard
         wildcardMatch l
-            -- <star>.com or <star> is always invalid
-            | length l < 2 = [InvalidWildcard]
-            -- some TLD like .uk got small subTLD like (.co.uk), and we don't want to accept *.co.uk
-            | length (head l) <= 2 && length (head $ drop 1 l) <= 3 && length l < 3 = [InvalidWildcard]
+            | null l                                         = [InvalidWildcard] -- * is always invalid
             | l == take (length l) (reverse $ splitDot fqhn) = [] -- success: we got a match
             | otherwise                                      = [NameMismatch fqhn]
 
