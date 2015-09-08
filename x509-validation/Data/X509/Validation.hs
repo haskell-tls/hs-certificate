@@ -357,7 +357,7 @@ validateCertificateName fqhn cert
         --
         -- Also '*' is not accepted as a valid wildcard
         wildcardMatch l
-            | null l                                         = [InvalidWildcard] -- * is always invalid
+            | null l                                         = [InvalidWildcard] -- '*' is always invalid
             | l == take (length l) (reverse $ splitDot fqhn) = [] -- success: we got a match
             | otherwise                                      = [NameMismatch fqhn]
 
