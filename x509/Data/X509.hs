@@ -16,6 +16,8 @@ module Data.X509
     , SignedCRL
     , Certificate(..)
     , PubKey(..)
+    , PubKeyEC(..)
+    , SerializedPoint(..)
     , PrivKey(..)
     , pubkeyToAlg
     , privkeyToAlg

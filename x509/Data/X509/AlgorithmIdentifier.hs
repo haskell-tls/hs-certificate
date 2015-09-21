@@ -29,7 +29,7 @@ data HashALG =
 data PubKeyALG =
       PubKeyALG_RSA         -- ^ RSA Public Key algorithm
     | PubKeyALG_DSA         -- ^ DSA Public Key algorithm
-    | PubKeyALG_ECDSA       -- ^ ECDSA Public Key algorithm
+    | PubKeyALG_EC          -- ^ ECDSA & ECDH Public Key algorithm
     | PubKeyALG_DH          -- ^ Diffie Hellman Public Key algorithm
     | PubKeyALG_Unknown OID -- ^ Unknown Public Key algorithm
     deriving (Show,Eq)
@@ -44,7 +44,7 @@ data SignatureALG =
 instance OIDable PubKeyALG where
     getObjectID PubKeyALG_RSA   = [1,2,840,113549,1,1,1]
     getObjectID PubKeyALG_DSA   = [1,2,840,10040,4,1]
-    getObjectID PubKeyALG_ECDSA = [1,2,840,10045,2,1]
+    getObjectID PubKeyALG_EC    = [1,2,840,10045,2,1]
     getObjectID PubKeyALG_DH    = [1,2,840,10046,2,1]
     getObjectID (PubKeyALG_Unknown oid) = oid
 
@@ -58,10 +58,11 @@ sig_table =
         , ([1,2,840,113549,1,1,13], SignatureALG HashSHA512 PubKeyALG_RSA)
         , ([1,2,840,113549,1,1,14], SignatureALG HashSHA224 PubKeyALG_RSA)
         , ([1,2,840,10040,4,3],    SignatureALG HashSHA1 PubKeyALG_DSA)
-        , ([1,2,840,10045,4,3,1],  SignatureALG HashSHA224 PubKeyALG_ECDSA)
-        , ([1,2,840,10045,4,3,2],  SignatureALG HashSHA256 PubKeyALG_ECDSA)
-        , ([1,2,840,10045,4,3,3],  SignatureALG HashSHA384 PubKeyALG_ECDSA)
-        , ([1,2,840,10045,4,3,4],  SignatureALG HashSHA512 PubKeyALG_ECDSA)
+        , ([1,2,840,10045,4,1],    SignatureALG HashSHA1 PubKeyALG_EC)
+        , ([1,2,840,10045,4,3,1],  SignatureALG HashSHA224 PubKeyALG_EC)
+        , ([1,2,840,10045,4,3,2],  SignatureALG HashSHA256 PubKeyALG_EC)
+        , ([1,2,840,10045,4,3,3],  SignatureALG HashSHA384 PubKeyALG_EC)
+        , ([1,2,840,10045,4,3,4],  SignatureALG HashSHA512 PubKeyALG_EC)
         ]
 
 oidSig :: OID -> SignatureALG
