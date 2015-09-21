@@ -55,19 +55,19 @@ parseCertHeaderVersion :: ParseASN1 Int
 parseCertHeaderVersion =
     maybe 1 id <$> onNextContainerMaybe (Container Context 0) (getNext >>= getVer)
   where getVer (IntVal v) = return $ fromIntegral v
-        getVer _          = throwError "unexpected type for version"
+        getVer _          = throwParseError "unexpected type for version"
 
 parseCertHeaderSerial :: ParseASN1 Integer
 parseCertHeaderSerial = do
     n <- getNext
     case n of
         IntVal v -> return v
-        _        -> throwError ("missing serial" ++ show n)
+        _        -> throwParseError ("missing serial" ++ show n)
 
 parseCertHeaderValidity :: ParseASN1 (DateTime, DateTime)
 parseCertHeaderValidity = getNextContainer Sequence >>= toTimeBound
   where toTimeBound [ ASN1Time _ t1 _, ASN1Time _ t2 _ ] = return (t1,t2)
-        toTimeBound _                                    = throwError "bad validity format"
+        toTimeBound _                                    = throwParseError "bad validity format"
 
 {- | parse header structure of a x509 certificate. the structure is the following:
         Version

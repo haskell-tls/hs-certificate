@@ -13,7 +13,6 @@ module Data.X509.Internal
     -- * error handling
     , ErrT
     , runErrT
-    , throwError
     ) where
 
 import Data.ASN1.Types

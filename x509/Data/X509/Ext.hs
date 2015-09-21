@@ -265,19 +265,19 @@ parseGeneralNames = onNextContainer Sequence $ getMany getAddr
                     case c of
                         Just [ASN1String cs] ->
                             case asn1CharacterToString cs of
-                                Nothing -> throwError ("GeneralNames: invalid string for XMPP Addr")
+                                Nothing -> throwParseError ("GeneralNames: invalid string for XMPP Addr")
                                 Just s  -> return $ AltNameXMPP s
-                        _ -> throwError ("GeneralNames: expecting string for XMPP Addr got: " ++ show c)
+                        _ -> throwParseError ("GeneralNames: expecting string for XMPP Addr got: " ++ show c)
                 OID [1,3,6,1,5,5,7,8,7] -> do -- DNSSRV addr
                     c <- getNextContainerMaybe (Container Context 0)
                     case c of
                         Just [ASN1String cs] ->
                             case asn1CharacterToString cs of
-                                Nothing -> throwError ("GeneralNames: invalid string for DNSSrv Addr")
+                                Nothing -> throwParseError ("GeneralNames: invalid string for DNSSrv Addr")
                                 Just s  -> return $ AltNameDNSSRV s
-                        _ -> throwError ("GeneralNames: expecting string for DNSSRV Addr got: " ++ show c)
-                OID unknown -> throwError ("GeneralNames: unknown OID " ++ show unknown)
-                _           -> throwError ("GeneralNames: expecting OID but got " ++ show n)
+                        _ -> throwParseError ("GeneralNames: expecting string for DNSSRV Addr got: " ++ show c)
+                OID unknown -> throwParseError ("GeneralNames: unknown OID " ++ show unknown)
+                _           -> throwParseError ("GeneralNames: expecting OID but got " ++ show n)
 
         getSimpleAddr = do
             n <- getNext
@@ -286,7 +286,7 @@ parseGeneralNames = onNextContainer Sequence $ getMany getAddr
                 (Other Context 2 b) -> return $ AltNameDNS $ BC.unpack b
                 (Other Context 6 b) -> return $ AltNameURI $ BC.unpack b
                 (Other Context 7 b) -> return $ AltNameIP  b
-                _                   -> throwError ("GeneralNames: not coping with unknown stream " ++ show n)
+                _                   -> throwParseError ("GeneralNames: not coping with unknown stream " ++ show n)
 
 encodeGeneralNames :: [AltName] -> [ASN1]
 encodeGeneralNames names =

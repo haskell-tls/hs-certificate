@@ -74,7 +74,7 @@ parseOneDN = onNextContainer Set $ getMany $ do
     s <- getNextContainer Sequence
     case s of
         [OID oid, ASN1String cs] -> return (oid, cs)
-        _                        -> throwError ("expecting [OID,String] got " ++ show s)
+        _                        -> throwParseError ("expecting [OID,String] got " ++ show s)
 
 encodeDNinner :: DistinguishedName -> [ASN1]
 encodeDNinner (DistinguishedName dn) = concatMap dnSet dn

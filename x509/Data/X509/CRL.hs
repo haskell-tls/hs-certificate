@@ -66,10 +66,10 @@ parseCRL = do
         <*> getRevokedCertificates
         <*> getObject
   where getVersion (IntVal v) = return $ fromIntegral v
-        getVersion _          = throwError "unexpected type for version"
+        getVersion _          = throwParseError "unexpected type for version"
 
         getThisUpdate (ASN1Time _ t1 _) = return t1
-        getThisUpdate _                 = throwError "bad this update format, expecting time"
+        getThisUpdate _                 = throwParseError "bad this update format, expecting time"
 
         getNextUpdate = getNextMaybe timeOrNothing
 
