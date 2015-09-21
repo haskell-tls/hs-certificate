@@ -29,6 +29,7 @@ import Data.X509.AlgorithmIdentifier
 import qualified Crypto.PubKey.RSA.Types as RSA
 import qualified Crypto.PubKey.DSA       as DSA
 import qualified Crypto.PubKey.ECC.Types as ECC
+import           Crypto.Number.Serialize (os2ip)
 import Data.Word
 
 import qualified Data.ByteString as B
@@ -100,6 +101,37 @@ instance ASN1Object PubKey where
                     case lookupByOID curvesOIDTable curveOid of
                         Just curveName -> Right (PubKeyEC $ PubKeyEC_Named curveName (bitArrayToPoint bits), xs2)
                         Nothing        -> Left ("fromASN1: X509.Pubkey: EC unknown curve " ++ show curveOid)
+                Start Sequence
+                    :IntVal 1
+                    :Start Sequence
+                    :OID [1,2,840,10045,1,1]
+                    :IntVal prime
+                    :End Sequence
+                    :Start Sequence
+                    :OctetString a
+                    :OctetString b
+                    :BitString seed
+                    :End Sequence
+                    :OctetString generator
+                    :IntVal order
+                    :IntVal cofactor
+                    :End Sequence
+                    :End Sequence
+                    :BitString pub
+                    :End Sequence
+                    :xs2 ->
+                    Right (PubKeyEC $ PubKeyEC_Prime
+                        { pubkeyEC_pub       = bitArrayToPoint pub
+                        , pubkeyEC_a         = os2ip a
+                        , pubkeyEC_b         = os2ip b
+                        , pubkeyEC_prime     = prime
+                        , pubkeyEC_generator = SerializedPoint generator
+                        , pubkeyEC_order     = order
+                        , pubkeyEC_cofactor  = cofactor
+                        , pubkeyEC_seed      = os2ip $ bitArrayGetData seed
+                        }, xs2)
+                _ ->
+                    Left $ "fromASN1: X509.PubKey: unknown EC format: " ++ show xs
         | otherwise = error ("unknown public key OID: " ++ show pkalg)
       where decodeASN1Err format bits xs2 f =
                 case decodeASN1' BER (bitArrayGetData bits) of
@@ -108,6 +140,8 @@ instance ASN1Object PubKey where
                                     Left err -> Left err
                                     Right (r, xsinner) -> Right (r, xsinner ++ xs2)
             toPubKeyRSA = either Left (\(rsaKey, r) -> Right (PubKeyRSA rsaKey, r))
+
+            bitArrayToPoint = SerializedPoint . bitArrayGetData
 
             removeNull (Null:r) = r
             removeNull l        = l
