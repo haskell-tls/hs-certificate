@@ -19,16 +19,8 @@ import Data.X509.CertificateStore
 import Data.X509.Validation
 
 -- for signing/verifying certificate
-import qualified Crypto.Hash.SHA1 as SHA1
-import qualified Crypto.Hash.SHA224 as SHA224
-import qualified Crypto.Hash.SHA256 as SHA256
-import qualified Crypto.Hash.SHA512 as SHA512
-import qualified Crypto.Hash.MD2 as MD2
-import qualified Crypto.Hash.MD5 as MD5
-import qualified Crypto.PubKey.HashDescr as HD
+import Crypto.Hash
 import qualified Crypto.PubKey.RSA as RSA
-import qualified Crypto.Types.PubKey.RSA as RSA
-import qualified Crypto.Types.PubKey.DSA as DSA
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
 import qualified Crypto.PubKey.DSA as DSA
 
@@ -36,6 +28,7 @@ import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.Types
 import Data.ASN1.BitArray
+import Data.X509.Memory
 import Text.Printf
 import Numeric
 
@@ -114,8 +107,8 @@ showCert signedCert = do
     cert    = X509.signedObject signed
 
 
-showRSAKey :: (RSA.KeyPair) -> String
-showRSAKey (RSA.KeyPair privkey) = unlines
+showRSAKey :: RSA.PrivateKey -> String
+showRSAKey privkey = unlines
     [ "len-modulus:      " ++ (show $ RSA.public_size pubkey)
     , "modulus:          " ++ (show $ RSA.public_n pubkey)
     , "public exponent:  " ++ (show $ RSA.public_e pubkey)
@@ -128,17 +121,17 @@ showRSAKey (RSA.KeyPair privkey) = unlines
     ]
   where pubkey = RSA.private_pub privkey
 
-showDSAKey :: DSA.KeyPair -> String
-showDSAKey (DSA.KeyPair params pubnum privnum) = unlines
+showDSAKey :: DSA.PrivateKey -> String
+showDSAKey (DSA.PrivateKey params privnum) = unlines
     [ "priv     " ++ (printf "%x" $ privnum)
-    , "pub:     " ++ (printf "%x" $ pubnum)
     , "p:       " ++ (printf "%x" $ DSA.params_p params)
     , "q:       " ++ (printf "%x" $ DSA.params_q params)
     , "g:       " ++ (printf "%x" $ DSA.params_g params)
     ]
 
 showASN1 :: Int -> [ASN1] -> IO ()
-showASN1 at = prettyPrint at where
+showASN1 at = prettyPrint at
+  where
     indent n = putStr (replicate n ' ')
 
     prettyPrint n []                 = return ()
@@ -247,17 +240,13 @@ doKeyMain files = do
     pems <- readPEMFile (head files)
     forM_ pems $ \pem -> do
         let content = either (error . show) id $ decodeASN1' BER (pemContent pem)
-        case pemName pem of
-            "RSA PRIVATE KEY" ->
-                case fromASN1 content of
-                    Left err    -> error ("not a valid RSA key: " ++ err)
-                    Right (k,_) -> putStrLn "RSA KEY" >> putStrLn (showRSAKey k)
-            "DSA PRIVATE KEY" ->
-                case fromASN1 content of
-                    Left err    -> error ("not a valid DSA key: " ++ err)
-                    Right (k,_) -> putStrLn "DSA KEY" >> putStrLn (showDSAKey k)
-            _                 ->
-                putStrLn ("unknown private key: " ++ show (pemName pem))
+            privkey = pemToKey [] pem
+        case privkey of
+            [Just (X509.PrivKeyRSA k)] ->
+                putStrLn "RSA KEY" >> putStrLn (showRSAKey k)
+            [Just (X509.PrivKeyDSA k)] ->
+                putStrLn "DSA KEY" >> putStrLn (showDSAKey k)
+            _ -> error "private key unknown"
 
 optionsCert =
     [ Option []     ["hash"] (NoArg ShowHash) "output certificate hash"
