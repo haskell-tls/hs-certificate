@@ -19,10 +19,10 @@ Executable           x509-util
   Buildable:         True
   Build-depends:     base >= 3 && < 5
                    , bytestring
-                   , x509 >= 1.6.0
+                   , x509 >= 1.6.2
                    , x509-store
                    , x509-system
-                   , x509-validation >= 1.5.0
+                   , x509-validation >= 1.6.3
                    , asn1-types >= 0.3
                    , asn1-encoding
                    , pem
