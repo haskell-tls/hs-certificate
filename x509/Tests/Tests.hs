@@ -44,7 +44,7 @@ instance Arbitrary HashALG where
     arbitrary = elements [HashMD2,HashMD5,HashSHA1,HashSHA224,HashSHA256,HashSHA384,HashSHA512]
 
 instance Arbitrary PubKeyALG where
-    arbitrary = elements [PubKeyALG_RSA,PubKeyALG_DSA,PubKeyALG_ECDSA,PubKeyALG_DH]
+    arbitrary = elements [PubKeyALG_RSA,PubKeyALG_DSA,PubKeyALG_EC,PubKeyALG_DH]
 
 instance Arbitrary SignatureALG where
     -- unfortunately as the encoding of this is a single OID as opposed to two OID,
@@ -59,10 +59,10 @@ instance Arbitrary SignatureALG where
         , SignatureALG HashSHA512 PubKeyALG_RSA
         , SignatureALG HashSHA224 PubKeyALG_RSA
         , SignatureALG HashSHA1 PubKeyALG_DSA
-        , SignatureALG HashSHA224 PubKeyALG_ECDSA
-        , SignatureALG HashSHA256 PubKeyALG_ECDSA
-        , SignatureALG HashSHA384 PubKeyALG_ECDSA
-        , SignatureALG HashSHA512 PubKeyALG_ECDSA
+        , SignatureALG HashSHA224 PubKeyALG_EC
+        , SignatureALG HashSHA256 PubKeyALG_EC
+        , SignatureALG HashSHA384 PubKeyALG_EC
+        , SignatureALG HashSHA512 PubKeyALG_EC
         ]
 
 arbitraryBS r1 r2 = choose (r1,r2) >>= \l -> (B.pack <$> replicateM l arbitrary)
