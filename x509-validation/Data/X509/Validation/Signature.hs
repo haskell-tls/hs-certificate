@@ -16,10 +16,17 @@ module Data.X509.Validation.Signature
 
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
 import qualified Crypto.PubKey.DSA as DSA
+import qualified Crypto.PubKey.ECC.Types as ECC
+import qualified Crypto.PubKey.ECC.Prim as ECC
+import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
 import Crypto.Hash
+import Crypto.Number.Basic (numBits)
+import Crypto.Number.Serialize (os2ip)
 
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as B
 import Data.X509
+import Data.List (find)
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
@@ -77,6 +84,7 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
                                                     Nothing     -> False
                                                     Just dsaSig -> DSA.verify SHA1 key dsaSig b
             | otherwise           = Nothing
+        verifyF (PubKeyEC key) = verifyECDSA hashALG key
         verifyF _ = Nothing
 
         dsaToSignature :: ByteString -> Maybe DSA.Signature
@@ -97,3 +105,56 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
         rsaVerify HashSHA256 = RSA.verify (Just SHA256)
         rsaVerify HashSHA384 = RSA.verify (Just SHA384)
         rsaVerify HashSHA512 = RSA.verify (Just SHA512)
+
+verifyECDSA :: HashALG -> PubKeyEC -> Maybe (ByteString -> ByteString -> Bool)
+verifyECDSA hashALG key =
+    case key of
+        PubKeyEC_Named curveName pub -> verifyCurve curveName pub
+        PubKeyEC_Prime {}            ->
+            case find matchPrimeCurve $ enumFrom $ toEnum 0 of
+                Nothing        -> Nothing
+                Just curveName -> verifyCurve curveName (pubkeyEC_pub key)
+  where
+        matchPrimeCurve c =
+            case ECC.getCurveByName c of
+                ECC.CurveFP (ECC.CurvePrime p cc) ->
+                    ECC.ecc_a cc == pubkeyEC_a key     &&
+                    ECC.ecc_b cc == pubkeyEC_b key     &&
+                    ECC.ecc_n cc == pubkeyEC_order key &&
+                    p            == pubkeyEC_prime key
+                _                                 -> False
+
+        verifyCurve curveName pub = Just $ \msg sigBS ->
+            case decodeASN1' BER sigBS of
+                Left _ -> False
+                Right [Start Sequence,IntVal r,IntVal s,End Sequence] ->
+                    case unserializePoint (ECC.getCurveByName curveName) pub of
+                        Nothing     -> False
+                        Just pubkey -> (ecdsaVerify hashALG) pubkey (ECDSA.Signature r s) msg
+                Right _ -> False
+
+        unserializePoint curve (SerializedPoint bs) =
+            case B.uncons bs of
+                Nothing                -> Nothing
+                Just (ptFormat, input) ->
+                    case ptFormat of
+                        4 -> if B.length bs == 2 * bytes
+                                then Nothing
+                                else
+                                    let (x, y) = B.splitAt bytes input
+                                        p      = ECC.Point (os2ip x) (os2ip y)
+                                     in if ECC.isPointValid curve p
+                                            then Just $ ECDSA.PublicKey curve p
+                                            else Nothing
+                        -- 2 and 3 for compressed format.
+                        _ -> Nothing
+          where bits  = numBits . ECC.ecc_n . ECC.common_curve $ curve
+                bytes = (bits + 7) `div` 8
+
+        ecdsaVerify HashMD2    = ECDSA.verify MD2
+        ecdsaVerify HashMD5    = ECDSA.verify MD5
+        ecdsaVerify HashSHA1   = ECDSA.verify SHA1
+        ecdsaVerify HashSHA224 = ECDSA.verify SHA224
+        ecdsaVerify HashSHA256 = ECDSA.verify SHA256
+        ecdsaVerify HashSHA384 = ECDSA.verify SHA384
+        ecdsaVerify HashSHA512 = ECDSA.verify SHA512
