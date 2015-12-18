@@ -32,6 +32,7 @@ import Control.Monad (filterM)
 import qualified Control.Exception as E
 
 import Data.Char
+import Data.Maybe (catMaybes)
 
 defaultSystemPaths :: [FilePath]
 defaultSystemPaths =
@@ -44,33 +45,41 @@ defaultSystemPaths =
 envPathOverride :: String
 envPathOverride = "SYSTEM_CERTIFICATE_PATH"
 
-listDirectoryCerts :: FilePath -> IO (Maybe [FilePath])
-listDirectoryCerts path = do
+-- List all the path susceptible to contains a certificate in a directory
+--
+-- if the parameter is not a directory, hilarity follows.
+listDirectoryCerts :: FilePath -> IO [FilePath]
+listDirectoryCerts path =
+    getDirContents >>= filterM doesFileExist
+  where
+    isHashedFile s = length s == 10
+                  && isDigit (s !! 9)
+                  && (s !! 8) == '.'
+                  && all isHexDigit (take 8 s)
+    isCert x = (not $ isPrefixOf "." x) && (not $ isHashedFile x)
+
+    getDirContents = E.catch (map (path </>) . filter isCert <$> getDirectoryContents path) emptyPaths
+            where emptyPaths :: E.IOException -> IO [FilePath]
+                  emptyPaths _ = return []
+
+makeCertStore :: FilePath -> IO (Maybe CertificateStore)
+makeCertStore path = do
     isDir  <- doesDirectoryExist path
     isFile <- doesFileExist path
-    if isDir
-        then (fmap (map (path </>) . filter isCert) <$> getDirContents)
-             >>= maybe (return Nothing) (\l -> Just <$> filterM doesFileExist l)
-        else if isFile then return $ Just [path] else return Nothing
-    where isHashedFile s = length s == 10
-                        && isDigit (s !! 9)
-                        && (s !! 8) == '.'
-                        && all isHexDigit (take 8 s)
-          isCert x = (not $ isPrefixOf "." x) && (not $ isHashedFile x)
+    wrapStore <$> (if isDir then makeDirStore else if isFile then makeFileStore else return [])
+  where
+    wrapStore :: [SignedCertificate] -> Maybe CertificateStore
+    wrapStore [] = Nothing
+    wrapStore l  = Just $ makeCertificateStore l
 
-          getDirContents = E.catch (Just <$> getDirectoryContents path) emptyPaths
-            where emptyPaths :: E.IOException -> IO (Maybe [FilePath])
-                  emptyPaths _ = return Nothing
+    makeFileStore = readCertificates path
+    makeDirStore  = do
+        certFiles <- listDirectoryCerts path
+        concat <$> mapM readCertificates certFiles
+
 
 getSystemCertificateStore :: IO CertificateStore
-getSystemCertificateStore = makeCertificateStore <$> (getSystemPaths >>= findFirst)
-  where findFirst [] = return []
-        findFirst (p:ps) = do
-            r <- listDirectoryCerts p
-            case r of
-                Nothing    -> findFirst ps
-                Just []    -> findFirst ps
-                Just files -> concat <$> mapM readCertificates files
+getSystemCertificateStore = mconcat . catMaybes <$> (getSystemPaths >>= mapM makeCertStore)
 
 getSystemPaths :: IO [FilePath]
 getSystemPaths = E.catch ((:[]) <$> getEnv envPathOverride) inDefault
@@ -78,6 +87,9 @@ getSystemPaths = E.catch ((:[]) <$> getEnv envPathOverride) inDefault
         inDefault :: E.IOException -> IO [FilePath]
         inDefault _ = return defaultSystemPaths
 
+-- Try to read certificate from the content of a file.
+--
+-- The file may contains multiple certificates
 readCertificates :: FilePath -> IO [SignedCertificate]
 readCertificates file = E.catch (either (const []) (rights . map getCert) . pemParseBS <$> B.readFile file) skipIOError
     where
