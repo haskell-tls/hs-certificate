@@ -17,6 +17,7 @@ import System.Exit
 import System.X509
 import Data.X509.CertificateStore
 import Data.X509.Validation
+import Data.Hourglass
 
 -- for signing/verifying certificate
 import Crypto.Hash
@@ -31,6 +32,9 @@ import Data.ASN1.BitArray
 import Data.X509.Memory
 import Text.Printf
 import Numeric
+
+formatValidity (start,end) = p start ++ " to " ++ p end
+  where p t = timePrint ("YYYY-MM-DD H:MI:S" :: String) t
 
 hexdump :: B.ByteString -> String
 hexdump bs = concatMap hex $ B.unpack bs
@@ -67,6 +71,22 @@ showExts es@(Extensions (Just exts)) = do
         showKnownExtension n (Just (Left e)) = putStrLn ("  " ++ n ++ ": ERROR: " ++ show e)
         showKnownExtension _ (Just (Right e)) = putStrLn ("  " ++ show e)
 
+showCertSmall :: SignedCertificate -> IO ()
+showCertSmall signedCert = do
+    putStrLn "subject: "
+    showDN $ X509.certSubjectDN cert
+    putStrLn ("valid:  " ++ formatValidity (X509.certValidity cert))
+    case X509.certPubKey cert of
+        X509.PubKeyRSA pubkey     -> printf "public key: RSA (%d bits)\n" (RSA.public_size pubkey * 8)
+        X509.PubKeyDSA pubkey     -> printf "public key: DSA\n"
+        X509.PubKeyUnknown oid ws -> printf "public key: unknown: %s\n" (show oid)
+        pk                        -> printf "public key: %s\n" (show pk)
+  where
+    signed  = X509.getSigned signedCert
+    --sigalg  = X509.signedAlg signed
+    --sigbits = X509.signedSignature signed
+    cert    = X509.signedObject signed
+
 showCert :: SignedCertificate -> IO ()
 showCert signedCert = do
     putStrLn ("version: " ++ show (X509.certVersion cert))
@@ -76,7 +96,7 @@ showCert signedCert = do
     showDN $ X509.certIssuerDN cert
     putStrLn "subject:"
     showDN $ X509.certSubjectDN cert
-    putStrLn ("valid:  " ++ show (X509.certValidity cert))
+    putStrLn ("valid:  " ++ formatValidity (X509.certValidity cert))
     case X509.certPubKey cert of
         X509.PubKeyRSA pubkey -> do
             putStrLn "public key RSA:"
@@ -248,6 +268,13 @@ doKeyMain files = do
                 putStrLn "DSA KEY" >> putStrLn (showDSAKey k)
             _ -> error "private key unknown"
 
+doSystemMain _ = do
+    store <- getSystemCertificateStore
+    let certs = listCertificates store
+    mapM_ showCertSmall certs
+    putStrLn $ replicate 72 '='
+    putStrLn $ show (length certs) ++ " certificates loaded"
+
 optionsCert =
     [ Option []     ["hash"] (NoArg ShowHash) "output certificate hash"
     , Option ['v']  ["validate"] (NoArg Validate) "validate certificate"
@@ -259,6 +286,9 @@ certMain = getoptMain optionsCert $ \o n -> doCertMain o n
 crlMain = getoptMain [] $ \o n -> doCRLMain o n
 keyMain = getoptMain [] $ \o n -> doKeyMain n
 asn1Main = getoptMain [] $ \o n -> doASN1Main n
+
+systemMain = getoptMain [] $ \o n -> doSystemMain n
+
 
 getoptMain :: [OptDescr a] -> ([a] -> [String] -> IO ()) -> [String] -> IO ()
 getoptMain opts f as =
@@ -272,6 +302,7 @@ usage = do
     putStrLn "  cert: process X509 certificate"
     putStrLn "  crl : process CRL certificate"
     putStrLn "  asn1: show file asn1"
+    putStrLn "  system: show system certificates"
 
 main = do
     args <- getArgs
@@ -282,4 +313,5 @@ main = do
         "key":as  -> keyMain as
         "crl":as  -> crlMain as
         "asn1":as -> asn1Main as
+        "system":as -> systemMain as
         _         -> usage

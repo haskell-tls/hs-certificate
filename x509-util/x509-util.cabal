@@ -27,6 +27,7 @@ Executable           x509-util
                    , asn1-encoding
                    , pem
                    , directory
+                   , hourglass
                    , cryptonite
 
 source-repository head
