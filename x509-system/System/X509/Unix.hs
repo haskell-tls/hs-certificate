@@ -33,6 +33,7 @@ import qualified Control.Exception as E
 
 import Data.Char
 import Data.Maybe (catMaybes)
+import Data.Monoid (mconcat)
 
 defaultSystemPaths :: [FilePath]
 defaultSystemPaths =
