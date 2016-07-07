@@ -18,6 +18,8 @@ Library
                    , bytestring
                    , mtl
                    , containers
+                   , directory
+                   , filepath
                    , pem >= 0.1 && < 0.3
                    , asn1-types >= 0.3 && < 0.4
                    , asn1-encoding >= 0.9 && < 0.10
