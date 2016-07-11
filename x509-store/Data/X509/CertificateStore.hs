@@ -14,6 +14,7 @@ import Data.Monoid
 import Data.PEM (pemParseBS, pemContent)
 import Data.X509
 import qualified Data.Map as M
+import Control.Applicative ((<$>))
 import Control.Monad (mplus, filterM)
 import System.Directory (getDirectoryContents, doesFileExist, doesDirectoryExist)
 import System.FilePath ((</>))
