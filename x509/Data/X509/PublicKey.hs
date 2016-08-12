@@ -132,7 +132,7 @@ instance ASN1Object PubKey where
                         }, xs2)
                 _ ->
                     Left $ "fromASN1: X509.PubKey: unknown EC format: " ++ show xs
-        | otherwise = error ("unknown public key OID: " ++ show pkalg)
+        | otherwise = Left $ "fromASN1: unknown public key OID: " ++ show pkalg
       where decodeASN1Err format bits xs2 f =
                 case decodeASN1' BER (bitArrayGetData bits) of
                     Left err -> Left ("fromASN1: X509.PubKey " ++ format ++ " bitarray cannot be parsed: " ++ show err)
