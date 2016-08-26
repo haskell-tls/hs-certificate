@@ -21,7 +21,7 @@ import Data.X509.Internal
 -- | An undecoded extension
 data ExtensionRaw = ExtensionRaw
     { extRawOID      :: OID    -- ^ OID of this extension
-    , extRawCritical :: Bool   -- ^ if this extension is critical
+    , extRawCritical :: {-# UNPACK #-} !Bool   -- ^ if this extension is critical
     , extRawASN1     :: [ASN1] -- ^ the associated ASN1
     } deriving (Show,Eq)
 

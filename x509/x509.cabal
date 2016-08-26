@@ -19,6 +19,7 @@ Library
                    , memory
                    , mtl
                    , containers
+                   , deque
                    , hourglass
                    , pem >= 0.1 && < 0.3
                    , asn1-types >= 0.3.1 && < 0.4
