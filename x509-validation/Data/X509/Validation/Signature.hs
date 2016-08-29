@@ -148,7 +148,7 @@ verifyECDSA hashALG key =
                                             else Nothing
                         -- 2 and 3 for compressed format.
                         _ -> Nothing
-          where bits  = numBits . ECC.ecc_n . ECC.common_curve $ curve
+          where bits  = ECC.curveSizeBits curve
                 bytes = (bits + 7) `div` 8
 
         ecdsaVerify HashMD2    = ECDSA.verify MD2
