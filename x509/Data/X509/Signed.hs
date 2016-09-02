@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 -- |
 -- Module      : Data.X509.Signed
 -- License     : BSD-style
