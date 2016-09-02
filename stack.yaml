@@ -5,9 +5,5 @@ packages:
 - 'x509-system'
 - 'x509-util'
 - 'x509-validation'
-- '../hs-asn1/types'
-- '../hs-pem'
-- '../hs-asn1/data'
-- '../hs-asn1/encoding'
 extra-deps:
   - deque-0.1

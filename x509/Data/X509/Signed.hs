@@ -128,35 +128,35 @@ decodeSignedObject :: (Show a, Eq a, ASN1Object a)
                    -> Either String (SignedExact a)
 decodeSignedObject b = either (Left . show) parseSigned $ decodeASN1Repr' BER b
   where -- the following implementation is very inefficient.
-        -- uses containing, move to a better solution eventually
-        parseSigned :: (Show a, Eq a, ASN1Object a) => [ASN1Repr] -> Either String (SignedExact a)
-        parseSigned l = onContainer (Deq.fromList $ fst $ getConstructedEndRepr l) $ \l2 ->
-            let (objRepr,rem1)   = getConstructedEndRepr l2
-                (sigAlgSeq,rem2) = getConstructedEndRepr rem1
-                (sigSeq,_)       = getConstructedEndRepr rem2
-                obj              = onContainer (Deq.fromList objRepr) (either Left Right . fromASN1 . map fst)
-             in case (obj, map fst sigSeq) of
-                    (Right (o,[]), [BitString signature]) ->
-                        let rawObj = Raw.toByteString $ concatMap snd objRepr
-                         in case fromASN1 $ map fst sigAlgSeq of
-                                Left s           -> Left ("signed object error sigalg: " ++ s)
-                                Right (sigAlg,_) ->
-                                    let signed = Signed
-                                                    { signedObject    = o
-                                                    , signedAlg       = sigAlg
-                                                    , signedSignature = bitArrayGetData signature
-                                                    }
-                                     in Right $ SignedExact
-                                                { getSigned          = signed
-                                                , exactObjectRaw     = rawObj
-                                                , encodeSignedObject = b
+    parseSigned :: (Show a, Eq a, ASN1Object a) => [ASN1Repr] -> Either String (SignedExact a)
+    parseSigned l = onContainer (Deq.fromList $ fst $ getConstructedEndRepr l) $ \l2 ->
+        let (objRepr,rem1)   = getConstructedEndRepr l2
+            (sigAlgSeq,rem2) = getConstructedEndRepr rem1
+            (sigSeq,_)       = getConstructedEndRepr rem2
+            obj              = onContainer (Deq.fromList objRepr) (either Left Right . fromASN1 . map fst)
+         in case (obj, map fst sigSeq) of
+                (Right (o,[]), [BitString signature]) ->
+                    let rawObj = Raw.toByteString $ concatMap snd objRepr
+                     in case fromASN1 $ map fst sigAlgSeq of
+                            Left s           -> Left ("signed object error sigalg: " ++ s)
+                            Right (sigAlg,_) ->
+                                let signed = Signed
+                                                { signedObject    = o
+                                                , signedAlg       = sigAlg
+                                                , signedSignature = bitArrayGetData signature
                                                 }
-                    (Right (_,remObj), _) ->
-                        Left $ ("signed object error: remaining stream in object: " ++ show remObj)
-                    (Left err, _) -> Left $ ("signed object error: " ++ show err)
-        onContainer :: Deq.Deque ASN1Repr -> ([ASN1Repr] -> Either String t) -> Either String t
-        onContainer s f = case Deq.uncons s of
-          Just ((Start _, _), l) -> case Deq.unsnoc l of
-                                      Just ((End _, _), l2) -> f (F.toList l2)
-                                      _ -> f []
-          _  -> f []
+                                 in Right $ SignedExact
+                                            { getSigned          = signed
+                                            , exactObjectRaw     = rawObj
+                                            , encodeSignedObject = b
+                                            }
+                (Right (_,remObj), _) ->
+                    Left $ ("signed object error: remaining stream in object: " ++ show remObj)
+                (Left err, _) -> Left $ ("signed object error: " ++ show err)
+    onContainer :: Deq.Deque ASN1Repr -> ([ASN1Repr] -> Either String t) -> Either String t
+    onContainer s f = case Deq.uncons s of
+      Just ((Start _, _), l) -> case Deq.unsnoc l of
+                                  Just ((End _, _), l2) -> f (F.toList l2)
+                                  _ -> f []
+      _  -> f []
+
