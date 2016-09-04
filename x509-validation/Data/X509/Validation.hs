@@ -33,6 +33,7 @@ import Control.Applicative
 import Control.Monad (when)
 import Data.Default.Class
 import Data.ASN1.Types
+import Data.Char (toLower)
 import Data.X509
 import Data.X509.CertificateStore
 import Data.X509.Validation.Signature
@@ -330,11 +331,11 @@ getNames cert = (commonName >>= asn1CharacterToString, altNames)
 validateCertificateName :: HostName -> Certificate -> [FailedReason]
 validateCertificateName fqhn cert
     | not $ null altNames =
-        findMatch [] $ map (matchDomain . splitDot) altNames
+        findMatch [] $ map matchDomain altNames
     | otherwise =
         case commonName of
             Nothing -> [NoCommonName]
-            Just cn -> findMatch [] $ [matchDomain $ splitDot $ cn]
+            Just cn -> findMatch [] $ [matchDomain cn]
   where (commonName, altNames) = getNames cert
 
         findMatch :: [FailedReason] -> [[FailedReason]] -> [FailedReason]
@@ -342,13 +343,15 @@ validateCertificateName fqhn cert
         findMatch _   ([]:_)  = []
         findMatch acc (_ :xs) = findMatch acc xs
 
-        matchDomain :: [String] -> [FailedReason]
-        matchDomain l
-            | length (filter (== "") l) > 0 = [InvalidName (intercalate "." l)]
-            | head l == "*"                 = wildcardMatch (reverse $ drop 1 l)
-            | l == splitDot fqhn            = [] -- success: we got a match
-            | otherwise                     = [NameMismatch fqhn]
+        matchDomain :: String -> [FailedReason]
+        matchDomain name = case splitDot name of
+            l | any (== "") l       -> [InvalidName name]
+              | head l == "*"       -> wildcardMatch (drop 1 l)
+              | l == splitDot fqhn  -> [] -- success: we got a match
+              | otherwise           -> [NameMismatch fqhn]
 
+        -- a wildcard matches a single domain name component
+        --
         -- only 1 wildcard is valid, and if multiples are present
         -- they won't have a wildcard meaning but will be match as normal star
         -- character to the fqhn and inevitably will fail.
@@ -357,15 +360,15 @@ validateCertificateName fqhn cert
         --
         -- Also '*' is not accepted as a valid wildcard
         wildcardMatch l
-            | null l                                         = [InvalidWildcard] -- '*' is always invalid
-            | l == take (length l) (reverse $ splitDot fqhn) = [] -- success: we got a match
-            | otherwise                                      = [NameMismatch fqhn]
+            | null l                      = [InvalidWildcard] -- '*' is always invalid
+            | l == drop 1 (splitDot fqhn) = [] -- success: we got a match
+            | otherwise                   = [NameMismatch fqhn]
 
         splitDot :: String -> [String]
         splitDot [] = [""]
         splitDot x  =
             let (y, z) = break (== '.') x in
-            y : (if z == "" then [] else splitDot $ drop 1 z)
+            map toLower y : (if z == "" then [] else splitDot $ drop 1 z)
 
 
 -- | return true if the 'subject' certificate's issuer match
