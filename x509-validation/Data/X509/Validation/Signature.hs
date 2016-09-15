@@ -138,7 +138,7 @@ verifyECDSA hashALG key =
                 Nothing                -> Nothing
                 Just (ptFormat, input) ->
                     case ptFormat of
-                        4 -> if B.length bs == 2 * bytes
+                        4 -> if B.length input /= 2 * bytes
                                 then Nothing
                                 else
                                     let (x, y) = B.splitAt bytes input
@@ -148,7 +148,7 @@ verifyECDSA hashALG key =
                                             else Nothing
                         -- 2 and 3 for compressed format.
                         _ -> Nothing
-          where bits  = numBits . ECC.ecc_n . ECC.common_curve $ curve
+          where bits  = ECC.curveSizeBits curve
                 bytes = (bits + 7) `div` 8
 
         ecdsaVerify HashMD2    = ECDSA.verify MD2
