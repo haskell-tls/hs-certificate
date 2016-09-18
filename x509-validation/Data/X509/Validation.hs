@@ -350,9 +350,12 @@ validateCertificateName fqhn cert
               | l == splitDot fqhn  -> [] -- success: we got a match
               | otherwise           -> [NameMismatch fqhn]
 
-        -- a wildcard matches a single domain name component
+        -- A wildcard matches a single domain name component.
         --
-        -- only 1 wildcard is valid, and if multiples are present
+        -- e.g. *.server.com will match www.server.com but not www.m.server.com
+        --
+        -- Only 1 wildcard is valid and only for the left-most component. If
+        -- used at other positions or if multiples are present
         -- they won't have a wildcard meaning but will be match as normal star
         -- character to the fqhn and inevitably will fail.
         --
