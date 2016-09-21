@@ -15,6 +15,7 @@ module Data.X509.Validation.Signature
     ) where
 
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
+import qualified Crypto.PubKey.RSA.PSS as PSS
 import qualified Crypto.PubKey.DSA as DSA
 import qualified Crypto.PubKey.ECC.Types as ECC
 import qualified Crypto.PubKey.ECC.Prim as ECC
@@ -70,6 +71,19 @@ verifySignature :: SignatureALG -- ^ Signature algorithm used
                 -> ByteString   -- ^ Signature to verify
                 -> SignatureVerification
 verifySignature (SignatureALG_Unknown _) _ _ _ = SignatureFailed SignatureUnimplemented
+verifySignature (SignatureALG hashALG PubKeyALG_RSAPSS) pubkey cdata signature = case verifyF pubkey of
+  Nothing    -> SignatureFailed SignatureUnimplemented
+  Just f -> if f cdata signature
+               then SignaturePass
+               else SignatureFailed SignatureInvalid
+  where
+    verifyF (PubKeyRSA key)
+      | hashALG == HashSHA256 = Just $ PSS.verify (PSS.defaultPSSParams SHA256) key
+      | hashALG == HashSHA384 = Just $ PSS.verify (PSS.defaultPSSParams SHA384) key
+      | hashALG == HashSHA512 = Just $ PSS.verify (PSS.defaultPSSParams SHA512) key
+      | hashALG == HashSHA224 = Just $ PSS.verify (PSS.defaultPSSParams SHA224) key
+      | otherwise             = Nothing
+    verifyF _                 = Nothing
 verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
     | pubkeyToAlg pubkey == pubkeyALG = case verifyF pubkey of
                                             Nothing -> SignatureFailed SignatureUnimplemented
