@@ -23,7 +23,7 @@ Library
                    , process
                    , pem >= 0.1 && < 0.3
                    , x509 >= 1.6 && < 1.7
-                   , x509-store >= 1.6 && < 1.7
+                   , x509-store >= 1.6.2 && < 1.7
   Exposed-modules:   System.X509
                      System.X509.Unix
                      System.X509.MacOS
