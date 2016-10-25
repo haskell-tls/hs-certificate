@@ -94,7 +94,7 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
   where
         verifyF (PubKeyRSA key) = Just $ rsaVerify hashALG key
         verifyF (PubKeyDSA key)
-            | hashALG == HashSHA1 = Just $ \a b -> case dsaToSignature a of
+            | hashALG == HashSHA1 = Just $ \b a -> case dsaToSignature a of
                                                     Nothing     -> False
                                                     Just dsaSig -> DSA.verify SHA1 key dsaSig b
             | otherwise           = Nothing
