@@ -68,6 +68,8 @@ sig_table =
         , ([2,16,840,1,101,3,4,2,2],  SignatureALG HashSHA384 PubKeyALG_RSAPSS)
         , ([2,16,840,1,101,3,4,2,3],  SignatureALG HashSHA512 PubKeyALG_RSAPSS)
         , ([2,16,840,1,101,3,4,2,4],  SignatureALG HashSHA224 PubKeyALG_RSAPSS)
+        , ([2,16,840,1,101,3,4,3,1],  SignatureALG HashSHA224 PubKeyALG_DSA)
+        , ([2,16,840,1,101,3,4,3,2],  SignatureALG HashSHA256 PubKeyALG_DSA)
         ]
 
 oidSig :: OID -> SignatureALG

@@ -59,6 +59,8 @@ instance Arbitrary SignatureALG where
         , SignatureALG HashSHA512 PubKeyALG_RSA
         , SignatureALG HashSHA224 PubKeyALG_RSA
         , SignatureALG HashSHA1 PubKeyALG_DSA
+        , SignatureALG HashSHA224 PubKeyALG_DSA
+        , SignatureALG HashSHA256 PubKeyALG_DSA
         , SignatureALG HashSHA224 PubKeyALG_EC
         , SignatureALG HashSHA256 PubKeyALG_EC
         , SignatureALG HashSHA384 PubKeyALG_EC

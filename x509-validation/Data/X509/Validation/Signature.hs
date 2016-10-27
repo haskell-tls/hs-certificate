@@ -94,9 +94,9 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
   where
         verifyF (PubKeyRSA key) = Just $ rsaVerify hashALG key
         verifyF (PubKeyDSA key)
-            | hashALG == HashSHA1 = Just $ \b a -> case dsaToSignature a of
-                                                    Nothing     -> False
-                                                    Just dsaSig -> DSA.verify SHA1 key dsaSig b
+            | hashALG == HashSHA1   = Just $ dsaVerify SHA1   key
+            | hashALG == HashSHA224 = Just $ dsaVerify SHA224 key
+            | hashALG == HashSHA256 = Just $ dsaVerify SHA256 key
             | otherwise           = Nothing
         verifyF (PubKeyEC key) = verifyECDSA hashALG key
         verifyF _ = Nothing
@@ -111,6 +111,11 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
                             Just $ DSA.Signature { DSA.sign_r = r, DSA.sign_s = s }
                         _ ->
                             Nothing
+
+        dsaVerify hsh key b a =
+            case dsaToSignature a of
+                Nothing     -> False
+                Just dsaSig -> DSA.verify hsh key dsaSig b
 
         rsaVerify HashMD2    = RSA.verify (Just MD2)
         rsaVerify HashMD5    = RSA.verify (Just MD5)
