@@ -43,10 +43,11 @@ data SignatureALG =
     deriving (Show,Eq)
 
 instance OIDable PubKeyALG where
-    getObjectID PubKeyALG_RSA   = [1,2,840,113549,1,1,1]
-    getObjectID PubKeyALG_DSA   = [1,2,840,10040,4,1]
-    getObjectID PubKeyALG_EC    = [1,2,840,10045,2,1]
-    getObjectID PubKeyALG_DH    = [1,2,840,10046,2,1]
+    getObjectID PubKeyALG_RSA    = [1,2,840,113549,1,1,1]
+    getObjectID PubKeyALG_RSAPSS = [1,2,840,113549,1,1,10]
+    getObjectID PubKeyALG_DSA    = [1,2,840,10040,4,1]
+    getObjectID PubKeyALG_EC     = [1,2,840,10045,2,1]
+    getObjectID PubKeyALG_DH     = [1,2,840,10046,2,1]
     getObjectID (PubKeyALG_Unknown oid) = oid
 
 sig_table :: [ (OID, SignatureALG) ]
