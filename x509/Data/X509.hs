@@ -43,6 +43,7 @@ module Data.X509
     , getSigned
     , getSignedData
     , objectToSignedExact
+    , objectToSignedExactF
     , encodeSignedObject
     , decodeSignedObject
 
