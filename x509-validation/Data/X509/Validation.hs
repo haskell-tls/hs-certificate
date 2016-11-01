@@ -45,7 +45,11 @@ import System.Hourglass
 import Data.Maybe
 import Data.List
 
--- | Possible reason of certificate and chain failure
+-- | Possible reason of certificate and chain failure.
+--
+-- The values 'InvalidName' and 'InvalidWildcard' are internal-only and are
+-- never returned by the validation functions.  'NameMismatch' is returned
+-- instead.
 data FailedReason =
       UnknownCriticalExtension -- ^ certificate contains an unknown critical extension
     | Expired                  -- ^ validity ends before checking time
