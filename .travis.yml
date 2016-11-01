@@ -31,7 +31,11 @@ install:
  - cd ../x509-system
  - cabal install --only-dependencies
  - cd ../x509-validation
- - cabal install --only-dependencies
+ - if [ "${GHCVER}" = "7.0.4" ]; then
+    cabal install --only-dependencies;
+   else
+    cabal install --only-dependencies --enable-tests;
+   fi
 
 script:
  - cd ../x509
@@ -81,8 +85,15 @@ script:
       exit 1;
    fi
  - cd ../../x509-validation
- - cabal configure -v2
+ - if [ "${GHCVER}" != "7.0.4" ]; then
+      cabal configure --enable-tests -v2;
+   else
+      cabal configure -v2;
+   fi
  - cabal build
+ - if [ "${GHCVER}" != "7.0.4" ]; then
+       cabal test;
+   fi;
  - cabal check
  - cabal sdist
  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
