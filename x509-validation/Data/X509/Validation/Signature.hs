@@ -21,7 +21,6 @@ import qualified Crypto.PubKey.ECC.Types as ECC
 import qualified Crypto.PubKey.ECC.Prim as ECC
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
 import Crypto.Hash
-import Crypto.Number.Basic (numBits)
 import Crypto.Number.Serialize (os2ip)
 
 import Data.ByteString (ByteString)
