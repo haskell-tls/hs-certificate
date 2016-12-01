@@ -175,9 +175,9 @@ encodePK key = asn1Container Sequence (encodeInner key)
     encodeInner (PubKeyEC (PubKeyEC_Named curveName (SerializedPoint bits))) =
         asn1Container Sequence [pkalg,OID eOid] ++ [BitString $ toBitArray bits 0]
       where
-        eOid = case curveName of
-                    ECC.SEC_p384r1 -> [1,3,132,0,34]
-                    _              -> error ("undefined curve OID: " ++ show curveName)
+        eOid = case lookupOID curvesOIDTable curveName of
+                    Just oid -> oid
+                    _        -> error ("undefined curve OID: " ++ show curveName)
     encodeInner (PubKeyEC (PubKeyEC_Prime {})) =
         error "encodeInner: unimplemented public key EC_Prime"
     encodeInner (PubKeyDH _) = error "encodeInner: unimplemented public key DH"
