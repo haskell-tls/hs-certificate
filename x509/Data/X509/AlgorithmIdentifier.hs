@@ -86,7 +86,7 @@ saltLen HashSHA256 = 32
 saltLen HashSHA384 = 48
 saltLen HashSHA512 = 64
 saltLen HashSHA224 = 28
-saltLen _          = error "toASN1: X509.SignatureAlg.HashAlg: Unkonwn hash"
+saltLen _          = error "toASN1: X509.SignatureAlg.HashAlg: Unknown hash"
 
 instance ASN1Object SignatureALG where
     fromASN1 (Start Sequence:OID oid:Null:End Sequence:xs) =
