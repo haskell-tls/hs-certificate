@@ -11,9 +11,10 @@ Build-Type:          Simple
 Category:            Data
 stability:           experimental
 Homepage:            http://github.com/vincenthz/hs-certificate
-Cabal-Version:       >=1.6
+Cabal-Version:       >= 1.10
 
 Executable           x509-util
+  Default-Language:  Haskell2010
   Main-Is:           Certificate.hs
   hs-source-dirs:    src
   Buildable:         True
