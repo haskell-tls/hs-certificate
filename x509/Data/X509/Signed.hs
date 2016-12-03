@@ -35,6 +35,7 @@ module Data.X509.Signed
     , decodeSignedObject
     -- * Object to Signed and SignedExact
     , objectToSignedExact
+    , objectToSignedExactF
     , objectToSigned
     , signedToExact
     ) where
@@ -93,21 +94,34 @@ objectToSignedExact :: (Show a, Eq a, ASN1Object a)
                     => (ByteString -> (ByteString, SignatureALG, r)) -- ^ signature function
                     -> a                                             -- ^ object to sign
                     -> (SignedExact a, r)
-objectToSignedExact signatureFunction object = (SignedExact signed objRaw signedRaw, r)
-  where signed     = Signed { signedObject    = object
-                            , signedAlg       = sigAlg
-                            , signedSignature = sigBits
-                            }
-        signedRaw  = encodeASN1' DER signedASN1
-        signedASN1 = Start Sequence
-                       : objASN1
-                       (toASN1 sigAlg
-                       (BitString (toBitArray sigBits 0)
-                   : End Sequence
-                   : []))
+objectToSignedExact signatureFunction object = (signedExact, val)
+  where
+    (val, signedExact) = objectToSignedExactF (wrap . signatureFunction) object
+    wrap (b, s, r) = (r, (b, s))
+
+-- | A generalization of 'objectToSignedExact' where the signature function
+-- runs in an arbitrary functor.  This allows for example to sign using an
+-- algorithm needing random values.
+objectToSignedExactF :: (Functor f, Show a, Eq a, ASN1Object a)
+                     => (ByteString -> f (ByteString, SignatureALG)) -- ^ signature function
+                     -> a                                            -- ^ object to sign
+                     -> f (SignedExact a)
+objectToSignedExactF signatureFunction object = fmap buildSignedExact (signatureFunction objRaw)
+  where buildSignedExact (sigBits,sigAlg) =
+            let signed     = Signed { signedObject    = object
+                                    , signedAlg       = sigAlg
+                                    , signedSignature = sigBits
+                                    }
+                signedRaw  = encodeASN1' DER signedASN1
+                signedASN1 = Start Sequence
+                               : objASN1
+                               (toASN1 sigAlg
+                               (BitString (toBitArray sigBits 0)
+                           : End Sequence
+                           : []))
+            in SignedExact signed objRaw signedRaw
         objASN1            = \xs -> Start Sequence : toASN1 object (End Sequence : xs)
         objRaw             = encodeASN1' DER (objASN1 [])
-        (sigBits,sigAlg,r) = signatureFunction objRaw
 
 -- | Transform an object into a 'Signed' object.
 --
