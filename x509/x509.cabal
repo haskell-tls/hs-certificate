@@ -11,9 +11,10 @@ Build-Type:          Simple
 Category:            Data
 stability:           experimental
 Homepage:            http://github.com/vincenthz/hs-certificate
-Cabal-Version:       >=1.8
+Cabal-Version:       >= 1.10
 
 Library
+  Default-Language:  Haskell2010
   Build-Depends:     base >= 3 && < 5
                    , bytestring
                    , memory

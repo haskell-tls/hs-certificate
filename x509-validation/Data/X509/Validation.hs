@@ -122,10 +122,12 @@ data ValidationChecks = ValidationChecks
 -- BEWARE, it's easy to change behavior leading to compromised security.
 data ValidationHooks = ValidationHooks
     {
-    -- | check the the issuer 'DistinguishedName' match the subject 'DistinguishedName'
-    -- of a certificate.
+    -- | check whether a given issuer 'DistinguishedName' matches the subject
+    -- 'DistinguishedName' of a candidate issuer certificate.
       hookMatchSubjectIssuer :: DistinguishedName -> Certificate -> Bool
-    -- | validate that the parametrized time valide with the certificate in argument
+    -- | check whether the certificate in the second argument is valid at the
+    -- time provided in the first argument.  Return an empty list for success
+    -- or else one or more failure reasons.
     , hookValidateTime       :: DateTime -> Certificate -> [FailedReason]
     -- | validate the certificate leaf name with the DNS named used to connect
     , hookValidateName       :: HostName -> Certificate -> [FailedReason]
@@ -330,8 +332,13 @@ getNames cert = (commonName >>= asn1CharacterToString, altNames)
                   unAltName _              = Nothing
 
 -- | Validate that the fqhn is matched by at least one name in the certificate.
--- The name can be either one of the alternative names if the SubjectAltName
--- extension is present or the common name.
+-- If the subjectAltname extension is present, then the certificate commonName
+-- is ignored, and only the DNS names, if any, in the subjectAltName are
+-- considered.  Otherwise, the commonName from the subjectDN is used.
+--
+-- Note that DNS names in the subjectAltName are in IDNA A-label form. If the
+-- destination hostname is a UTF-8 name, it must be provided to the TLS context
+-- in (non-transitional) IDNA2008 A-label form.
 validateCertificateName :: HostName -> Certificate -> [FailedReason]
 validateCertificateName fqhn cert
     | not $ null altNames =
