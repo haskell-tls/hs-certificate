@@ -49,6 +49,8 @@ import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.Stream
 import Data.ASN1.BitArray
+import qualified Deque as Deq
+import qualified Data.Foldable as F
 import qualified Data.ASN1.BinaryEncoding.Raw as Raw (toByteString)
 
 -- | Represent a signed object using a traditional X509 structure.
@@ -139,12 +141,12 @@ decodeSignedObject :: (Show a, Eq a, ASN1Object a)
                    -> Either String (SignedExact a)
 decodeSignedObject b = either (Left . show) parseSigned $ decodeASN1Repr' BER b
   where -- the following implementation is very inefficient.
-        -- uses reverse and containing, move to a better solution eventually
-        parseSigned l = onContainer (fst $ getConstructedEndRepr l) $ \l2 ->
+        parseSigned :: (Show a, Eq a, ASN1Object a) => [ASN1Repr] -> Either String (SignedExact a)
+        parseSigned l = onContainer (Deq.fromList $ fst $ getConstructedEndRepr l) $ \l2 ->
             let (objRepr,rem1)   = getConstructedEndRepr l2
                 (sigAlgSeq,rem2) = getConstructedEndRepr rem1
                 (sigSeq,_)       = getConstructedEndRepr rem2
-                obj              = onContainer objRepr (either Left Right . fromASN1 . map fst)
+                obj              = onContainer (Deq.fromList objRepr) (either Left Right . fromASN1 . map fst)
              in case (obj, map fst sigSeq) of
                     (Right (o,[]), [BitString signature]) ->
                         let rawObj = Raw.toByteString $ concatMap snd objRepr
@@ -164,8 +166,10 @@ decodeSignedObject b = either (Left . show) parseSigned $ decodeASN1Repr' BER b
                     (Right (_,remObj), _) ->
                         Left $ ("signed object error: remaining stream in object: " ++ show remObj)
                     (Left err, _) -> Left $ ("signed object error: " ++ show err)
-        onContainer ((Start _, _) : l) f =
-            case reverse l of
-                ((End _, _) : l2) -> f $ reverse l2
-                _                 -> f []
-        onContainer _ f = f []
+        onContainer :: Deq.Deque ASN1Repr -> ([ASN1Repr] -> Either String t) -> Either String t
+        onContainer s f = case Deq.uncons s of
+          Just ((Start _, _), l) -> case Deq.unsnoc l of
+                                      Just ((End _, _), l2) -> f (F.toList l2)
+                                      _ -> f []
+          _  -> f []
+

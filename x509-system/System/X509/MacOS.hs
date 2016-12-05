@@ -2,14 +2,14 @@ module System.X509.MacOS
 	( getSystemCertificateStore
 	) where
 
-import Data.PEM (pemParseLBS, PEM(..))
-import System.Process
+import           Control.Applicative
 import qualified Data.ByteString.Lazy as LBS
-import Control.Applicative
-import Data.Either
+import           Data.Either
+import           Data.PEM (pemParseLBS, PEM(..))
+import           System.Process
 
-import Data.X509
-import Data.X509.CertificateStore
+import           Data.X509
+import           Data.X509.CertificateStore
 
 rootCAKeyChain :: FilePath
 rootCAKeyChain = "/System/Library/Keychains/SystemRootCertificates.keychain"

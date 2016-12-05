@@ -1,0 +1,9 @@
+resolver: lts-6.13
+packages:
+- 'x509'
+- 'x509-store'
+- 'x509-system'
+- 'x509-util'
+- 'x509-validation'
+extra-deps:
+  - deque-0.1
