@@ -12,6 +12,8 @@ module Data.X509.EC
       unserializePoint
     , ecPubKeyCurve
     , ecPubKeyCurveName
+    , ecPrivKeyCurve
+    , ecPrivKeyCurveName
     , lookupCurveNameByOID
     ) where
 
@@ -20,6 +22,7 @@ import Data.List (find)
 
 import Data.X509.OID
 import Data.X509.PublicKey
+import Data.X509.PrivateKey
 
 import qualified Crypto.PubKey.ECC.Prim  as ECC
 import qualified Crypto.PubKey.ECC.Types as ECC
@@ -81,6 +84,41 @@ ecPubKeyCurveName pub@PubKeyEC_Prime{}    =
                 ECC.ecc_b cc == pubkeyEC_b pub     &&
                 ECC.ecc_n cc == pubkeyEC_order pub &&
                 p            == pubkeyEC_prime pub
+            _                                 -> False
+
+-- | Return the EC curve associated to an EC Private Key.  This does not check
+-- if a curve in explicit format is valid: if the input is not trusted one
+-- should consider 'ecPrivKeyCurveName' instead.
+ecPrivKeyCurve :: PrivKeyEC -> Maybe ECC.Curve
+ecPrivKeyCurve (PrivKeyEC_Named name _) = Just $ ECC.getCurveByName name
+ecPrivKeyCurve priv@PrivKeyEC_Prime{}   =
+    fmap buildCurve $
+        unserializePoint (buildCurve undefined) (privkeyEC_generator priv)
+  where
+    prime = privkeyEC_prime priv
+    buildCurve g =
+        let cc = ECC.CurveCommon
+                     { ECC.ecc_a = privkeyEC_a        priv
+                     , ECC.ecc_b = privkeyEC_b        priv
+                     , ECC.ecc_g = g
+                     , ECC.ecc_n = privkeyEC_order    priv
+                     , ECC.ecc_h = privkeyEC_cofactor priv
+                     }
+         in ECC.CurveFP (ECC.CurvePrime prime cc)
+
+-- | Return the name of a standard curve associated to an EC Private Key
+ecPrivKeyCurveName :: PrivKeyEC -> Maybe ECC.CurveName
+ecPrivKeyCurveName (PrivKeyEC_Named name _) = Just name
+ecPrivKeyCurveName priv@PrivKeyEC_Prime{}   =
+    find matchPrimeCurve $ enumFrom $ toEnum 0
+  where
+    matchPrimeCurve c =
+        case ECC.getCurveByName c of
+            ECC.CurveFP (ECC.CurvePrime p cc) ->
+                ECC.ecc_a cc == privkeyEC_a priv     &&
+                ECC.ecc_b cc == privkeyEC_b priv     &&
+                ECC.ecc_n cc == privkeyEC_order priv &&
+                p            == privkeyEC_prime priv
             _                                 -> False
 
 -- | Return the curve name associated to an OID
