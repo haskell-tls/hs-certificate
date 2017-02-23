@@ -73,6 +73,24 @@ dsaFromASN1 (Start Sequence : IntVal n : xs)
             IntVal p : IntVal q : IntVal g : IntVal pub : IntVal priv : End Sequence : xs2 ->
                 let params = DSA.Params { DSA.params_p = p, DSA.params_g = g, DSA.params_q = q }
                  in Right (DSA.KeyPair params pub priv, xs2)
+            (Start Sequence
+             : OID [1, 2, 840, 10040, 4, 1]
+             : Start Sequence
+             : IntVal p
+             : IntVal q
+             : IntVal g
+             : End Sequence
+             : End Sequence
+             : OctetString bs
+             : End Sequence
+             : xs2) ->
+                let params = DSA.Params { DSA.params_p = p, DSA.params_g = g, DSA.params_q = q }
+                 in case decodeASN1' BER bs of
+                        Right [IntVal priv] ->
+                            let pub = DSA.calculatePublic params priv
+                             in Right (DSA.KeyPair params pub priv, xs2)
+                        Right _ -> Left "dsaFromASN1: DSA.PrivateKey: unexpected format"
+                        Left  e -> Left $ "dsaFromASN1: DSA.PrivateKey: " ++ show e
             _ ->
                 Left "dsaFromASN1: DSA.KeyPair: invalid format (version=0)"
 dsaFromASN1 _ = Left "dsaFromASN1: DSA.KeyPair: unexpected format"
