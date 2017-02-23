@@ -1,5 +1,5 @@
 env:
- - CABALVER=1.16 GHCVER=7.0.4
+ - CABALVER=1.16 GHCVER=7.0.4 RUNTEST=0
  - CABALVER=1.16 GHCVER=7.4.2
  - CABALVER=1.18 GHCVER=7.6.3
  - CABALVER=1.18 GHCVER=7.8.3
@@ -21,7 +21,7 @@ install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
- - if [ "${GHCVER}" = "7.0.4" ]; then
+ - if [ "${RUNTEST}" = "0" ]; then
     cabal install --only-dependencies;
    else
     cabal install --only-dependencies --enable-tests;
@@ -31,7 +31,7 @@ install:
  - cd ../x509-system
  - cabal install --only-dependencies
  - cd ../x509-validation
- - if [ "${GHCVER}" = "7.0.4" ]; then
+ - if [ "${RUNTEST}" = "0" ]; then
     cabal install --only-dependencies;
    else
     cabal install --only-dependencies --enable-tests;
@@ -39,13 +39,13 @@ install:
 
 script:
  - cd ../x509
- - if [ "${GHCVER}" != "7.0.4" ]; then
+ - if [ "${RUNTEST}" != "0" ]; then
       cabal configure --enable-tests -v2;
    else
       cabal configure -v2;
    fi
  - cabal build
- - if [ "${GHCVER}" != "7.0.4" ]; then
+ - if [ "${RUNTEST}" != "0" ]; then
        cabal test;
    fi;
  - cabal check
@@ -85,13 +85,13 @@ script:
       exit 1;
    fi
  - cd ../../x509-validation
- - if [ "${GHCVER}" != "7.0.4" ]; then
+ - if [ "${RUNTEST}" != "0" ]; then
       cabal configure --enable-tests -v2;
    else
       cabal configure -v2;
    fi
  - cabal build
- - if [ "${GHCVER}" != "7.0.4" ]; then
+ - if [ "${RUNTEST}" != "0" ]; then
        cabal test;
    fi;
  - cabal check
