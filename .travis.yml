@@ -28,7 +28,11 @@ install:
     cabal install --only-dependencies --enable-tests;
    fi
  - cd ../x509-store
- - cabal install --only-dependencies
+ - if [ "${RUNTEST}" = "0" ]; then
+    cabal install --only-dependencies;
+   else
+    cabal install --only-dependencies --enable-tests;
+   fi
  - cd ../x509-system
  - cabal install --only-dependencies
  - cd ../x509-validation
@@ -60,8 +64,15 @@ script:
       exit 1;
    fi
  - cd ../../x509-store
- - cabal configure -v2
+ - if [ "${RUNTEST}" != "0" ]; then
+      cabal configure --enable-tests -v2;
+   else
+      cabal configure -v2;
+   fi
  - cabal build
+ - if [ "${RUNTEST}" != "0" ]; then
+       cabal test;
+   fi;
  - cabal check
  - cabal sdist
  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;

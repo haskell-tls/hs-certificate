@@ -31,6 +31,18 @@ Library
                      Data.X509.Memory
   ghc-options:       -Wall
 
+Test-Suite test-x509-store
+  type:              exitcode-stdio-1.0
+  hs-source-dirs:    Tests
+  Main-is:           Tests.hs
+  Build-Depends:     base >= 3 && < 5
+                   , bytestring
+                   , tasty
+                   , tasty-hunit
+                   , x509
+                   , x509-store
+  ghc-options:       -Wall
+
 source-repository head
   type:     git
   location: git://github.com/vincenthz/hs-certificate
