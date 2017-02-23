@@ -5,7 +5,7 @@
 -- Stability   : experimental
 -- Portability : unknown
 --
--- Public key handling in X.509 infrastructure
+-- Private key handling in X.509 infrastructure
 --
 module Data.X509.PrivateKey
     ( PrivKey(..)
@@ -46,7 +46,7 @@ data PrivKey =
     | PrivKeyEC  PrivKeyEC      -- ^ EC private key
     deriving (Show,Eq)
 
--- | Convert a Public key to the Public Key Algorithm type
+-- | Convert a Private key to the Public Key Algorithm type
 privkeyToAlg :: PrivKey -> PubKeyALG
 privkeyToAlg (PrivKeyRSA _)         = PubKeyALG_RSA
 privkeyToAlg (PrivKeyDSA _)         = PubKeyALG_DSA

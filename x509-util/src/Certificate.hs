@@ -298,7 +298,7 @@ getoptMain opts f as =
 
 usage = do
     putStrLn "usage: x509-util <cmd>"
-    putStrLn "  key : process public key"
+    putStrLn "  key : process private key"
     putStrLn "  cert: process X509 certificate"
     putStrLn "  crl : process CRL certificate"
     putStrLn "  asn1: show file asn1"

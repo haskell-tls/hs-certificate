@@ -28,6 +28,6 @@ readSignedObject filepath = decodePEMs <$> readPEMs filepath
   where decodePEMs pems =
           [ obj | pem <- pems, Right obj <- [X509.decodeSignedObject $ pemContent pem] ]
 
--- | return all the public key that were successfully read from a file.
+-- | return all the private keys that were successfully read from a file.
 readKeyFile :: FilePath -> IO [X509.PrivKey]
 readKeyFile path = catMaybes . foldl pemToKey [] <$> readPEMs path
