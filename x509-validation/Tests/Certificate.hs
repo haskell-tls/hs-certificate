@@ -29,12 +29,11 @@ module Certificate
 import Control.Applicative
 
 import Crypto.Hash.Algorithms
-import Crypto.Number.Generate
 import Crypto.Number.Serialize
 
 import qualified Crypto.PubKey.DSA        as DSA
 import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
-import qualified Crypto.PubKey.ECC.Prim   as ECC
+import qualified Crypto.PubKey.ECC.Generate as ECC
 import qualified Crypto.PubKey.ECC.Types  as ECC
 import qualified Crypto.PubKey.RSA        as RSA
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
@@ -110,12 +109,9 @@ generateKeys alg@(AlgDSA params    _) = do
     let y = DSA.calculatePublic params x
     return (alg, DSA.PublicKey params y, DSA.PrivateKey params x)
 generateKeys alg@(AlgEC name       _) = do
-    d <- generateBetween 1 (n - 1)
-    let p = ECC.pointBaseMul curve d
-    return (alg, ECDSA.PublicKey curve p, ECDSA.PrivateKey curve d)
-  where
-    curve = ECC.getCurveByName name
-    n     = ECC.ecc_n . ECC.common_curve $ curve
+    let curve = ECC.getCurveByName name
+    (pub, priv) <- ECC.generate curve
+    return (alg, pub, priv)
 
 generateRSAKeys :: Alg RSA.PublicKey RSA.PrivateKey
                 -> Int
