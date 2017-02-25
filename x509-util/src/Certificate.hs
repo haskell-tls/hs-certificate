@@ -39,7 +39,7 @@ formatValidity (start,end) = p start ++ " to " ++ p end
 hexdump :: B.ByteString -> String
 hexdump bs = concatMap hex $ B.unpack bs
     where hex n
-            | n > 0xa   = showHex n ""
+            | n > 0xf   = showHex n ""
             | otherwise = "0" ++ showHex n ""
 
 hexdump' = hexdump
