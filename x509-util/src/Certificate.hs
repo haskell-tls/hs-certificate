@@ -260,11 +260,11 @@ doKeyMain files = do
     pems <- readPEMFile (head files)
     forM_ pems $ \pem -> do
         let content = either (error . show) id $ decodeASN1' BER (pemContent pem)
-            privkey = pemToKey [] pem
+            privkey = catMaybes $ pemToKey [] pem
         case privkey of
-            [Just (X509.PrivKeyRSA k)] ->
+            [X509.PrivKeyRSA k] ->
                 putStrLn "RSA KEY" >> putStrLn (showRSAKey k)
-            [Just (X509.PrivKeyDSA k)] ->
+            [X509.PrivKeyDSA k] ->
                 putStrLn "DSA KEY" >> putStrLn (showDSAKey k)
             _ -> error "private key unknown"
 
