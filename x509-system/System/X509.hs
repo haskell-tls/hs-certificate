@@ -7,8 +7,8 @@
 -- Portability : good
 --
 module System.X509
-	( getSystemCertificateStore
-	) where
+    ( getSystemCertificateStore
+    ) where
 
 #if defined(WINDOWS)
 import System.X509.Win32
