@@ -23,7 +23,7 @@ install:
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
  - if [ "${CABAL_LIB_1_18}" = "1" ]; then
-    cabal install Cabal --constraint Cabal==1.18.*
+    cabal install Cabal --constraint Cabal==1.18.*;
    fi
  - if [ "${RUNTEST}" = "0" ]; then
     cabal install --only-dependencies;
