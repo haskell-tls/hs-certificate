@@ -64,9 +64,9 @@ showExts es@(Extensions (Just exts)) = do
     showKnownExtension "subject-alt-name" (X509.extensionGetE es :: Maybe (Either String X509.ExtSubjectAltName))
     showKnownExtension "authority-key-id" (X509.extensionGetE es :: Maybe (Either String X509.ExtAuthorityKeyId))
     where
-        showExt (ExtensionRaw oid critical asn1) = do
-            putStrLn ("  OID:  " ++ show oid ++ " critical: " ++ show critical)
-            showASN1 8 asn1
+        showExt er = do
+            putStrLn ("  OID:  " ++ show (extRawOID er) ++ " critical: " ++ show (extRawCritical er))
+            either (\e -> putStrLn $ "ASN1 decoding failed: " ++ e) (showASN1 8) $ tryExtRawASN1 er
         showKnownExtension _ Nothing  = return ()
         showKnownExtension n (Just (Left e)) = putStrLn ("  " ++ n ++ ": ERROR: " ++ show e)
         showKnownExtension _ (Just (Right e)) = putStrLn ("  " ++ show e)

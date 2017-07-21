@@ -9,6 +9,8 @@
 --
 module Data.X509.ExtensionRaw
     ( ExtensionRaw(..)
+    , tryExtRawASN1
+    , extRawASN1
     , Extensions(..)
     ) where
 
@@ -17,13 +19,24 @@ import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.X509.Internal
+import qualified Data.ByteString as B
 
 -- | An undecoded extension
 data ExtensionRaw = ExtensionRaw
     { extRawOID      :: OID    -- ^ OID of this extension
     , extRawCritical :: Bool   -- ^ if this extension is critical
-    , extRawASN1     :: [ASN1] -- ^ the associated ASN1
+    , extRawContent  :: B.ByteString -- ^ undecoded content
     } deriving (Show,Eq)
+
+tryExtRawASN1 :: ExtensionRaw -> Either String [ASN1]
+tryExtRawASN1 (ExtensionRaw oid _ content) =
+    case decodeASN1' BER content of
+        Left err -> Left $ "fromASN1: X509.ExtensionRaw: OID=" ++ show oid ++ ": cannot decode data: " ++ show err
+        Right r  -> Right r
+
+extRawASN1 :: ExtensionRaw -> [ASN1]
+extRawASN1 extRaw = either error id $ tryExtRawASN1 extRaw
+{-# DEPRECATED extRawASN1 "use tryExtRawASN1 instead" #-}
 
 -- | a Set of 'ExtensionRaw'
 newtype Extensions = Extensions (Maybe [ExtensionRaw])
@@ -41,19 +54,12 @@ instance ASN1Object ExtensionRaw where
     toASN1 extraw = \xs -> encodeExt extraw ++ xs
     fromASN1 (Start Sequence:OID oid:xs) =
         case xs of
-            Boolean b:OctetString obj:End Sequence:xs2 -> extractExt b obj xs2
-            OctetString obj:End Sequence:xs2           -> extractExt False obj xs2
+            Boolean b:OctetString obj:End Sequence:xs2 -> Right (ExtensionRaw oid b obj, xs2)
+            OctetString obj:End Sequence:xs2           -> Right (ExtensionRaw oid False obj, xs2)
             _                                          -> Left ("fromASN1: X509.ExtensionRaw: unknown format:" ++ show xs)
-      where
-        extractExt critical bs remainingStream =
-            case decodeASN1' BER bs of
-                Left err -> Left ("fromASN1: X509.ExtensionRaw: OID=" ++ show oid ++
-                                  ": cannot decode data: " ++ show err)
-                Right r  -> Right (ExtensionRaw oid critical r, remainingStream)
     fromASN1 l                                      =
         Left ("fromASN1: X509.ExtensionRaw: unknown format:" ++ show l)
 
 encodeExt :: ExtensionRaw -> [ASN1]
-encodeExt (ExtensionRaw oid critical asn1) =
-    let bs = encodeASN1' DER asn1
-     in asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString bs])
+encodeExt (ExtensionRaw oid critical content) =
+    asn1Container Sequence ([OID oid] ++ (if critical then [Boolean True] else []) ++ [OctetString content])

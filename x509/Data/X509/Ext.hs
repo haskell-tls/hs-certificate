@@ -8,7 +8,7 @@
 -- extension processing module.
 --
 {-# LANGUAGE FlexibleContexts #-}
-
+{-# LANGUAGE ScopedTypeVariables #-}
 module Data.X509.Ext
     ( Extension(..)
     -- * Common extension usually found in x509v3
@@ -21,6 +21,7 @@ module Data.X509.Ext
     , ExtSubjectAltName(..)
     , ExtAuthorityKeyId(..)
     , ExtCrlDistributionPoints(..)
+    , ExtNetscapeComment(..)
     , AltName(..)
     , DistributionPoint(..)
     , ReasonFlag(..)
@@ -35,11 +36,15 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import Data.ASN1.Types
 import Data.ASN1.Parse
+import Data.ASN1.Encoding
+import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
+import Data.Proxy
 import Data.List (find)
 import Data.X509.ExtensionRaw
 import Data.X509.DistinguishedName
 import Control.Applicative
+import Control.Monad
 
 -- | key usage flag that is found in the key usage extension field.
 data ExtKeyUsageFlag =
@@ -65,10 +70,23 @@ oidPoliciesMapping    = [2,5,29,33]
 --
 -- each extension have a unique OID associated, and a way
 -- to encode and decode an ASN1 stream.
+--
+-- Errata: turns out, the content is not necessarily ASN1,
+-- it could be data that is only parsable by the extension
+-- e.g. raw ascii string. Add method to parse and encode with
+-- ByteString
 class Extension a where
-    extOID    :: a -> OID
-    extEncode :: a -> [ASN1]
-    extDecode :: [ASN1] -> Either String a
+    extOID           :: a -> OID
+    extHasNestedASN1 :: Proxy a -> Bool
+    extEncode        :: a -> [ASN1]
+    extDecode        :: [ASN1] -> Either String a
+
+    extDecodeBs :: B.ByteString -> Either String a
+    extDecodeBs = (either (Left . show) Right . decodeASN1' BER) >=> extDecode
+
+    extEncodeBs :: a -> B.ByteString
+    extEncodeBs = encodeASN1' DER . extEncode
+
 
 -- | Get a specific extension from a lists of raw extensions
 extensionGet :: Extension a => Extensions -> Maybe a
@@ -94,16 +112,17 @@ extensionGetE (Extensions (Just l)) = findExt l
 -- * Nothing, the OID doesn't match
 -- * Just Left, the OID matched, but the extension couldn't be decoded
 -- * Just Right, the OID matched, and the extension has been succesfully decoded
-extensionDecode :: Extension a => ExtensionRaw -> Maybe (Either String a)
-extensionDecode = doDecode undefined
-  where doDecode :: Extension a => a -> ExtensionRaw -> Maybe (Either String a)
-        doDecode dummy (ExtensionRaw oid _ asn1)
-            | extOID dummy == oid = Just (extDecode asn1)
-            | otherwise           = Nothing
+extensionDecode :: forall a . Extension a => ExtensionRaw -> Maybe (Either String a)
+extensionDecode er@(ExtensionRaw oid _ content)
+    | extOID (undefined :: a) /= oid      = Nothing
+    | extHasNestedASN1 (Proxy :: Proxy a) = Just (tryExtRawASN1 er >>= extDecode)
+    | otherwise                           = Just (extDecodeBs content)
 
 -- | Encode an Extension to extensionRaw
-extensionEncode :: Extension a => Bool -> a -> ExtensionRaw
-extensionEncode critical ext = ExtensionRaw (extOID ext) critical (extEncode ext)
+extensionEncode :: forall a . Extension a => Bool -> a -> ExtensionRaw
+extensionEncode critical ext
+    | extHasNestedASN1 (Proxy :: Proxy a) = ExtensionRaw (extOID ext) critical (encodeASN1' DER $ extEncode ext)
+    | otherwise                           = ExtensionRaw (extOID ext) critical (extEncodeBs ext)
 
 -- | Basic Constraints
 data ExtBasicConstraints = ExtBasicConstraints Bool (Maybe Integer)
@@ -111,6 +130,7 @@ data ExtBasicConstraints = ExtBasicConstraints Bool (Maybe Integer)
 
 instance Extension ExtBasicConstraints where
     extOID = const [2,5,29,19]
+    extHasNestedASN1 = const True
     extEncode (ExtBasicConstraints b Nothing)  = [Start Sequence,Boolean b,End Sequence]
     extEncode (ExtBasicConstraints b (Just i)) = [Start Sequence,Boolean b,IntVal i,End Sequence]
 
@@ -127,6 +147,7 @@ data ExtKeyUsage = ExtKeyUsage [ExtKeyUsageFlag]
 
 instance Extension ExtKeyUsage where
     extOID = const [2,5,29,15]
+    extHasNestedASN1 = const True
     extEncode (ExtKeyUsage flags) = [BitString $ flagsToBits flags]
     extDecode [BitString bits] = Right $ ExtKeyUsage $ bitsToFlags bits
     extDecode _ = Left "unknown sequence"
@@ -158,6 +179,7 @@ data ExtExtendedKeyUsage = ExtExtendedKeyUsage [ExtKeyUsagePurpose]
 
 instance Extension ExtExtendedKeyUsage where
     extOID = const [2,5,29,37]
+    extHasNestedASN1 = const True
     extEncode (ExtExtendedKeyUsage purposes) =
         [Start Sequence] ++ map (OID . lookupRev) purposes ++ [End Sequence]
       where lookupRev (KeyUsagePurpose_Unknown oid) = oid
@@ -174,6 +196,7 @@ data ExtSubjectKeyId = ExtSubjectKeyId B.ByteString
 
 instance Extension ExtSubjectKeyId where
     extOID = const [2,5,29,14]
+    extHasNestedASN1 = const True
     extEncode (ExtSubjectKeyId o) = [OctetString o]
     extDecode [OctetString o] = Right $ ExtSubjectKeyId o
     extDecode _ = Left "unknown sequence"
@@ -203,6 +226,7 @@ data ExtSubjectAltName = ExtSubjectAltName [AltName]
 
 instance Extension ExtSubjectAltName where
     extOID = const [2,5,29,17]
+    extHasNestedASN1 = const True
     extEncode (ExtSubjectAltName names) = encodeGeneralNames names
     extDecode l = runParseASN1 (ExtSubjectAltName <$> parseGeneralNames) l
 
@@ -213,6 +237,7 @@ data ExtAuthorityKeyId = ExtAuthorityKeyId B.ByteString
 
 instance Extension ExtAuthorityKeyId where
     extOID _ = [2,5,29,35]
+    extHasNestedASN1 = const True
     extEncode (ExtAuthorityKeyId keyid) =
         [Start Sequence,Other Context 0 keyid,End Sequence]
     extDecode [Start Sequence,Other Context 0 keyid,End Sequence] =
@@ -244,6 +269,7 @@ data DistributionPoint =
 
 instance Extension ExtCrlDistributionPoints where
     extOID _ = [2,5,29,31]
+    extHasNestedASN1 = const True
     extEncode = error "extEncode ExtCrlDistributionPoints unimplemented"
     extDecode = error "extDecode ExtCrlDistributionPoints unimplemented"
     --extEncode (ExtCrlDistributionPoints )
@@ -311,3 +337,14 @@ bitsToFlags bits = concat $ flip map [0..(bitArrayLength bits-1)] $ \i -> do
 flagsToBits :: Enum a => [a] -> BitArray
 flagsToBits flags = foldl bitArraySetBit bitArrayEmpty $ map (fromIntegral . fromEnum) flags
   where bitArrayEmpty = toBitArray (B.pack [0,0]) 7
+
+data ExtNetscapeComment = ExtNetscapeComment B.ByteString
+    deriving (Show,Eq)
+
+instance Extension ExtNetscapeComment where
+    extOID _ = [2,16,840,1,113730,1,13]
+    extHasNestedASN1 = const False
+    extEncode = error "Extension: Netscape Comment do not contain nested ASN1"
+    extDecode = error "Extension: Netscape Comment do not contain nested ASN1"
+    extEncodeBs (ExtNetscapeComment b) = b
+    extDecodeBs = Right . ExtNetscapeComment
