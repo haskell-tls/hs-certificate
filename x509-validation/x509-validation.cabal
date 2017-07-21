@@ -37,6 +37,7 @@ Library
   ghc-options:       -Wall
 
 Test-Suite test-x509-validation
+  Default-Language:  Haskell2010
   type:              exitcode-stdio-1.0
   hs-source-dirs:    Tests
   Main-is:           Tests.hs
