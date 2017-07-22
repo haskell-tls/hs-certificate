@@ -191,7 +191,7 @@ mkDn cn = DistinguishedName [(getObjectID DnCommonName, fromString cn)]
 
 -- | Used to build a certificate extension.
 mkExtension :: Extension a => Bool -> a -> ExtensionRaw
-mkExtension crit ext = ExtensionRaw (extOID ext) crit (extEncode ext)
+mkExtension crit ext = ExtensionRaw (extOID ext) crit (extEncodeBs ext)
 
 -- | Default extensions in leaf certificates.
 leafStdExts :: [ExtensionRaw]
