@@ -1,5 +1,5 @@
 Name:                x509-util
-version:             1.6.2
+version:             1.6.3
 Description:         utility to parse, show, validate, sign and produce X509 certificates and chain.
 License:             BSD3
 License-file:        LICENSE
@@ -20,7 +20,7 @@ Executable           x509-util
   Buildable:         True
   Build-depends:     base >= 3 && < 5
                    , bytestring
-                   , x509 >= 1.7.0
+                   , x509 >= 1.7.1
                    , x509-store
                    , x509-system
                    , x509-validation >= 1.6.3
