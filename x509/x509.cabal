@@ -1,5 +1,5 @@
 Name:                x509
-Version:             1.6.5
+version:             1.7.0
 Description:         X509 reader and writer
 License:             BSD3
 License-file:        LICENSE
@@ -42,6 +42,7 @@ Library
   ghc-options:       -Wall
 
 Test-Suite test-x509
+  Default-Language:  Haskell2010
   type:              exitcode-stdio-1.0
   hs-source-dirs:    Tests
   Main-is:           Tests.hs
