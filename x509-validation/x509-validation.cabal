@@ -1,5 +1,5 @@
 Name:                x509-validation
-version:             1.6.7
+version:             1.6.8
 Description:         X.509 Certificate and CRL validation
 License:             BSD3
 License-file:        LICENSE
@@ -50,7 +50,7 @@ Test-Suite test-x509-validation
                    , hourglass
                    , asn1-types
                    , asn1-encoding
-                   , x509
+                   , x509 >= 1.7.1
                    , x509-store
                    , x509-validation
                    , cryptonite
