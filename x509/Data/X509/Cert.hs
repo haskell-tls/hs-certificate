@@ -53,7 +53,7 @@ instance ASN1Object Certificate where
 
 parseCertHeaderVersion :: ParseASN1 Int
 parseCertHeaderVersion =
-    maybe 1 id <$> onNextContainerMaybe (Container Context 0) (getNext >>= getVer)
+    maybe 0 id <$> onNextContainerMaybe (Container Context 0) (getNext >>= getVer)
   where getVer (IntVal v) = return $ fromIntegral v
         getVer _          = throwParseError "unexpected type for version"
 
