@@ -27,6 +27,8 @@ module Data.X509.Validation
     , getFingerprint
     -- * Cache
     , module Data.X509.Validation.Cache
+    -- * Signature verification
+    , module Data.X509.Validation.Signature
     ) where
 
 import Control.Applicative
