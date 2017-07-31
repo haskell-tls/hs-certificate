@@ -6,6 +6,7 @@ import qualified Data.ByteString.Lazy.Char8 as LC
 import qualified Data.ByteString as B
 import Data.X509
 import qualified Data.X509 as X509
+import qualified Data.X509.EC as X509
 import Data.List (find)
 import Data.PEM (pemParseBS, pemContent, pemName)
 import System.Console.GetOpt
@@ -24,6 +25,7 @@ import Crypto.Hash
 import qualified Crypto.PubKey.RSA as RSA
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
 import qualified Crypto.PubKey.DSA as DSA
+import qualified Crypto.PubKey.ECC.Types as ECC
 
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
@@ -39,10 +41,19 @@ formatValidity (start,end) = p start ++ " to " ++ p end
 hexdump :: B.ByteString -> String
 hexdump bs = concatMap hex $ B.unpack bs
     where hex n
-            | n > 0xa   = showHex n ""
+            | n > 0xf   = showHex n ""
             | otherwise = "0" ++ showHex n ""
 
 hexdump' = hexdump
+
+tryUnserializePoint :: Maybe ECC.Curve
+                    -> SerializedPoint
+                    -> Either B.ByteString (Integer, Integer)
+tryUnserializePoint mcurve pt@(SerializedPoint bs) =
+    case mcurve >>= flip X509.unserializePoint pt of
+        Nothing              -> Left bs
+        Just (ECC.Point x y) -> Right (x, y)
+        Just ECC.PointO      -> error "unserializePoint returned PointO"
 
 showDN (X509.DistinguishedName dn) = mapM_ toStr dn
   where toStr (oid, cs@(ASN1CharacterString e t)) =
@@ -79,6 +90,8 @@ showCertSmall signedCert = do
     case X509.certPubKey cert of
         X509.PubKeyRSA pubkey     -> printf "public key: RSA (%d bits)\n" (RSA.public_size pubkey * 8)
         X509.PubKeyDSA pubkey     -> printf "public key: DSA\n"
+        X509.PubKeyEC (PubKeyEC_Named name _) -> printf "public key: ECDSA (curve %s)\n" (show name)
+        X509.PubKeyEC _                       -> printf "public key: ECDSA (explicit curve)\n"
         X509.PubKeyUnknown oid ws -> printf "public key: unknown: %s\n" (show oid)
         pk                        -> printf "public key: %s\n" (show pk)
   where
@@ -110,6 +123,32 @@ showCert signedCert = do
             printf "  p      : %d\n" (DSA.params_p params)
             printf "  q      : %x\n" (DSA.params_q params)
             printf "  g      : %x\n" (DSA.params_g params)
+        X509.PubKeyEC pubkey@PubKeyEC_Named{} -> do
+            let curveName = pubkeyEC_name pubkey
+            let curve = ECC.getCurveByName curveName
+            putStrLn "public key ECDSA:"
+            printf "  curve  : %s\n" (show curveName)
+            case tryUnserializePoint (Just curve) (pubkeyEC_pub pubkey) of
+                Right (x, y) -> do printf "  point  : %x\n" x
+                                   printf "           %x\n" y
+                Left xy      ->    printf "  point  : %s\n" (hexdump xy)
+        X509.PubKeyEC pubkey@PubKeyEC_Prime{} -> do
+            let mcurve = X509.ecPubKeyCurve pubkey
+            putStrLn "public key ECDSA:"
+            case tryUnserializePoint mcurve (pubkeyEC_pub pubkey) of
+                Right (x, y) -> do printf "  point  : %x\n" x
+                                   printf "           %x\n" y
+                Left xy      ->    printf "  point  : %s\n" (hexdump xy)
+            printf "  a      : %x\n" (pubkeyEC_a         pubkey)
+            printf "  b      : %x\n" (pubkeyEC_b         pubkey)
+            printf "  p      : %x\n" (pubkeyEC_prime     pubkey)
+            case tryUnserializePoint mcurve (pubkeyEC_generator pubkey) of
+                Right (x, y) -> do printf "  g      : %x\n" x
+                                   printf "           %x\n" y
+                Left xy      ->    printf "  g      : %s\n" (hexdump xy)
+            printf "  n      : %x\n" (pubkeyEC_order     pubkey)
+            printf "  h      : %x\n" (pubkeyEC_cofactor  pubkey)
+            printf "  seed   : %x\n" (pubkeyEC_seed      pubkey)
         X509.PubKeyUnknown oid ws -> do
             printf "public key unknown: %s\n" (show oid)
             printf "  raw bytes: %s\n" (show ws)
@@ -148,6 +187,31 @@ showDSAKey (DSA.PrivateKey params privnum) = unlines
     , "q:       " ++ (printf "%x" $ DSA.params_q params)
     , "g:       " ++ (printf "%x" $ DSA.params_g params)
     ]
+
+showECKey :: PrivKeyEC -> String
+showECKey privkey@PrivKeyEC_Named{} = unlines
+    [ "priv:     " ++ (printf "%x" $ privkeyEC_priv privkey)
+    , "curve:    " ++ (show        $ privkeyEC_name privkey)
+    ]
+showECKey privkey@PrivKeyEC_Prime{} = unlines $
+    [ "priv:     " ++ (printf "%x" $ privkeyEC_priv     privkey)
+    , "a:        " ++ (printf "%x" $ privkeyEC_a        privkey)
+    , "b:        " ++ (printf "%x" $ privkeyEC_b        privkey)
+    , "prime:    " ++ (printf "%x" $ privkeyEC_prime    privkey)
+    ] ++ showGenerator ++
+    [ "order:    " ++ (printf "%x" $ privkeyEC_order    privkey)
+    , "cofactor: " ++ (printf "%x" $ privkeyEC_cofactor privkey)
+    , "seed:     " ++ (printf "%x" $ privkeyEC_seed     privkey)
+    ]
+  where
+    showGenerator = do
+        case tryUnserializePoint mcurve (privkeyEC_generator privkey) of
+            Right (x, y) -> [ "generator:" ++ (printf "%x" x)
+                            , "          " ++ (printf "%x" y)
+                            ]
+            Left xy      -> [ "generator:" ++ (show $ hexdump xy)
+                            ]
+    mcurve = X509.ecPrivKeyCurve privkey
 
 showASN1 :: Int -> [ASN1] -> IO ()
 showASN1 at = prettyPrint at
@@ -260,12 +324,14 @@ doKeyMain files = do
     pems <- readPEMFile (head files)
     forM_ pems $ \pem -> do
         let content = either (error . show) id $ decodeASN1' BER (pemContent pem)
-            privkey = pemToKey [] pem
+            privkey = catMaybes $ pemToKey [] pem
         case privkey of
-            [Just (X509.PrivKeyRSA k)] ->
+            [X509.PrivKeyRSA k] ->
                 putStrLn "RSA KEY" >> putStrLn (showRSAKey k)
-            [Just (X509.PrivKeyDSA k)] ->
+            [X509.PrivKeyDSA k] ->
                 putStrLn "DSA KEY" >> putStrLn (showDSAKey k)
+            [X509.PrivKeyEC  k] ->
+                putStrLn "EC KEY"  >> putStrLn (showECKey k)
             _ -> error "private key unknown"
 
 doSystemMain _ = do
@@ -298,7 +364,7 @@ getoptMain opts f as =
 
 usage = do
     putStrLn "usage: x509-util <cmd>"
-    putStrLn "  key : process public key"
+    putStrLn "  key : process private key"
     putStrLn "  cert: process X509 certificate"
     putStrLn "  crl : process CRL certificate"
     putStrLn "  asn1: show file asn1"

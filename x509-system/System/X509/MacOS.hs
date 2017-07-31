@@ -1,6 +1,6 @@
 module System.X509.MacOS
-	( getSystemCertificateStore
-	) where
+    ( getSystemCertificateStore
+    ) where
 
 import Data.PEM (pemParseLBS, PEM(..))
 import System.Process

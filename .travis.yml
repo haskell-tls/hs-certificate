@@ -1,6 +1,7 @@
 env:
  - CABALVER=1.18 GHCVER=7.8.3
  - CABALVER=1.22 GHCVER=7.10.1
+ - CABALVER=1.24 GHCVER=8.0.2
  - CABALVER=head GHCVER=head
 
 matrix:
@@ -18,17 +19,24 @@ install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
- - if [ "${GHCVER}" = "7.0.4" ]; then
+ - if [ "${CABAL_LIB_1_18}" = "1" ]; then
+    cabal install Cabal --constraint Cabal==1.18.*;
+   fi
+ - if [ "${RUNTEST}" = "0" ]; then
     cabal install --only-dependencies;
    else
     cabal install --only-dependencies --enable-tests;
    fi
  - cd ../x509-store
- - cabal install --only-dependencies
+ - if [ "${RUNTEST}" = "0" ]; then
+    cabal install --only-dependencies;
+   else
+    cabal install --only-dependencies --enable-tests;
+   fi
  - cd ../x509-system
  - cabal install --only-dependencies
  - cd ../x509-validation
- - if [ "${GHCVER}" = "7.0.4" ]; then
+ - if [ "${RUNTEST}" = "0" ]; then
     cabal install --only-dependencies;
    else
     cabal install --only-dependencies --enable-tests;
@@ -36,13 +44,13 @@ install:
 
 script:
  - cd ../x509
- - if [ "${GHCVER}" != "7.0.4" ]; then
+ - if [ "${RUNTEST}" != "0" ]; then
       cabal configure --enable-tests -v2;
    else
       cabal configure -v2;
    fi
  - cabal build
- - if [ "${GHCVER}" != "7.0.4" ]; then
+ - if [ "${RUNTEST}" != "0" ]; then
        cabal test;
    fi;
  - cabal check
@@ -56,8 +64,15 @@ script:
       exit 1;
    fi
  - cd ../../x509-store
- - cabal configure -v2
+ - if [ "${RUNTEST}" != "0" ]; then
+      cabal configure --enable-tests -v2;
+   else
+      cabal configure -v2;
+   fi
  - cabal build
+ - if [ "${RUNTEST}" != "0" ]; then
+       cabal test;
+   fi;
  - cabal check
  - cabal sdist
  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
@@ -82,13 +97,13 @@ script:
       exit 1;
    fi
  - cd ../../x509-validation
- - if [ "${GHCVER}" != "7.0.4" ]; then
+ - if [ "${RUNTEST}" != "0" ]; then
       cabal configure --enable-tests -v2;
    else
       cabal configure -v2;
    fi
  - cabal build
- - if [ "${GHCVER}" != "7.0.4" ]; then
+ - if [ "${RUNTEST}" != "0" ]; then
        cabal test;
    fi;
  - cabal check

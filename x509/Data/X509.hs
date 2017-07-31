@@ -19,6 +19,7 @@ module Data.X509
     , PubKeyEC(..)
     , SerializedPoint(..)
     , PrivKey(..)
+    , PrivKeyEC(..)
     , pubkeyToAlg
     , privkeyToAlg
     , module Data.X509.AlgorithmIdentifier
