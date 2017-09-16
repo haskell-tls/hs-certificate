@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Data.X509.CertificateStore
     ( CertificateStore
     , makeCertificateStore
@@ -10,7 +11,11 @@ module Data.X509.CertificateStore
 import Data.Char (isDigit, isHexDigit)
 import Data.Either (rights)
 import Data.List (foldl', isPrefixOf)
-import Data.Monoid
+#if MIN_VERSION_base(4,9,0)
+import           Data.Semigroup
+#else
+import           Data.Monoid
+#endif
 import Data.PEM (pemParseBS, pemContent)
 import Data.X509
 import qualified Data.Map as M
@@ -26,12 +31,22 @@ import qualified Data.ByteString as B
 data CertificateStore = CertificateStore (M.Map DistinguishedName SignedCertificate)
                       | CertificateStores [CertificateStore]
 
+#if MIN_VERSION_base(4,9,0)
+instance Semigroup CertificateStore where
+    (<>) = append
+#endif
+
 instance Monoid CertificateStore where
     mempty  = CertificateStore M.empty
-    mappend s1@(CertificateStore _)   s2@(CertificateStore _) = CertificateStores [s1,s2]
-    mappend    (CertificateStores l)  s2@(CertificateStore _) = CertificateStores (l ++ [s2])
-    mappend s1@(CertificateStore _)   (CertificateStores l)   = CertificateStores ([s1] ++ l)
-    mappend    (CertificateStores l1) (CertificateStores l2)  = CertificateStores (l1 ++ l2)
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = append
+#endif
+
+append :: CertificateStore -> CertificateStore -> CertificateStore
+append s1@(CertificateStore _)   s2@(CertificateStore _) = CertificateStores [s1,s2]
+append    (CertificateStores l)  s2@(CertificateStore _) = CertificateStores (l ++ [s2])
+append s1@(CertificateStore _)   (CertificateStores l)   = CertificateStores ([s1] ++ l)
+append    (CertificateStores l1) (CertificateStores l2)  = CertificateStores (l1 ++ l2)
 
 -- | Create a certificate store out of a list of X509 certificate
 makeCertificateStore :: [SignedCertificate] -> CertificateStore
