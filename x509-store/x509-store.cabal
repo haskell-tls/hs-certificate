@@ -1,5 +1,5 @@
 Name:                x509-store
-version:             1.6.5
+version:             1.6.6
 Description:         X.509 collection accessing and storing methods for certificate, crl, exception list
 License:             BSD3
 License-file:        LICENSE
@@ -25,6 +25,8 @@ Library
                    , asn1-types >= 0.3 && < 0.4
                    , asn1-encoding >= 0.9 && < 0.10
                    , cryptonite
+                   , deepseq
+                   , pem
                    , x509 >= 1.7.2
   Exposed-modules:   Data.X509.CertificateStore
                      Data.X509.File
@@ -40,6 +42,8 @@ Test-Suite test-x509-store
                    , bytestring
                    , tasty
                    , tasty-hunit
+                   , deepseq
+                   , pem
                    , x509
                    , x509-store
   ghc-options:       -Wall
