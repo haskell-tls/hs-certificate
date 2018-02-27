@@ -26,6 +26,9 @@ Library
                    , asn1-encoding >= 0.9 && < 0.10
                    , cryptonite
                    , x509 >= 1.7.2
+  if !impl(ghc >= 8.0)
+    Build-Depends:
+      semigroups >= 0.11 && < 0.19
   Exposed-modules:   Data.X509.CertificateStore
                      Data.X509.File
                      Data.X509.Memory
