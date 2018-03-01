@@ -10,7 +10,7 @@ compiler: ghc-8.4 ghc-8.4-rc1
 # options
 # option: alias x=y z=v
 #
-option: rcdeps extradep=asn1-encoding-0.9.5 extradep=asn1-parse-0.9.4 extradep=asn1-types-0.3.2 extradep=byteable-0.1.1 extradep=cryptonite-0.25 extradep=data-default-class-0.1.2.0 extradep=hourglass-0.2.11 extradep=memory-0.14.16 extradep=pem-0.2.3 extradep=basement-0.0.7 extradep=foundation-0.0.20
+option: rcdeps extradep=asn1-encoding-0.9.5 extradep=asn1-parse-0.9.4 extradep=asn1-types-0.3.2 extradep=cryptonite-0.25 extradep=data-default-class-0.1.2.0 extradep=hourglass-0.2.11 extradep=memory-0.14.16 extradep=pem-0.2.3 extradep=basement-0.0.7 extradep=foundation-0.0.20
 
 # builds
 # recognized simple options: nohaddock allow-newer allowed-failure
