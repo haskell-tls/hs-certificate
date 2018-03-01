@@ -1,5 +1,5 @@
 Name:                x509
-version:             1.7.2
+version:             1.7.3
 Description:         X509 reader and writer
 License:             BSD3
 License-file:        LICENSE
@@ -21,7 +21,7 @@ Library
                    , mtl
                    , containers
                    , hourglass
-                   , pem >= 0.1 && < 0.3
+                   , pem >= 0.1
                    , asn1-types >= 0.3.1 && < 0.4
                    , asn1-encoding >= 0.9 && < 0.10
                    , asn1-parse >= 0.9.3 && < 0.10
