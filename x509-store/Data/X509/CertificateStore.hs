@@ -20,18 +20,22 @@ import System.Directory (getDirectoryContents, doesFileExist, doesDirectoryExist
 import System.FilePath ((</>))
 import qualified Control.Exception as E
 import qualified Data.ByteString as B
+import qualified Data.Semigroup as Sem
 
 
 -- | A Collection of certificate or store of certificates.
 data CertificateStore = CertificateStore (M.Map DistinguishedName SignedCertificate)
                       | CertificateStores [CertificateStore]
 
+instance Sem.Semigroup CertificateStore where
+    (<>) s1@(CertificateStore _)   s2@(CertificateStore _) = CertificateStores [s1,s2]
+    (<>)    (CertificateStores l)  s2@(CertificateStore _) = CertificateStores (l ++ [s2])
+    (<>) s1@(CertificateStore _)   (CertificateStores l)   = CertificateStores ([s1] ++ l)
+    (<>)    (CertificateStores l1) (CertificateStores l2)  = CertificateStores (l1 ++ l2)
+
 instance Monoid CertificateStore where
     mempty  = CertificateStore M.empty
-    mappend s1@(CertificateStore _)   s2@(CertificateStore _) = CertificateStores [s1,s2]
-    mappend    (CertificateStores l)  s2@(CertificateStore _) = CertificateStores (l ++ [s2])
-    mappend s1@(CertificateStore _)   (CertificateStores l)   = CertificateStores ([s1] ++ l)
-    mappend    (CertificateStores l1) (CertificateStores l2)  = CertificateStores (l1 ++ l2)
+    mappend = (<>)
 
 -- | Create a certificate store out of a list of X509 certificate
 makeCertificateStore :: [SignedCertificate] -> CertificateStore
