@@ -15,7 +15,7 @@ option: rcdeps extradep=asn1-encoding-0.9.5 extradep=asn1-parse-0.9.4 extradep=a
 # builds
 # recognized simple options: nohaddock allow-newer allowed-failure
 # kvs options: flag=pkg:flagname extradep=package-version gitdep=name
-build: ghc-7.8 nohaddock
+build: ghc-7.8 nohaddock extradep=asn1-parse-0.9.4 extradep=asn1-types-0.3.2 extradep=cryptonite-0.25 extradep=basement-0.0.7 extradep=memory-0.14.16 extradep=foundation-0.0.20
 build: ghc-8.2
 build: ghc-7.10
 build: ghc-8.0
