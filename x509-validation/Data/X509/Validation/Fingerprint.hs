@@ -5,6 +5,7 @@
 -- Stability   : experimental
 -- Portability : unknown
 --
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Data.X509.Validation.Fingerprint
     ( Fingerprint(..)
     , getFingerprint
@@ -13,16 +14,14 @@ module Data.X509.Validation.Fingerprint
 import Crypto.Hash
 import Data.X509
 import Data.ASN1.Types
-import Data.ByteArray (convert)
+import Data.ByteArray (convert, ByteArrayAccess)
 import Data.ByteString (ByteString)
-import Data.Byteable
 
 -- | Fingerprint of a certificate
 newtype Fingerprint = Fingerprint ByteString
     deriving (Show,Eq)
 
-instance Byteable Fingerprint where
-    toBytes (Fingerprint bs) = bs
+instance ByteArrayAccess Fingerprint
 
 -- | Get the fingerprint of the whole signed object
 -- using the hashing algorithm specified

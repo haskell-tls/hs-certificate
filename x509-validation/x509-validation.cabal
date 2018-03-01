@@ -18,12 +18,11 @@ Library
   Build-Depends:     base >= 3 && < 5
                    , bytestring
                    , memory
-                   , byteable
                    , mtl
                    , containers
                    , hourglass
                    , data-default-class
-                   , pem >= 0.1 && < 0.3
+                   , pem >= 0.1
                    , asn1-types >= 0.3 && < 0.4
                    , asn1-encoding >= 0.9 && < 0.10
                    , x509 >= 1.6.5
