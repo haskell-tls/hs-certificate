@@ -20,7 +20,7 @@ build: ghc-8.2
 build: ghc-7.10
 build: ghc-8.0
 build: ghc-8.0 os=osx
-build: ghc-8.4 tests=no benchs=no allow-newer rcdeps allowed-failure
+build: ghc-8.4 tests=no benchs=no allow-newer rcdeps
 
 # packages
 package: x509/
