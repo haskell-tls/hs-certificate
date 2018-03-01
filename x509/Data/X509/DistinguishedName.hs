@@ -6,6 +6,8 @@
 -- Portability : unknown
 --
 -- X.509 Distinguished names types and functions
+
+{-# LANGUAGE CPP #-}
 module Data.X509.DistinguishedName
     ( DistinguishedName(..)
     , DistinguishedNameInner(..)
@@ -16,7 +18,11 @@ module Data.X509.DistinguishedName
     ) where
 
 import Control.Applicative
-import Data.Monoid
+#if MIN_VERSION_base(4,9,0)
+import           Data.Semigroup
+#else
+import           Data.Monoid
+#endif
 import Data.ASN1.Types
 import Data.X509.Internal
 
@@ -49,9 +55,16 @@ getDnElement element (DistinguishedName els) = lookup (getObjectID element) els
 newtype DistinguishedNameInner = DistinguishedNameInner DistinguishedName
     deriving (Show,Eq)
 
+#if MIN_VERSION_base(4,9,0)
+instance Semigroup DistinguishedName where
+    DistinguishedName l1 <> DistinguishedName l2 = DistinguishedName (l1++l2)
+#endif
+
 instance Monoid DistinguishedName where
     mempty  = DistinguishedName []
+#if !(MIN_VERSION_base(4,11,0))
     mappend (DistinguishedName l1) (DistinguishedName l2) = DistinguishedName (l1++l2)
+#endif
 
 instance ASN1Object DistinguishedName where
     toASN1 dn = \xs -> encodeDN dn ++ xs
