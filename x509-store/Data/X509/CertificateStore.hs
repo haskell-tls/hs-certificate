@@ -21,11 +21,16 @@ import Data.X509
 import qualified Data.Map as M
 import Control.Applicative ((<$>))
 import Control.Monad (mplus, filterM)
+import Control.DeepSeq
 import System.Directory (getDirectoryContents, doesFileExist, doesDirectoryExist)
 import System.FilePath ((</>))
 import qualified Control.Exception as E
 import qualified Data.ByteString as B
+import Data.PEM
 
+-- | A way to fully evaluate PEM data
+instance NFData PEM where
+    rnf (PEM name header content) = name `seq` header `seq` content `seq` ()
 
 -- | A Collection of certificate or store of certificates.
 data CertificateStore = CertificateStore (M.Map DistinguishedName SignedCertificate)
@@ -89,7 +94,7 @@ readCertificateStore path = do
 --
 -- The file may contains multiple certificates
 readCertificates :: FilePath -> IO [SignedCertificate]
-readCertificates file = E.catch (either (const []) (rights . map getCert) . pemParseBS <$> B.readFile file) skipIOError
+readCertificates file = E.catch (either (const [] . force) (rights . map getCert . force) . pemParseBS <$> B.readFile file) skipIOError
     where
         getCert = decodeSignedCertificate . pemContent
         skipIOError :: E.IOException -> IO [SignedCertificate]
