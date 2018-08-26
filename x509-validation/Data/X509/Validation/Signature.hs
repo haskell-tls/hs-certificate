@@ -14,11 +14,14 @@ module Data.X509.Validation.Signature
     , SignatureFailure(..)
     ) where
 
+import Crypto.Error (CryptoFailable(..))
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
 import qualified Crypto.PubKey.RSA.PSS as PSS
 import qualified Crypto.PubKey.DSA as DSA
 import qualified Crypto.PubKey.ECC.Types as ECC
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
+import qualified Crypto.PubKey.Ed25519 as Ed25519
+import qualified Crypto.PubKey.Ed448 as Ed448
 import Crypto.Hash
 
 import Data.ByteString (ByteString)
@@ -120,6 +123,21 @@ verifySignature (SignatureALG hashALG pubkeyALG) pubkey cdata signature
         rsaVerify HashSHA256 = RSA.verify (Just SHA256)
         rsaVerify HashSHA384 = RSA.verify (Just SHA384)
         rsaVerify HashSHA512 = RSA.verify (Just SHA512)
+
+verifySignature (SignatureALG_IntrinsicHash pubkeyALG) pubkey cdata signature
+    | pubkeyToAlg pubkey == pubkeyALG = doVerify pubkey
+    | otherwise = SignatureFailed SignaturePubkeyMismatch
+  where
+    doVerify (PubKeyEd25519 key) = eddsa Ed25519.verify Ed25519.signature key
+    doVerify (PubKeyEd448 key)   = eddsa Ed448.verify Ed448.signature key
+    doVerify _                   = SignatureFailed SignatureUnimplemented
+
+    eddsa verify toSig key =
+        case toSig signature of
+            CryptoPassed sig
+                | verify key cdata sig -> SignaturePass
+                | otherwise            -> SignatureFailed SignatureInvalid
+            CryptoFailed _             -> SignatureFailed SignatureInvalid
 
 verifyECDSA :: HashALG -> PubKeyEC -> Maybe (ByteString -> ByteString -> Bool)
 verifyECDSA hashALG key =

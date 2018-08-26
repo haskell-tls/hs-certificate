@@ -43,6 +43,7 @@ Test-Suite test-x509-validation
   Other-modules:     Certificate
   Build-Depends:     base >= 3 && < 5
                    , bytestring
+                   , memory
                    , data-default-class
                    , tasty
                    , tasty-hunit

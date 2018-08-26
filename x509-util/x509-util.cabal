@@ -29,6 +29,7 @@ Executable           x509-util
                    , pem
                    , directory
                    , hourglass
+                   , memory
                    , cryptonite
 
 source-repository head

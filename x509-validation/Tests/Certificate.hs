@@ -35,6 +35,8 @@ import qualified Crypto.PubKey.DSA        as DSA
 import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
 import qualified Crypto.PubKey.ECC.Generate as ECC
 import qualified Crypto.PubKey.ECC.Types  as ECC
+import qualified Crypto.PubKey.Ed25519    as Ed25519
+import qualified Crypto.PubKey.Ed448      as Ed448
 import qualified Crypto.PubKey.RSA        as RSA
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
 import qualified Crypto.PubKey.RSA.PSS    as PSS
@@ -44,6 +46,7 @@ import qualified Data.ByteString as B
 import Data.ASN1.BinaryEncoding (DER(..))
 import Data.ASN1.Encoding
 import Data.ASN1.Types
+import Data.ByteArray (convert)
 import Data.Maybe (catMaybes)
 import Data.String (fromString)
 import Data.X509
@@ -97,6 +100,10 @@ data Alg pub priv where
               -> GHash hash
               -> Alg ECDSA.PublicKey ECDSA.PrivateKey
 
+    AlgEd25519 :: Alg Ed25519.PublicKey Ed25519.SecretKey
+
+    AlgEd448   :: Alg Ed448.PublicKey Ed448.SecretKey
+
 -- | Types of public and private keys used by a signature algorithm.
 type Keys pub priv = (Alg pub priv, pub, priv)
 
@@ -112,6 +119,12 @@ generateKeys alg@(AlgEC name       _) = do
     let curve = ECC.getCurveByName name
     (pub, priv) <- ECC.generate curve
     return (alg, pub, priv)
+generateKeys alg@AlgEd25519           = do
+    secret <- Ed25519.generateSecretKey
+    return (alg, Ed25519.toPublic secret, secret)
+generateKeys alg@AlgEd448             = do
+    secret <- Ed448.generateSecretKey
+    return (alg, Ed448.toPublic secret, secret)
 
 generateRSAKeys :: Alg RSA.PublicKey RSA.PrivateKey
                 -> Int
@@ -133,12 +146,16 @@ getPubKey (AlgEC     name _) key = PubKeyEC (PubKeyEC_Named name pub)
     bs    = B.cons 4 (i2ospOf_ bytes x `B.append` i2ospOf_ bytes y)
     bits  = ECC.curveSizeBits (ECC.getCurveByName name)
     bytes = (bits + 7) `div` 8
+getPubKey  AlgEd25519        key = PubKeyEd25519   key
+getPubKey  AlgEd448          key = PubKeyEd448     key
 
 getSignatureALG :: Alg pub priv -> SignatureALG
 getSignatureALG (AlgRSA    _   hash) = SignatureALG (getHashALG hash) PubKeyALG_RSA
 getSignatureALG (AlgRSAPSS _ _ hash) = SignatureALG (getHashALG hash) PubKeyALG_RSAPSS
 getSignatureALG (AlgDSA    _   hash) = SignatureALG (getHashALG hash) PubKeyALG_DSA
 getSignatureALG (AlgEC     _   hash) = SignatureALG (getHashALG hash) PubKeyALG_EC
+getSignatureALG  AlgEd25519          = SignatureALG_IntrinsicHash PubKeyALG_Ed25519
+getSignatureALG  AlgEd448            = SignatureALG_IntrinsicHash PubKeyALG_Ed448
 
 doSign :: Alg pub priv -> priv -> B.ByteString -> IO B.ByteString
 doSign (AlgRSA _ hash)        key msg = do
@@ -167,6 +184,10 @@ doSign (AlgEC _ hash)         key msg = do
                  , IntVal (ECDSA.sign_s sig)
                  , End Sequence
                  ]
+doSign  AlgEd25519            key msg =
+    return $ convert $ Ed25519.sign key (Ed25519.toPublic key) msg
+doSign  AlgEd448              key msg =
+    return $ convert $ Ed448.sign key (Ed448.toPublic key) msg
 
 
 -- Certificate utilities --

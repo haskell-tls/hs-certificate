@@ -20,15 +20,21 @@ import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
 
 import Data.Bits
+import Data.ByteArray (convert)
 import Data.ByteString (ByteString)
 
 import Data.X509.Internal
 import Data.X509.OID
 import Data.X509.AlgorithmIdentifier
 
+import Crypto.Error (CryptoFailable(..))
 import qualified Crypto.PubKey.RSA.Types as RSA
 import qualified Crypto.PubKey.DSA       as DSA
 import qualified Crypto.PubKey.ECC.Types as ECC
+import qualified Crypto.PubKey.Curve25519 as X25519
+import qualified Crypto.PubKey.Curve448   as X448
+import qualified Crypto.PubKey.Ed25519    as Ed25519
+import qualified Crypto.PubKey.Ed448      as Ed448
 import           Crypto.Number.Serialize (os2ip)
 import Data.Word
 
@@ -65,6 +71,10 @@ data PubKey =
     | PubKeyDH (Integer,Integer,Integer,Maybe Integer,([Word8], Integer))
                                 -- ^ DH format with (p,g,q,j,(seed,pgenCounter))
     | PubKeyEC PubKeyEC       -- ^ EC public key
+    | PubKeyX25519    X25519.PublicKey    -- ^ X25519 public key
+    | PubKeyX448      X448.PublicKey      -- ^ X448 public key
+    | PubKeyEd25519   Ed25519.PublicKey   -- ^ Ed25519 public key
+    | PubKeyEd448     Ed448.PublicKey     -- ^ Ed448 public key
     | PubKeyUnknown OID B.ByteString -- ^ unrecognized format
     deriving (Show,Eq)
 
@@ -132,6 +142,22 @@ instance ASN1Object PubKey where
                         }, xs2)
                 _ ->
                     Left $ "fromASN1: X509.PubKey: unknown EC format: " ++ show xs
+        | pkalg == getObjectID PubKeyALG_X25519    =
+            case xs of
+                End Sequence:BitString bits:End Sequence:xs2 -> decodeCF "X25519" PubKeyX25519 bits xs2 X25519.publicKey
+                _ -> Left ("fromASN1: X509.PubKey: unknown X25519 format: " ++ show xs)
+        | pkalg == getObjectID PubKeyALG_X448      =
+            case xs of
+                End Sequence:BitString bits:End Sequence:xs2 -> decodeCF "X448" PubKeyX448 bits xs2 X448.publicKey
+                _ -> Left ("fromASN1: X509.PubKey: unknown X448 format: " ++ show xs)
+        | pkalg == getObjectID PubKeyALG_Ed25519   =
+            case xs of
+                End Sequence:BitString bits:End Sequence:xs2 -> decodeCF "Ed25519" PubKeyEd25519 bits xs2 Ed25519.publicKey
+                _ -> Left ("fromASN1: X509.PubKey: unknown Ed25519 format: " ++ show xs)
+        | pkalg == getObjectID PubKeyALG_Ed448     =
+            case xs of
+                End Sequence:BitString bits:End Sequence:xs2 -> decodeCF "Ed448" PubKeyEd448 bits xs2 Ed448.publicKey
+                _ -> Left ("fromASN1: X509.PubKey: unknown Ed448 format: " ++ show xs)
         | otherwise = Left $ "fromASN1: unknown public key OID: " ++ show pkalg
       where decodeASN1Err format bits xs2 f =
                 case decodeASN1' BER (bitArrayGetData bits) of
@@ -146,6 +172,10 @@ instance ASN1Object PubKey where
             removeNull (Null:r) = r
             removeNull l        = l
 
+            decodeCF format c bits xs2 f = case f (bitArrayGetData bits) of
+                CryptoPassed pk  -> Right (c pk, xs2)
+                CryptoFailed err -> Left ("fromASN1: X509.PubKey " ++ format ++ " bitarray contains an invalid public key: " ++ show err)
+
     fromASN1 l = Left ("fromASN1: X509.PubKey: unknown format:" ++ show l)
     toASN1 a = \xs -> encodePK a ++ xs
 
@@ -155,6 +185,10 @@ pubkeyToAlg (PubKeyRSA _)         = PubKeyALG_RSA
 pubkeyToAlg (PubKeyDSA _)         = PubKeyALG_DSA
 pubkeyToAlg (PubKeyDH _)          = PubKeyALG_DH
 pubkeyToAlg (PubKeyEC _)          = PubKeyALG_EC
+pubkeyToAlg (PubKeyX25519 _)      = PubKeyALG_X25519
+pubkeyToAlg (PubKeyX448 _)        = PubKeyALG_X448
+pubkeyToAlg (PubKeyEd25519 _)     = PubKeyALG_Ed25519
+pubkeyToAlg (PubKeyEd448 _)       = PubKeyALG_Ed448
 pubkeyToAlg (PubKeyUnknown oid _) = PubKeyALG_Unknown oid
 
 encodePK :: PubKey -> [ASN1]
@@ -180,6 +214,14 @@ encodePK key = asn1Container Sequence (encodeInner key)
                     _        -> error ("undefined curve OID: " ++ show curveName)
     encodeInner (PubKeyEC (PubKeyEC_Prime {})) =
         error "encodeInner: unimplemented public key EC_Prime"
+    encodeInner (PubKeyX25519   pubkey)  =
+        asn1Container Sequence [pkalg] ++ [BitString $ toBitArray (convert pubkey) 0]
+    encodeInner (PubKeyX448     pubkey)  =
+        asn1Container Sequence [pkalg] ++ [BitString $ toBitArray (convert pubkey) 0]
+    encodeInner (PubKeyEd25519   pubkey) =
+        asn1Container Sequence [pkalg] ++ [BitString $ toBitArray (convert pubkey) 0]
+    encodeInner (PubKeyEd448     pubkey) =
+        asn1Container Sequence [pkalg] ++ [BitString $ toBitArray (convert pubkey) 0]
     encodeInner (PubKeyDH _) = error "encodeInner: unimplemented public key DH"
     encodeInner (PubKeyUnknown _ l) =
         asn1Container Sequence [pkalg,Null] ++ [BitString $ toBitArray l 0]

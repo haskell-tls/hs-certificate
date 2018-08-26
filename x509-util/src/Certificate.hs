@@ -1,8 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, OverloadedStrings #-}
 
 import Data.Either
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Lazy.Char8 as LC
+import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import Data.X509
 import qualified Data.X509 as X509
@@ -38,8 +37,8 @@ import Numeric
 formatValidity (start,end) = p start ++ " to " ++ p end
   where p t = timePrint ("YYYY-MM-DD H:MI:S" :: String) t
 
-hexdump :: B.ByteString -> String
-hexdump bs = concatMap hex $ B.unpack bs
+hexdump :: BA.ByteArrayAccess ba => ba -> String
+hexdump bs = concatMap hex $ BA.unpack bs
     where hex n
             | n > 0xf   = showHex n ""
             | otherwise = "0" ++ showHex n ""
@@ -92,6 +91,10 @@ showCertSmall signedCert = do
         X509.PubKeyDSA pubkey     -> printf "public key: DSA\n"
         X509.PubKeyEC (PubKeyEC_Named name _) -> printf "public key: ECDSA (curve %s)\n" (show name)
         X509.PubKeyEC _                       -> printf "public key: ECDSA (explicit curve)\n"
+        X509.PubKeyX25519     _   -> printf "public key: ECDH (curve25519)\n"
+        X509.PubKeyX448       _   -> printf "public key: ECDH (curve448)\n"
+        X509.PubKeyEd25519    _   -> printf "public key: EdDSA (edwards25519)\n"
+        X509.PubKeyEd448      _   -> printf "public key: EdDSA (edwards448)\n"
         X509.PubKeyUnknown oid ws -> printf "public key: unknown: %s\n" (show oid)
         pk                        -> printf "public key: %s\n" (show pk)
   where
@@ -149,6 +152,10 @@ showCert signedCert = do
             printf "  n      : %x\n" (pubkeyEC_order     pubkey)
             printf "  h      : %x\n" (pubkeyEC_cofactor  pubkey)
             printf "  seed   : %x\n" (pubkeyEC_seed      pubkey)
+        X509.PubKeyX25519     pubkey -> showPubHexdump "X25519"     pubkey
+        X509.PubKeyX448       pubkey -> showPubHexdump "X448"       pubkey
+        X509.PubKeyEd25519    pubkey -> showPubHexdump "Ed25519"    pubkey
+        X509.PubKeyEd448      pubkey -> showPubHexdump "Ed448"      pubkey
         X509.PubKeyUnknown oid ws -> do
             printf "public key unknown: %s\n" (show oid)
             printf "  raw bytes: %s\n" (show ws)
@@ -165,6 +172,10 @@ showCert signedCert = do
     sigbits = X509.signedSignature signed
     cert    = X509.signedObject signed
 
+    showPubHexdump :: BA.ByteArrayAccess public => String -> public -> IO ()
+    showPubHexdump alg pubkey = do
+        printf "public key %s:\n" alg
+        printf "  pub    : %s\n" (hexdump pubkey)
 
 showRSAKey :: RSA.PrivateKey -> String
 showRSAKey privkey = unlines
@@ -212,6 +223,11 @@ showECKey privkey@PrivKeyEC_Prime{} = unlines $
             Left xy      -> [ "generator:" ++ (show $ hexdump xy)
                             ]
     mcurve = X509.ecPrivKeyCurve privkey
+
+showPrivHexdump :: BA.ByteArrayAccess secret => secret -> String
+showPrivHexdump privkey = unlines
+    [ "priv:   " ++ hexdump privkey
+    ]
 
 showASN1 :: Int -> [ASN1] -> IO ()
 showASN1 at = prettyPrint at
@@ -332,6 +348,14 @@ doKeyMain files = do
                 putStrLn "DSA KEY" >> putStrLn (showDSAKey k)
             [X509.PrivKeyEC  k] ->
                 putStrLn "EC KEY"  >> putStrLn (showECKey k)
+            [X509.PrivKeyX25519 k] ->
+                putStrLn "X25519 KEY" >> putStrLn (showPrivHexdump k)
+            [X509.PrivKeyX448 k] ->
+                putStrLn "X448 KEY" >> putStrLn (showPrivHexdump k)
+            [X509.PrivKeyEd25519 k] ->
+                putStrLn "Ed25519 KEY" >> putStrLn (showPrivHexdump k)
+            [X509.PrivKeyEd448 k] ->
+                putStrLn "Ed448 KEY" >> putStrLn (showPrivHexdump k)
             _ -> error "private key unknown"
 
 doSystemMain _ = do
