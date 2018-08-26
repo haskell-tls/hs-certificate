@@ -7,12 +7,13 @@ compiler: ghc-8.4 lts-12.9
 
 # options
 # option: alias x=y z=v
+option: cryptonitedeps extradep=cryptonite-0.25 extradep=basement-0.0.6 extradep=foundation-0.0.19 extradep=memory-0.14.14
 
 # builds
 # recognized simple options: nohaddock allow-newer allowed-failure
 # kvs options: flag=pkg:flagname extradep=package-version gitdep=name
 build: ghc-8.2
-build: ghc-8.0 os=linux,osx
+build: ghc-8.0 cryptonitedeps os=linux,osx
 build: ghc-8.4 tests=no benchs=no
 
 # packages
