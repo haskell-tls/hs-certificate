@@ -3,24 +3,24 @@ compiler: ghc-7.8 lts-2.22
 compiler: ghc-7.10 lts-6.35
 compiler: ghc-8.0 lts-9.21
 compiler: ghc-8.2 lts-10.7
-compiler: ghc-8.4 ghc-8.4-rc1
+compiler: ghc-8.4 lts-12.7
 
 # gitdep: name location commit
 
 # options
 # option: alias x=y z=v
 #
-option: rcdeps extradep=asn1-encoding-0.9.5 extradep=asn1-parse-0.9.4 extradep=asn1-types-0.3.2 extradep=cryptonite-0.25 extradep=data-default-class-0.1.2.0 extradep=hourglass-0.2.11 extradep=memory-0.14.16 extradep=pem-0.2.3 extradep=basement-0.0.7 extradep=foundation-0.0.20
+option: cryptonitedeps extradep=cryptonite-0.25 extradep=basement-0.0.7 extradep=memory-0.14.16 extradep=foundation-0.0.20
 
 # builds
 # recognized simple options: nohaddock allow-newer allowed-failure
 # kvs options: flag=pkg:flagname extradep=package-version gitdep=name
-build: ghc-7.8 nohaddock extradep=asn1-parse-0.9.4 extradep=asn1-types-0.3.2 extradep=cryptonite-0.25 extradep=basement-0.0.7 extradep=memory-0.14.16 extradep=foundation-0.0.20
+build: ghc-7.8 nohaddock extradep=asn1-parse-0.9.4 extradep=asn1-types-0.3.2 cryptonitedeps
 build: ghc-8.2
-build: ghc-7.10
-build: ghc-8.0
-build: ghc-8.0 os=osx
-build: ghc-8.4 tests=no benchs=no allow-newer rcdeps
+build: ghc-7.10 cryptonitedeps
+build: ghc-8.0 cryptonitedeps
+build: ghc-8.0 os=osx cryptonitedeps
+build: ghc-8.4
 
 # packages
 package: x509/
