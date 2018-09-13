@@ -149,13 +149,13 @@ ecdsaFromASN1 = go []
     go _ _ = Left $ failing "unexpected EC format"
 
     spanEnd :: Word -> [ASN1] -> ([ASN1], [ASN1])
-    spanEnd = go id
+    spanEnd = loop id
       where
-        go dlist n (a@(Start _) : as) = go (dlist . (a :)) (n + 1) as
-        go dlist 0 (End _ : as) = (dlist [], as)
-        go dlist n (a@(End _) : as) = go (dlist . (a :)) (n - 1) as
-        go dlist n (a : as) = go (dlist . (a :)) n as
-        go dlist _ [] = (dlist [], [])
+        loop dlist n (a@(Start _) : as) = loop (dlist . (a :)) (n + 1) as
+        loop dlist 0 (End _ : as) = (dlist [], as)
+        loop dlist n (a@(End _) : as) = loop (dlist . (a :)) (n - 1) as
+        loop dlist n (a : as) = loop (dlist . (a :)) n as
+        loop dlist _ [] = (dlist [], [])
 
     spanTag :: Int -> [ASN1] -> ([ASN1], [ASN1])
     spanTag a (Start (Container _ b) : as) | a == b = spanEnd 0 as
