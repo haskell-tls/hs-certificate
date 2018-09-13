@@ -1,6 +1,6 @@
 Name:                x509
-version:             1.7.3
-Description:         X509 reader and writer
+version:             1.7.4
+Description:         X509 reader and writer. please see README
 License:             BSD3
 License-file:        LICENSE
 Copyright:           Vincent Hanquez <vincent@snarc.org>
