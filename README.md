@@ -7,6 +7,8 @@ certificate handling for haskell
 
 This repository contains various certificates related PKIX X509 packages.
 
-force reinstalling all x509 for dev:
-
-    for i in x509 x509-store x509-system x509-validation; do (cd $i; cabal install --force-reinstall); done
+* x509: pure X509 support
+* x509-system: system support for MacOs, Windows and Unix to get access to system wide x509 certificate installation
+* x509-store: X509 collection
+* x509-validation: X509 validation of Certificate Hierarchy, key validation, permission
+* x509-util: executable for debugging and query related to system
