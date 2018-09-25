@@ -23,6 +23,7 @@ module Data.X509.Ext
     , ExtCrlDistributionPoints(..)
     , ExtNetscapeComment(..)
     , AltName(..)
+    , IP(..)
     , DistributionPoint(..)
     , ReasonFlag(..)
     -- * Accessor turning extension into a specific one
@@ -30,6 +31,9 @@ module Data.X509.Ext
     , extensionGetE
     , extensionDecode
     , extensionEncode
+    -- * Smart constructors for IP
+    , ipv4FromTuple
+    , ipv6FromTuple
     ) where
 
 import qualified Data.ByteString as B
@@ -43,7 +47,7 @@ import Data.Proxy
 import Data.List (find)
 import Data.X509.ExtensionRaw
 import Data.X509.DistinguishedName
-import Control.Applicative
+import Data.X509.Internal
 import Control.Monad
 
 -- | key usage flag that is found in the key usage extension field.
@@ -214,7 +218,7 @@ data AltName =
       AltNameRFC822 String
     | AltNameDNS String
     | AltNameURI String
-    | AltNameIP  B.ByteString
+    | AltNameIP  IP
     | AltNameXMPP String
     | AltNameDNSSRV String
     deriving (Show,Eq,Ord)
@@ -310,7 +314,7 @@ parseGeneralNames = onNextContainer Sequence $ getMany getAddr
                 (Other Context 1 b) -> return $ AltNameRFC822 $ BC.unpack b
                 (Other Context 2 b) -> return $ AltNameDNS $ BC.unpack b
                 (Other Context 6 b) -> return $ AltNameURI $ BC.unpack b
-                (Other Context 7 b) -> return $ AltNameIP  b
+                (Other Context 7 b) -> either throwParseError (return . AltNameIP) (ipFromBS b)
                 _                   -> throwParseError ("GeneralNames: not coping with unknown stream " ++ show n)
 
 encodeGeneralNames :: [AltName] -> [ASN1]
@@ -321,7 +325,7 @@ encodeGeneralNames names =
   where encodeAltName (AltNameRFC822 n) = [Other Context 1 $ BC.pack n]
         encodeAltName (AltNameDNS n)    = [Other Context 2 $ BC.pack n]
         encodeAltName (AltNameURI n)    = [Other Context 6 $ BC.pack n]
-        encodeAltName (AltNameIP n)     = [Other Context 7 $ n]
+        encodeAltName (AltNameIP n)     = [Other Context 7 $ ipToBS n]
         encodeAltName (AltNameXMPP n)   = [Start (Container Context 0),OID[1,3,6,1,5,5,7,8,5]
                                           ,Start (Container Context 0), ASN1String $ asn1CharacterString UTF8 n, End (Container Context 0)
                                           ,End (Container Context 0)]
