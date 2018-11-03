@@ -17,17 +17,20 @@ import Control.Applicative ((<$>), pure)
 import Data.Maybe (fromMaybe)
 import Data.Word (Word)
 
+import Data.ByteArray (ByteArrayAccess, convert)
 import qualified Data.ByteString as B
 
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
+import Data.ASN1.Stream (getConstructedEnd)
 
 import Data.X509.AlgorithmIdentifier
 import Data.X509.PublicKey (SerializedPoint(..))
 import Data.X509.OID (lookupByOID, lookupOID, curvesOIDTable)
 
+import Crypto.Error (CryptoFailable(..))
 import Crypto.Number.Serialize (i2osp, os2ip)
 import qualified Crypto.PubKey.RSA as RSA
 import qualified Crypto.PubKey.DSA as DSA
@@ -76,7 +79,8 @@ privkeyFromASN1 :: [ASN1] -> Either String (PrivKey, [ASN1])
 privkeyFromASN1 asn1 =
   (mapFst PrivKeyRSA <$> rsaFromASN1 asn1) <!>
   (mapFst PrivKeyDSA <$> dsaFromASN1 asn1) <!>
-  (mapFst PrivKeyEC <$> ecdsaFromASN1 asn1)
+  (mapFst PrivKeyEC <$> ecdsaFromASN1 asn1) <!>
+  newcurveFromASN1 asn1
   where
     mapFst f (a, b) = (f a, b)
 
@@ -170,10 +174,59 @@ ecdsaFromASN1 = go []
     spanTag a (Start (Container _ b) : as) | a == b = spanEnd 0 as
     spanTag _ as = ([], as)
 
+newcurveFromASN1 :: [ASN1] -> Either String (PrivKey, [ASN1])
+newcurveFromASN1 ( Start Sequence
+                  : IntVal v
+                  : Start Sequence
+                  : OID oid
+                  : End Sequence
+                  : OctetString bs
+                  : xs)
+    | isValidVersion v = do
+        let (_, ys) = containerWithTag 0 xs
+        case primitiveWithTag 1 ys of
+            (_, End Sequence : zs) ->
+                case getP oid of
+                    Just (name, parse) -> do
+                        let err s = Left (name ++ ".SecretKey.fromASN1: " ++ s)
+                        case decodeASN1' BER bs of
+                            Right [OctetString key] ->
+                                case parse key of
+                                    CryptoPassed s -> Right (s, zs)
+                                    CryptoFailed e -> err ("invalid secret key: " ++ show e)
+                            Right _ -> err "unexpected inner format"
+                            Left  e -> err (show e)
+                    Nothing -> Left ("newcurveFromASN1: unexpected OID " ++ show oid)
+            _ -> Left "newcurveFromASN1: unexpected end format"
+    | otherwise = Left ("newcurveFromASN1: unexpected version: " ++ show v)
+  where
+    getP [1,3,101,110] = Just ("X25519", fmap PrivKeyX25519 . X25519.secretKey)
+    getP [1,3,101,111] = Just ("X448", fmap PrivKeyX448 . X448.secretKey)
+    getP [1,3,101,112] = Just ("Ed25519", fmap PrivKeyEd25519 . Ed25519.secretKey)
+    getP [1,3,101,113] = Just ("Ed448", fmap PrivKeyEd448 . Ed448.secretKey)
+    getP _             = Nothing
+    isValidVersion version = version >= 0 && version <= 1
+newcurveFromASN1 _ =
+    Left "newcurveFromASN1: unexpected format"
+
+containerWithTag :: ASN1Tag -> [ASN1] -> ([ASN1], [ASN1])
+containerWithTag etag (Start (Container _ atag) : xs)
+    | etag == atag = getConstructedEnd 0 xs
+containerWithTag _    xs = ([], xs)
+
+primitiveWithTag :: ASN1Tag -> [ASN1] -> (Maybe B.ByteString, [ASN1])
+primitiveWithTag etag (Other _ atag bs : xs)
+    | etag == atag = (Just bs, xs)
+primitiveWithTag _    xs = (Nothing, xs)
+
 privkeyToASN1 :: PrivKey -> ASN1S
 privkeyToASN1 (PrivKeyRSA rsa) = rsaToASN1 rsa
 privkeyToASN1 (PrivKeyDSA dsa) = dsaToASN1 dsa
 privkeyToASN1 (PrivKeyEC ecdsa) = ecdsaToASN1 ecdsa
+privkeyToASN1 (PrivKeyX25519 k)  = newcurveToASN1 [1,3,101,110] k
+privkeyToASN1 (PrivKeyX448 k)    = newcurveToASN1 [1,3,101,111] k
+privkeyToASN1 (PrivKeyEd25519 k) = newcurveToASN1 [1,3,101,112] k
+privkeyToASN1 (PrivKeyEd448 k)   = newcurveToASN1 [1,3,101,113] k
 
 rsaToASN1 :: RSA.PrivateKey -> ASN1S
 rsaToASN1 key = (++)
@@ -216,6 +269,13 @@ ecdsaToASN1 (PrivKeyEC_Prime d a b p g o c s) = (++)
     s' = BitArray (8 * fromIntegral (B.length bytes)) bytes
       where
         bytes = i2osp s
+
+newcurveToASN1 :: ByteArrayAccess key => OID -> key -> ASN1S
+newcurveToASN1 oid key = (++)
+    [ Start Sequence, IntVal 0, Start Sequence, OID oid, End Sequence
+    , OctetString (encodeASN1' DER [OctetString $ convert key])
+    , End Sequence
+    ]
 
 mapLeft :: (a0 -> a1) -> Either a0 b -> Either a1 b
 mapLeft f (Left x) = Left (f x)

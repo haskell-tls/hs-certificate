@@ -22,14 +22,9 @@ import qualified Data.X509 as X509
 import           Data.X509.EC as X509
 import Data.PEM (pemParseBS, pemContent, pemName, PEM)
 import qualified Data.ByteString as B
-import           Crypto.Error (CryptoFailable(..))
 import           Crypto.Number.Serialize (os2ip)
-import qualified Crypto.PubKey.Curve25519 as X25519
-import qualified Crypto.PubKey.Curve448   as X448
 import qualified Crypto.PubKey.DSA as DSA
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
-import qualified Crypto.PubKey.Ed25519   as Ed25519
-import qualified Crypto.PubKey.Ed448     as Ed448
 import qualified Crypto.PubKey.RSA as RSA
 
 readKeyFileFromMemory :: B.ByteString -> [X509.PrivKey]
@@ -51,7 +46,7 @@ pemToKey acc pem =
         Right asn1 ->
             case pemName pem of
                 "PRIVATE KEY" ->
-                    tryRSA asn1 : tryECDH asn1 : tryEdDSA asn1 : tryECDSA asn1 : tryDSA asn1 : acc
+                    tryRSA asn1 : tryNewcurve asn1 : tryECDSA asn1 : tryDSA asn1 : acc
                 "RSA PRIVATE KEY" ->
                     tryRSA asn1 : acc
                 "DSA PRIVATE KEY" ->
@@ -59,13 +54,13 @@ pemToKey acc pem =
                 "EC PRIVATE KEY"  ->
                     tryECDSA asn1 : acc
                 "X25519 PRIVATE KEY" ->
-                    tryECDH asn1 : acc
+                    tryNewcurve asn1 : acc
                 "X448 PRIVATE KEY" ->
-                    tryECDH asn1 : acc
+                    tryNewcurve asn1 : acc
                 "ED25519 PRIVATE KEY" ->
-                    tryEdDSA asn1 : acc
+                    tryNewcurve asn1 : acc
                 "ED448 PRIVATE KEY" ->
-                    tryEdDSA asn1 : acc
+                    tryNewcurve asn1 : acc
                 _                 -> acc
   where
         tryRSA asn1 = case rsaFromASN1 asn1 of
@@ -77,12 +72,12 @@ pemToKey acc pem =
         tryECDSA asn1 = case ecdsaFromASN1 [] asn1 of
                     Left _      -> Nothing
                     Right (k,_) -> Just $ X509.PrivKeyEC k
-        tryECDH asn1 = case ecdhFromASN1 asn1 of
-                    Left _      -> Nothing
-                    Right (k,_) -> Just k
-        tryEdDSA asn1 = case eddsaFromASN1 asn1 of
-                    Left _      -> Nothing
-                    Right (k,_) -> Just k
+        tryNewcurve asn1 = case fromASN1 asn1 of
+                    Right (k@(X509.PrivKeyX25519  _),_) -> Just k
+                    Right (k@(X509.PrivKeyX448    _),_) -> Just k
+                    Right (k@(X509.PrivKeyEd25519 _),_) -> Just k
+                    Right (k@(X509.PrivKeyEd448   _),_) -> Just k
+                    _ -> Nothing
 
 dsaFromASN1 :: [ASN1] -> Either String (DSA.KeyPair, [ASN1])
 dsaFromASN1 (Start Sequence : IntVal n : xs)
@@ -182,97 +177,6 @@ containerWithTag :: ASN1Tag -> [ASN1] -> ([ASN1], [ASN1])
 containerWithTag etag (Start (Container _ atag) : xs)
     | etag == atag = getConstructedEnd 0 xs
 containerWithTag _    xs = ([], xs)
-
-primitiveWithTag :: ASN1Tag -> [ASN1] -> (Maybe B.ByteString, [ASN1])
-primitiveWithTag etag (Other _ atag bs : xs)
-    | etag == atag = (Just bs, xs)
-primitiveWithTag _    xs = (Nothing, xs)
-
-ecdhFromASN1 :: [ASN1] -> Either String (X509.PrivKey, [ASN1])
-ecdhFromASN1 ( Start Sequence
-               : IntVal 0
-               : Start Sequence
-               : OID [1, 3, 101, 110]
-               : End Sequence
-               : OctetString bs
-               : xs) =
-    case decodeASN1' BER bs of
-        Right [OctetString key] ->
-                case X25519.secretKey key of
-                    CryptoPassed s -> Right (X509.PrivKeyX25519 s, xs)
-                    CryptoFailed e -> Left $ "ecdhFromASN1: X25519.PrivateKey: invalid secret key: " ++ show e
-        Right _ -> Left "ecdhFromASN1: X25519.PrivateKey: unexpected format"
-        Left  e -> Left $ "ecdhFromASN1: X25519.PrivateKey: " ++ show e
-ecdhFromASN1 ( Start Sequence
-               : IntVal 0
-               : Start Sequence
-               : OID [1, 3, 101, 111]
-               : End Sequence
-               : OctetString bs
-               : xs) =
-    case decodeASN1' BER bs of
-        Right [OctetString key] ->
-                case X448.secretKey key of
-                    CryptoPassed s -> Right (X509.PrivKeyX448 s, xs)
-                    CryptoFailed e -> Left $ "ecdhFromASN1: X448.PrivateKey: invalid secret key: " ++ show e
-        Right _ -> Left "ecdhFromASN1: X448.PrivateKey: unexpected format"
-        Left  e -> Left $ "ecdhFromASN1: X448.PrivateKey: " ++ show e
-ecdhFromASN1 ( Start Sequence
-               : IntVal 1
-               : Start Sequence
-               : oid@(OID _)
-               : End Sequence
-               : os@(OctetString _)
-               : xs) = do
-    let (_, ys) = containerWithTag 0 xs
-    case primitiveWithTag 1 ys of
-        (_, End Sequence : zs) -> ecdhFromASN1 (Start Sequence : IntVal 0 : Start Sequence : oid : End Sequence : os : zs)
-        _                      -> Left "ecdhFromASN1: unexpected V2 format"
-ecdhFromASN1 _ =
-    Left "ecdhFromASN1: unexpected format"
-
-eddsaFromASN1 :: [ASN1] -> Either String (X509.PrivKey, [ASN1])
-eddsaFromASN1 ( Start Sequence
-               : IntVal 0
-               : Start Sequence
-               : OID [1, 3, 101, 112]
-               : End Sequence
-               : OctetString bs
-               : xs) =
-    case decodeASN1' BER bs of
-        Right [OctetString key] ->
-                case Ed25519.secretKey key of
-                    CryptoPassed s -> Right (X509.PrivKeyEd25519 s, xs)
-                    CryptoFailed e -> Left $ "eddsaFromASN1: Ed25519.PrivateKey: invalid secret key: " ++ show e
-        Right _ -> Left "eddsaFromASN1: Ed25519.PrivateKey: unexpected format"
-        Left  e -> Left $ "eddsaFromASN1: Ed25519.PrivateKey: " ++ show e
-eddsaFromASN1 ( Start Sequence
-               : IntVal 0
-               : Start Sequence
-               : OID [1, 3, 101, 113]
-               : End Sequence
-               : OctetString bs
-               : xs) =
-    case decodeASN1' BER bs of
-        Right [OctetString key] ->
-                case Ed448.secretKey key of
-                    CryptoPassed s -> Right (X509.PrivKeyEd448 s, xs)
-                    CryptoFailed e -> Left $ "eddsaFromASN1: Ed448.PrivateKey: invalid secret key: " ++ show e
-        Right _ -> Left "eddsaFromASN1: Ed448.PrivateKey: unexpected format"
-        Left  e -> Left $ "eddsaFromASN1: Ed448.PrivateKey: " ++ show e
-eddsaFromASN1 ( Start Sequence
-               : IntVal 1
-               : Start Sequence
-               : oid@(OID _)
-               : End Sequence
-               : os@(OctetString _)
-               : xs) = do
-    let (_, ys) = containerWithTag 0 xs
-    case primitiveWithTag 1 ys of
-        (_, End Sequence : zs) -> eddsaFromASN1 (Start Sequence : IntVal 0 : Start Sequence : oid : End Sequence : os : zs)
-        _                      -> Left "eddsaFromASN1: unexpected V2 format"
-eddsaFromASN1 _ =
-    Left "eddsaFromASN1: unexpected format"
 
 rsaFromASN1 :: [ASN1] -> Either String (RSA.PrivateKey, [ASN1])
 rsaFromASN1 (Start Sequence

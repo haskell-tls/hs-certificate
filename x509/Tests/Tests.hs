@@ -39,16 +39,16 @@ instance Arbitrary DSA.PublicKey where
     arbitrary = DSA.PublicKey <$> arbitrary <*> arbitrary
 
 instance Arbitrary X25519.PublicKey where
-    arbitrary = X25519.toPublic . throwCryptoError . X25519.secretKey <$> arbitraryBS 32 32
+    arbitrary = X25519.toPublic <$> arbitrary
 
 instance Arbitrary X448.PublicKey where
-    arbitrary = X448.toPublic . throwCryptoError . X448.secretKey <$> arbitraryBS 56 56
+    arbitrary = X448.toPublic <$> arbitrary
 
 instance Arbitrary Ed25519.PublicKey where
-    arbitrary = Ed25519.toPublic . throwCryptoError . Ed25519.secretKey <$> arbitraryBS 32 32
+    arbitrary = Ed25519.toPublic <$> arbitrary
 
 instance Arbitrary Ed448.PublicKey where
-    arbitrary = Ed448.toPublic . throwCryptoError . Ed448.secretKey <$> arbitraryBS 57 57
+    arbitrary = Ed448.toPublic <$> arbitrary
 
 instance Arbitrary PubKey where
     arbitrary = oneof
@@ -73,11 +73,27 @@ instance Arbitrary RSA.PrivateKey where
 instance Arbitrary DSA.PrivateKey where
     arbitrary = DSA.PrivateKey <$> arbitrary <*> arbitrary
 
+instance Arbitrary X25519.SecretKey where
+    arbitrary = throwCryptoError . X25519.secretKey <$> arbitraryBS 32 32
+
+instance Arbitrary X448.SecretKey where
+    arbitrary = throwCryptoError . X448.secretKey <$> arbitraryBS 56 56
+
+instance Arbitrary Ed25519.SecretKey where
+    arbitrary = throwCryptoError . Ed25519.secretKey <$> arbitraryBS 32 32
+
+instance Arbitrary Ed448.SecretKey where
+    arbitrary = throwCryptoError . Ed448.secretKey <$> arbitraryBS 57 57
+
 instance Arbitrary PrivKey where
     arbitrary = oneof
         [ PrivKeyRSA <$> arbitrary
         , PrivKeyDSA <$> arbitrary
         --, PrivKeyECDSA ECDSA_Hash_SHA384 <$> (B.pack <$> replicateM 384 arbitrary)
+        , PrivKeyX25519 <$> arbitrary
+        , PrivKeyX448 <$> arbitrary
+        , PrivKeyEd25519 <$> arbitrary
+        , PrivKeyEd448 <$> arbitrary
         ]
 
 instance Arbitrary HashALG where
