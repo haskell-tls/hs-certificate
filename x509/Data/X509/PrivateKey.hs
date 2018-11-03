@@ -14,6 +14,7 @@ module Data.X509.PrivateKey
     ) where
 
 import Control.Applicative ((<$>), pure)
+import Data.Maybe (fromMaybe)
 import Data.Word (Word)
 
 import qualified Data.ByteString as B
@@ -25,7 +26,7 @@ import Data.ASN1.BitArray
 
 import Data.X509.AlgorithmIdentifier
 import Data.X509.PublicKey (SerializedPoint(..))
-import Data.X509.OID (lookupByOID, curvesOIDTable)
+import Data.X509.OID (lookupByOID, lookupOID, curvesOIDTable)
 
 import Crypto.Number.Serialize (i2osp, os2ip)
 import qualified Crypto.PubKey.RSA as RSA
@@ -197,40 +198,9 @@ ecdsaToASN1 (PrivKeyEC_Named curveName d) = (++)
     , End Sequence
     ]
   where
-    oid = case curveName of
-        ECC.SEC_p112r1 -> [1, 3, 132, 0, 6]
-        ECC.SEC_p112r2 -> [1, 3, 132, 0, 7]
-        ECC.SEC_p128r1 -> [1, 3, 132, 0, 28]
-        ECC.SEC_p128r2 -> [1, 3, 132, 0, 29]
-        ECC.SEC_p160k1 -> [1, 3, 132, 0, 9]
-        ECC.SEC_p160r1 -> [1, 3, 132, 0, 8]
-        ECC.SEC_p160r2 -> [1, 3, 132, 0, 30]
-        ECC.SEC_p192k1 -> [1, 3, 132, 0, 31]
-        ECC.SEC_p192r1 -> [1, 2, 840, 10045, 3, 1, 1]
-        ECC.SEC_p224k1 -> [1, 3, 132, 0, 32]
-        ECC.SEC_p224r1 -> [1, 3, 132, 0, 33]
-        ECC.SEC_p256k1 -> [1, 3, 132, 0, 10]
-        ECC.SEC_p256r1 -> [1, 2, 840, 10045, 3, 1, 7]
-        ECC.SEC_p384r1 -> [1, 3, 132, 0, 34]
-        ECC.SEC_p521r1 -> [1, 3, 132, 0, 35]
-        ECC.SEC_t113r1 -> [1, 3, 132, 0, 4]
-        ECC.SEC_t113r2 -> [1, 3, 132, 0, 5]
-        ECC.SEC_t131r1 -> [1, 3, 132, 0, 22]
-        ECC.SEC_t131r2 -> [1, 3, 132, 0, 23]
-        ECC.SEC_t163k1 -> [1, 3, 132, 0, 1]
-        ECC.SEC_t163r1 -> [1, 3, 132, 0, 2]
-        ECC.SEC_t163r2 -> [1, 3, 132, 0, 15]
-        ECC.SEC_t193r1 -> [1, 3, 132, 0, 24]
-        ECC.SEC_t193r2 -> [1, 3, 132, 0, 25]
-        ECC.SEC_t233k1 -> [1, 3, 132, 0, 26]
-        ECC.SEC_t233r1 -> [1, 3, 132, 0, 27]
-        ECC.SEC_t239k1 -> [1, 3, 132, 0, 3]
-        ECC.SEC_t283k1 -> [1, 3, 132, 0, 16]
-        ECC.SEC_t283r1 -> [1, 3, 132, 0, 17]
-        ECC.SEC_t409k1 -> [1, 3, 132, 0, 36]
-        ECC.SEC_t409r1 -> [1, 3, 132, 0, 37]
-        ECC.SEC_t571k1 -> [1, 3, 132, 0, 38]
-        ECC.SEC_t571r1 -> [1, 3, 132, 0, 39]
+    err = error . ("ECDSA.PrivateKey.toASN1: " ++)
+    oid = fromMaybe (err $ "missing named curve " ++ show curveName)
+                    (lookupOID curvesOIDTable curveName)
 ecdsaToASN1 (PrivKeyEC_Prime d a b p g o c s) = (++)
     [ Start Sequence, IntVal 1, OctetString (i2osp d)
     , Start (Container Context 0), Start Sequence, IntVal 1
