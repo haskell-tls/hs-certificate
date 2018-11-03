@@ -61,6 +61,25 @@ instance Arbitrary PubKey where
         , PubKeyEd448 <$> arbitrary
         ]
 
+instance Arbitrary RSA.PrivateKey where
+    arbitrary = RSA.PrivateKey <$> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+
+instance Arbitrary DSA.PrivateKey where
+    arbitrary = DSA.PrivateKey <$> arbitrary <*> arbitrary
+
+instance Arbitrary PrivKey where
+    arbitrary = oneof
+        [ PrivKeyRSA <$> arbitrary
+        , PrivKeyDSA <$> arbitrary
+        --, PrivKeyECDSA ECDSA_Hash_SHA384 <$> (B.pack <$> replicateM 384 arbitrary)
+        ]
+
 instance Arbitrary HashALG where
     arbitrary = elements [HashMD2,HashMD5,HashSHA1,HashSHA224,HashSHA256,HashSHA384,HashSHA512]
 
@@ -175,6 +194,7 @@ property_extension_id e = case extDecode (extEncode e) of
 main = defaultMain $ testGroup "X509"
     [ testGroup "marshall"
         [ testProperty "pubkey" (property_unmarshall_marshall_id :: PubKey -> Bool)
+        , testProperty "privkey" (property_unmarshall_marshall_id :: PrivKey -> Bool)
         , testProperty "signature alg" (property_unmarshall_marshall_id :: SignatureALG -> Bool)
         , testGroup "extension"
             [ testProperty "key-usage" (property_extension_id :: ExtKeyUsage -> Bool)
