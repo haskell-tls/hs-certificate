@@ -46,13 +46,21 @@ pemToKey acc pem =
         Right asn1 ->
             case pemName pem of
                 "PRIVATE KEY" ->
-                    tryRSA asn1 : tryECDSA asn1 : tryDSA asn1 : acc
+                    tryRSA asn1 : tryNewcurve asn1 : tryECDSA asn1 : tryDSA asn1 : acc
                 "RSA PRIVATE KEY" ->
                     tryRSA asn1 : acc
                 "DSA PRIVATE KEY" ->
                     tryDSA asn1 : acc
                 "EC PRIVATE KEY"  ->
                     tryECDSA asn1 : acc
+                "X25519 PRIVATE KEY" ->
+                    tryNewcurve asn1 : acc
+                "X448 PRIVATE KEY" ->
+                    tryNewcurve asn1 : acc
+                "ED25519 PRIVATE KEY" ->
+                    tryNewcurve asn1 : acc
+                "ED448 PRIVATE KEY" ->
+                    tryNewcurve asn1 : acc
                 _                 -> acc
   where
         tryRSA asn1 = case rsaFromASN1 asn1 of
@@ -64,6 +72,12 @@ pemToKey acc pem =
         tryECDSA asn1 = case ecdsaFromASN1 [] asn1 of
                     Left _      -> Nothing
                     Right (k,_) -> Just $ X509.PrivKeyEC k
+        tryNewcurve asn1 = case fromASN1 asn1 of
+                    Right (k@(X509.PrivKeyX25519  _),_) -> Just k
+                    Right (k@(X509.PrivKeyX448    _),_) -> Just k
+                    Right (k@(X509.PrivKeyEd25519 _),_) -> Just k
+                    Right (k@(X509.PrivKeyEd448   _),_) -> Just k
+                    _ -> Nothing
 
 dsaFromASN1 :: [ASN1] -> Either String (DSA.KeyPair, [ASN1])
 dsaFromASN1 (Start Sequence : IntVal n : xs)

@@ -12,6 +12,11 @@ import Control.Monad
 import Data.List (nub, sort)
 import Data.ASN1.Types
 import Data.X509
+import Crypto.Error (throwCryptoError)
+import qualified Crypto.PubKey.Curve25519 as X25519
+import qualified Crypto.PubKey.Curve448   as X448
+import qualified Crypto.PubKey.Ed25519    as Ed25519
+import qualified Crypto.PubKey.Ed448      as Ed448
 import qualified Crypto.PubKey.RSA as RSA
 import qualified Crypto.PubKey.DSA as DSA
 
@@ -33,11 +38,62 @@ instance Arbitrary DSA.Params where
 instance Arbitrary DSA.PublicKey where
     arbitrary = DSA.PublicKey <$> arbitrary <*> arbitrary
 
+instance Arbitrary X25519.PublicKey where
+    arbitrary = X25519.toPublic <$> arbitrary
+
+instance Arbitrary X448.PublicKey where
+    arbitrary = X448.toPublic <$> arbitrary
+
+instance Arbitrary Ed25519.PublicKey where
+    arbitrary = Ed25519.toPublic <$> arbitrary
+
+instance Arbitrary Ed448.PublicKey where
+    arbitrary = Ed448.toPublic <$> arbitrary
+
 instance Arbitrary PubKey where
     arbitrary = oneof
         [ PubKeyRSA <$> arbitrary
         , PubKeyDSA <$> arbitrary
         --, PubKeyECDSA ECDSA_Hash_SHA384 <$> (B.pack <$> replicateM 384 arbitrary)
+        , PubKeyX25519 <$> arbitrary
+        , PubKeyX448 <$> arbitrary
+        , PubKeyEd25519 <$> arbitrary
+        , PubKeyEd448 <$> arbitrary
+        ]
+
+instance Arbitrary RSA.PrivateKey where
+    arbitrary = RSA.PrivateKey <$> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+                               <*> arbitrary
+
+instance Arbitrary DSA.PrivateKey where
+    arbitrary = DSA.PrivateKey <$> arbitrary <*> arbitrary
+
+instance Arbitrary X25519.SecretKey where
+    arbitrary = throwCryptoError . X25519.secretKey <$> arbitraryBS 32 32
+
+instance Arbitrary X448.SecretKey where
+    arbitrary = throwCryptoError . X448.secretKey <$> arbitraryBS 56 56
+
+instance Arbitrary Ed25519.SecretKey where
+    arbitrary = throwCryptoError . Ed25519.secretKey <$> arbitraryBS 32 32
+
+instance Arbitrary Ed448.SecretKey where
+    arbitrary = throwCryptoError . Ed448.secretKey <$> arbitraryBS 57 57
+
+instance Arbitrary PrivKey where
+    arbitrary = oneof
+        [ PrivKeyRSA <$> arbitrary
+        , PrivKeyDSA <$> arbitrary
+        --, PrivKeyECDSA ECDSA_Hash_SHA384 <$> (B.pack <$> replicateM 384 arbitrary)
+        , PrivKeyX25519 <$> arbitrary
+        , PrivKeyX448 <$> arbitrary
+        , PrivKeyEd25519 <$> arbitrary
+        , PrivKeyEd448 <$> arbitrary
         ]
 
 instance Arbitrary HashALG where
@@ -65,6 +121,8 @@ instance Arbitrary SignatureALG where
         , SignatureALG HashSHA256 PubKeyALG_EC
         , SignatureALG HashSHA384 PubKeyALG_EC
         , SignatureALG HashSHA512 PubKeyALG_EC
+        , SignatureALG_IntrinsicHash PubKeyALG_Ed25519
+        , SignatureALG_IntrinsicHash PubKeyALG_Ed448
         ]
 
 arbitraryBS r1 r2 = choose (r1,r2) >>= \l -> (B.pack <$> replicateM l arbitrary)
@@ -152,6 +210,7 @@ property_extension_id e = case extDecode (extEncode e) of
 main = defaultMain $ testGroup "X509"
     [ testGroup "marshall"
         [ testProperty "pubkey" (property_unmarshall_marshall_id :: PubKey -> Bool)
+        , testProperty "privkey" (property_unmarshall_marshall_id :: PrivKey -> Bool)
         , testProperty "signature alg" (property_unmarshall_marshall_id :: SignatureALG -> Bool)
         , testGroup "extension"
             [ testProperty "key-usage" (property_extension_id :: ExtKeyUsage -> Bool)

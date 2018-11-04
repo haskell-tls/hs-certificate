@@ -193,12 +193,143 @@ ecKey2Epc = fromString $
     "Uck8U4LTKtiWK6dd2zTRWU6ze/4UJUuZTnJb7Q==\n" ++
     "-----END EC PRIVATE KEY-----\n"
 
+{-
+  openssl req -new -x509 -subj /CN=CA -newkey rsa:1024 -nodes -reqexts v3_ca \
+      -keyout cakey.pem -out cacert.pem
+  openssl req -new -subj /CN=Test -key cakey.pem -nodes -reqexts v3_req \
+      -out req.pem
+  openssl genpkey -algorithm x25519 -out privkey.pem
+  openssl pkey -in privkey.pem -pubout -out pubkey.pem
+  openssl x509 -req -in req.pem -CA cacert.pem -CAkey cakey.pem \
+      -set_serial 2 -force_pubkey pubkey.pem \
+      | sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'
+  sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'  privkey.pem
+  openssl pkey -in privkey.pem -traditional \
+      | sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'
+-}
+x25519Certificate, x25519Key1, x25519Key2 :: B.ByteString
+x25519Certificate = fromString $
+    "-----BEGIN CERTIFICATE-----\n" ++
+    "MIIBEzB+AgECMA0GCSqGSIb3DQEBCwUAMA0xCzAJBgNVBAMMAkNBMB4XDTE4MDgy\n" ++
+    "NjE0MTIzOFoXDTE4MDkyNTE0MTIzOFowDzENMAsGA1UEAwwEVGVzdDAqMAUGAytl\n" ++
+    "bgMhAMzDmaCSEjQR6yWKSdWBxw4YNOb6YMETiWt7AVOUaxw9MA0GCSqGSIb3DQEB\n" ++
+    "CwUAA4GBAEJrXXtt9XaL3oARVv8hm/abqhUds9ytT4CQtaQgSV7HQIp96LN87pc9\n" ++
+    "pwrISZrWuIlVpyQpGOK1i+uI3LgdKn1zO5CJdjRtW6lCCXg9R/wEcEKAiVKIzg2G\n" ++
+    "FanQ4TG8YzfBToUbsSMfptxhbKPk/lVa8ffmXLZBILjPbI63iu4d\n" ++
+    "-----END CERTIFICATE-----\n"
+x25519Key1 = fromString $
+    "-----BEGIN PRIVATE KEY-----\n" ++
+    "MC4CAQAwBQYDK2VuBCIEIEhpc79EOwSU0JgHC6/32OUYul2yRiha3aftJiHybq1F\n" ++
+    "-----END PRIVATE KEY-----\n"
+x25519Key2 = fromString $
+    "-----BEGIN X25519 PRIVATE KEY-----\n" ++
+    "MC4CAQAwBQYDK2VuBCIEIEhpc79EOwSU0JgHC6/32OUYul2yRiha3aftJiHybq1F\n" ++
+    "-----END X25519 PRIVATE KEY-----\n"
+
+{-
+  openssl req -new -x509 -subj /CN=CA -newkey rsa:1024 -nodes -reqexts v3_ca \
+      -keyout cakey.pem -out cacert.pem
+  openssl req -new -subj /CN=Test -key cakey.pem -nodes -reqexts v3_req \
+      -out req.pem
+  openssl genpkey -algorithm x448 -out privkey.pem
+  openssl pkey -in privkey.pem -pubout -out pubkey.pem
+  openssl x509 -req -in req.pem -CA cacert.pem -CAkey cakey.pem \
+      -set_serial 2 -force_pubkey pubkey.pem \
+      | sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'
+  sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'  privkey.pem
+  openssl pkey -in privkey.pem -traditional \
+      | sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'
+-}
+x448Certificate, x448Key1, x448Key2 :: B.ByteString
+x448Certificate = fromString $
+    "-----BEGIN CERTIFICATE-----\n" ++
+    "MIIBLDCBlgIBAjANBgkqhkiG9w0BAQsFADANMQswCQYDVQQDDAJDQTAeFw0xODA4\n" ++
+    "MjYxNDEzMTlaFw0xODA5MjUxNDEzMTlaMA8xDTALBgNVBAMMBFRlc3QwQjAFBgMr\n" ++
+    "ZW8DOQCh0ta92rVURtIK29lN9F1QbBpSV0jAr7jAXLdz4SHPPO1OO+2gXvjuDpt3\n" ++
+    "lTzR6oZQkAc5nK43PjANBgkqhkiG9w0BAQsFAAOBgQCk2dVKQpLS4/EEe2fuRMvs\n" ++
+    "2qvERTT41P9cjkz3obrizjg68Aaj1m/0SeQFWYh4QeGf7lVSA6evPQG8XdscHHMd\n" ++
+    "/7/U/gfY+aTiaKTf/E7pXMdtiMEOkcrA1J5fnI5M96R6UMRIRbqxhpGC/Jb7EdVM\n" ++
+    "LAlOqcCwRBVCEJnexQK1TA==\n" ++
+    "-----END CERTIFICATE-----\n"
+x448Key1 = fromString $
+    "-----BEGIN PRIVATE KEY-----\n" ++
+    "MEYCAQAwBQYDK2VvBDoEOKxpGvu6rhYy78qgxgtT+uZt4Ctxd3AB/S59i1Cx03hR\n" ++
+    "kVB9q7Mz02YjHbwAaM/hAHajYdwHa7aV\n" ++
+    "-----END PRIVATE KEY-----\n"
+x448Key2 = fromString $
+    "-----BEGIN X448 PRIVATE KEY-----\n" ++
+    "MEYCAQAwBQYDK2VvBDoEOKxpGvu6rhYy78qgxgtT+uZt4Ctxd3AB/S59i1Cx03hR\n" ++
+    "kVB9q7Mz02YjHbwAaM/hAHajYdwHa7aV\n" ++
+    "-----END X448 PRIVATE KEY-----\n"
+
+{-
+  openssl req -new -x509 -subj /CN=Test -newkey ed25519 -nodes -reqexts v3_req \
+      | sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'
+  sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'  privkey.pem
+  openssl pkey -in privkey.pem -traditional \
+      | sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'
+-}
+ed25519Certificate, ed25519Key1, ed25519Key2 :: B.ByteString
+ed25519Certificate = fromString $
+    "-----BEGIN CERTIFICATE-----\n" ++
+    "MIIBMjCB5aADAgECAhR6ecRAmI54Nv+XftTZ/GSiPICx0TAFBgMrZXAwDzENMAsG\n" ++
+    "A1UEAwwEVGVzdDAeFw0xODA4MTUxMTQ3MDNaFw0xODA5MTQxMTQ3MDNaMA8xDTAL\n" ++
+    "BgNVBAMMBFRlc3QwKjAFBgMrZXADIQAI0GFxXxlCuJD082Grn0p0AZ/staBylKsS\n" ++
+    "OwPu6iPHb6NTMFEwHQYDVR0OBBYEFGTOlalKBchEtrbeG5jRF5fbzhDJMB8GA1Ud\n" ++
+    "IwQYMBaAFGTOlalKBchEtrbeG5jRF5fbzhDJMA8GA1UdEwEB/wQFMAMBAf8wBQYD\n" ++
+    "K2VwA0EARON+KCuJoY1u8Yrn/MrCBpeu49AIMbqoyB8YN6msQpLPjWzLYaC70Cc2\n" ++
+    "DY6BFI5hKr+mLCN/+VlzRzqW8dqSDg==\n" ++
+    "-----END CERTIFICATE-----\n"
+ed25519Key1 = fromString $
+    "-----BEGIN PRIVATE KEY-----\n" ++
+    "MC4CAQAwBQYDK2VwBCIEILEtRbG7T++/S58HPwVUJSR12Iu8FVputSfQBkotgeZ0\n" ++
+    "-----END PRIVATE KEY-----\n"
+ed25519Key2 = fromString $
+    "-----BEGIN ED25519 PRIVATE KEY-----\n" ++
+    "MC4CAQAwBQYDK2VwBCIEILEtRbG7T++/S58HPwVUJSR12Iu8FVputSfQBkotgeZ0\n" ++
+    "-----END ED25519 PRIVATE KEY-----\n"
+
+{-
+  openssl req -new -x509 -subj /CN=Test -newkey ed448 -nodes -reqexts v3_req \
+      | sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'
+  sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'  privkey.pem
+  openssl pkey -in privkey.pem -traditional \
+      | sed -e 's/^\(.*\)$/    "\1\\n"/' -e '$!s/$/ ++/'
+-}
+ed448Certificate, ed448Key1, ed448Key2 :: B.ByteString
+ed448Certificate = fromString $
+    "-----BEGIN CERTIFICATE-----\n" ++
+    "MIIBfTCB/qADAgECAhQ4hHMRAtg46drqmq6GQxeDN1WScDAFBgMrZXEwDzENMAsG\n" ++
+    "A1UEAwwEVGVzdDAeFw0xODA4MTUxMTQ1MzRaFw0xODA5MTQxMTQ1MzRaMA8xDTAL\n" ++
+    "BgNVBAMMBFRlc3QwQzAFBgMrZXEDOgBMbAytTVwKE9JHijqIy1q+wgs/G235N2w9\n" ++
+    "Hfai1DjPd5nyVDeSD+BHiuJZDWfxRe6y34seoIsszQCjUzBRMB0GA1UdDgQWBBQo\n" ++
+    "Nz/cV3FL07M93xsySVPHD0nOojAfBgNVHSMEGDAWgBQoNz/cV3FL07M93xsySVPH\n" ++
+    "D0nOojAPBgNVHRMBAf8EBTADAQH/MAUGAytlcQNzABqXoKLJjmHK+smSGeh5M0vU\n" ++
+    "PbHM3oSuiS25Q5UqHnrrxgyVBvq83/jCpEHc03BOSrMU5fRhbc84AK1kAPeEdGns\n" ++
+    "dsG2uVxz0be795jKStt0a0o/w9cN5bd761Oeqoqs8CxWtjALhLu27IiY5uRkG5Uq\n" ++
+    "AA==\n" ++
+    "-----END CERTIFICATE-----\n"
+ed448Key1 = fromString $
+    "-----BEGIN PRIVATE KEY-----\n" ++
+    "MEcCAQAwBQYDK2VxBDsEOcYO2tQ1U1vNoCUT0bNXVeausDEkUMmN0RI4ZUWU+9jA\n" ++
+    "ZxaQP40ONQ5yQM/V6Nuw3NlDnp8OU9R18Q==\n" ++
+    "-----END PRIVATE KEY-----\n"
+ed448Key2 = fromString $
+    "-----BEGIN ED448 PRIVATE KEY-----\n" ++
+    "MEcCAQAwBQYDK2VxBDsEOcYO2tQ1U1vNoCUT0bNXVeausDEkUMmN0RI4ZUWU+9jA\n" ++
+    "ZxaQP40ONQ5yQM/V6Nuw3NlDnp8OU9R18Q==\n" ++
+    "-----END ED448 PRIVATE KEY-----\n"
+
 memoryKeyTests :: TestTree
 memoryKeyTests = testGroup "Key"
     [ keyTest "RSA"                        rsaKey1      rsaKey2
     , keyTest "DSA"                        dsaKey1      dsaKey2
     , keyTest "EC (named curve)"           ecKey1Nc     ecKey2Nc
     , keyTest "EC (explicit prime curve)"  ecKey1Epc    ecKey2Epc
+    , keyTest "X25519"                     x25519Key1   x25519Key2
+    , keyTest "X448"                       x448Key1     x448Key2
+    , keyTest "Ed25519"                    ed25519Key1  ed25519Key2
+    , keyTest "Ed448"                      ed448Key1    ed448Key2
     ]
   where
     keyTest name outer inner =
@@ -217,6 +348,10 @@ memoryCertificateTests = testGroup "Certificate"
     , certTest "DSA"                        dsaCertificate
     , certTest "EC (named curve)"           ecCertificateNc
     , certTest "EC (explicit prime curve)"  ecCertificateEpc
+    , certTest "X25519"                     x25519Certificate
+    , certTest "X448"                       x448Certificate
+    , certTest "Ed25519"                    ed25519Certificate
+    , certTest "Ed448"                      ed448Certificate
     ]
   where
     certTest name bytes = testCase name $

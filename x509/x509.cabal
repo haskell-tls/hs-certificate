@@ -25,7 +25,7 @@ Library
                    , asn1-types >= 0.3.1 && < 0.4
                    , asn1-encoding >= 0.9 && < 0.10
                    , asn1-parse >= 0.9.3 && < 0.10
-                   , cryptonite >= 0.8
+                   , cryptonite >= 0.24
   Exposed-modules:   Data.X509
                      Data.X509.EC
   Other-modules:     Data.X509.Internal

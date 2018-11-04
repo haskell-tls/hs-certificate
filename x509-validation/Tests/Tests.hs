@@ -583,6 +583,8 @@ main = defaultMain $ testGroup "Validation"
     , treeWithAlg "RSAPSS" (AlgRSAPSS 2048 pssParams hashSHA224)
     , treeWithAlg "DSA"    (AlgDSA    dsaParams      hashSHA1)
     , treeWithAlg "ECDSA"  (AlgEC     curveName      hashSHA512)
+    , treeWithAlg "Ed25519" AlgEd25519
+    , treeWithAlg "Ed448"   AlgEd448
     ]
   where
     pssParams = PSS.defaultPSSParams SHA224

@@ -14,23 +14,31 @@ module Data.X509.PrivateKey
     ) where
 
 import Control.Applicative ((<$>), pure)
+import Data.Maybe (fromMaybe)
 import Data.Word (Word)
 
+import Data.ByteArray (ByteArrayAccess, convert)
 import qualified Data.ByteString as B
 
 import Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.BitArray
+import Data.ASN1.Stream (getConstructedEnd)
 
 import Data.X509.AlgorithmIdentifier
 import Data.X509.PublicKey (SerializedPoint(..))
-import Data.X509.OID (lookupByOID, curvesOIDTable)
+import Data.X509.OID (lookupByOID, lookupOID, curvesOIDTable)
 
+import Crypto.Error (CryptoFailable(..))
 import Crypto.Number.Serialize (i2osp, os2ip)
 import qualified Crypto.PubKey.RSA as RSA
 import qualified Crypto.PubKey.DSA as DSA
 import qualified Crypto.PubKey.ECC.Types as ECC
+import qualified Crypto.PubKey.Curve25519 as X25519
+import qualified Crypto.PubKey.Curve448   as X448
+import qualified Crypto.PubKey.Ed25519    as Ed25519
+import qualified Crypto.PubKey.Ed448      as Ed448
 
 -- | Elliptic Curve Private Key
 --
@@ -57,6 +65,10 @@ data PrivKey =
       PrivKeyRSA RSA.PrivateKey -- ^ RSA private key
     | PrivKeyDSA DSA.PrivateKey -- ^ DSA private key
     | PrivKeyEC  PrivKeyEC      -- ^ EC private key
+    | PrivKeyX25519 X25519.SecretKey   -- ^ X25519 private key
+    | PrivKeyX448 X448.SecretKey       -- ^ X448 private key
+    | PrivKeyEd25519 Ed25519.SecretKey -- ^ Ed25519 private key
+    | PrivKeyEd448 Ed448.SecretKey     -- ^ Ed448 private key
     deriving (Show,Eq)
 
 instance ASN1Object PrivKey where
@@ -67,7 +79,8 @@ privkeyFromASN1 :: [ASN1] -> Either String (PrivKey, [ASN1])
 privkeyFromASN1 asn1 =
   (mapFst PrivKeyRSA <$> rsaFromASN1 asn1) <!>
   (mapFst PrivKeyDSA <$> dsaFromASN1 asn1) <!>
-  (mapFst PrivKeyEC <$> ecdsaFromASN1 asn1)
+  (mapFst PrivKeyEC <$> ecdsaFromASN1 asn1) <!>
+  newcurveFromASN1 asn1
   where
     mapFst f (a, b) = (f a, b)
 
@@ -161,10 +174,59 @@ ecdsaFromASN1 = go []
     spanTag a (Start (Container _ b) : as) | a == b = spanEnd 0 as
     spanTag _ as = ([], as)
 
+newcurveFromASN1 :: [ASN1] -> Either String (PrivKey, [ASN1])
+newcurveFromASN1 ( Start Sequence
+                  : IntVal v
+                  : Start Sequence
+                  : OID oid
+                  : End Sequence
+                  : OctetString bs
+                  : xs)
+    | isValidVersion v = do
+        let (_, ys) = containerWithTag 0 xs
+        case primitiveWithTag 1 ys of
+            (_, End Sequence : zs) ->
+                case getP oid of
+                    Just (name, parse) -> do
+                        let err s = Left (name ++ ".SecretKey.fromASN1: " ++ s)
+                        case decodeASN1' BER bs of
+                            Right [OctetString key] ->
+                                case parse key of
+                                    CryptoPassed s -> Right (s, zs)
+                                    CryptoFailed e -> err ("invalid secret key: " ++ show e)
+                            Right _ -> err "unexpected inner format"
+                            Left  e -> err (show e)
+                    Nothing -> Left ("newcurveFromASN1: unexpected OID " ++ show oid)
+            _ -> Left "newcurveFromASN1: unexpected end format"
+    | otherwise = Left ("newcurveFromASN1: unexpected version: " ++ show v)
+  where
+    getP [1,3,101,110] = Just ("X25519", fmap PrivKeyX25519 . X25519.secretKey)
+    getP [1,3,101,111] = Just ("X448", fmap PrivKeyX448 . X448.secretKey)
+    getP [1,3,101,112] = Just ("Ed25519", fmap PrivKeyEd25519 . Ed25519.secretKey)
+    getP [1,3,101,113] = Just ("Ed448", fmap PrivKeyEd448 . Ed448.secretKey)
+    getP _             = Nothing
+    isValidVersion version = version >= 0 && version <= 1
+newcurveFromASN1 _ =
+    Left "newcurveFromASN1: unexpected format"
+
+containerWithTag :: ASN1Tag -> [ASN1] -> ([ASN1], [ASN1])
+containerWithTag etag (Start (Container _ atag) : xs)
+    | etag == atag = getConstructedEnd 0 xs
+containerWithTag _    xs = ([], xs)
+
+primitiveWithTag :: ASN1Tag -> [ASN1] -> (Maybe B.ByteString, [ASN1])
+primitiveWithTag etag (Other _ atag bs : xs)
+    | etag == atag = (Just bs, xs)
+primitiveWithTag _    xs = (Nothing, xs)
+
 privkeyToASN1 :: PrivKey -> ASN1S
 privkeyToASN1 (PrivKeyRSA rsa) = rsaToASN1 rsa
 privkeyToASN1 (PrivKeyDSA dsa) = dsaToASN1 dsa
 privkeyToASN1 (PrivKeyEC ecdsa) = ecdsaToASN1 ecdsa
+privkeyToASN1 (PrivKeyX25519 k)  = newcurveToASN1 [1,3,101,110] k
+privkeyToASN1 (PrivKeyX448 k)    = newcurveToASN1 [1,3,101,111] k
+privkeyToASN1 (PrivKeyEd25519 k) = newcurveToASN1 [1,3,101,112] k
+privkeyToASN1 (PrivKeyEd448 k)   = newcurveToASN1 [1,3,101,113] k
 
 rsaToASN1 :: RSA.PrivateKey -> ASN1S
 rsaToASN1 key = (++)
@@ -189,40 +251,9 @@ ecdsaToASN1 (PrivKeyEC_Named curveName d) = (++)
     , End Sequence
     ]
   where
-    oid = case curveName of
-        ECC.SEC_p112r1 -> [1, 3, 132, 0, 6]
-        ECC.SEC_p112r2 -> [1, 3, 132, 0, 7]
-        ECC.SEC_p128r1 -> [1, 3, 132, 0, 28]
-        ECC.SEC_p128r2 -> [1, 3, 132, 0, 29]
-        ECC.SEC_p160k1 -> [1, 3, 132, 0, 9]
-        ECC.SEC_p160r1 -> [1, 3, 132, 0, 8]
-        ECC.SEC_p160r2 -> [1, 3, 132, 0, 30]
-        ECC.SEC_p192k1 -> [1, 3, 132, 0, 31]
-        ECC.SEC_p192r1 -> [1, 2, 840, 10045, 3, 1, 1]
-        ECC.SEC_p224k1 -> [1, 3, 132, 0, 32]
-        ECC.SEC_p224r1 -> [1, 3, 132, 0, 33]
-        ECC.SEC_p256k1 -> [1, 3, 132, 0, 10]
-        ECC.SEC_p256r1 -> [1, 2, 840, 10045, 3, 1, 7]
-        ECC.SEC_p384r1 -> [1, 3, 132, 0, 34]
-        ECC.SEC_p521r1 -> [1, 3, 132, 0, 35]
-        ECC.SEC_t113r1 -> [1, 3, 132, 0, 4]
-        ECC.SEC_t113r2 -> [1, 3, 132, 0, 5]
-        ECC.SEC_t131r1 -> [1, 3, 132, 0, 22]
-        ECC.SEC_t131r2 -> [1, 3, 132, 0, 23]
-        ECC.SEC_t163k1 -> [1, 3, 132, 0, 1]
-        ECC.SEC_t163r1 -> [1, 3, 132, 0, 2]
-        ECC.SEC_t163r2 -> [1, 3, 132, 0, 15]
-        ECC.SEC_t193r1 -> [1, 3, 132, 0, 24]
-        ECC.SEC_t193r2 -> [1, 3, 132, 0, 25]
-        ECC.SEC_t233k1 -> [1, 3, 132, 0, 26]
-        ECC.SEC_t233r1 -> [1, 3, 132, 0, 27]
-        ECC.SEC_t239k1 -> [1, 3, 132, 0, 3]
-        ECC.SEC_t283k1 -> [1, 3, 132, 0, 16]
-        ECC.SEC_t283r1 -> [1, 3, 132, 0, 17]
-        ECC.SEC_t409k1 -> [1, 3, 132, 0, 36]
-        ECC.SEC_t409r1 -> [1, 3, 132, 0, 37]
-        ECC.SEC_t571k1 -> [1, 3, 132, 0, 38]
-        ECC.SEC_t571r1 -> [1, 3, 132, 0, 39]
+    err = error . ("ECDSA.PrivateKey.toASN1: " ++)
+    oid = fromMaybe (err $ "missing named curve " ++ show curveName)
+                    (lookupOID curvesOIDTable curveName)
 ecdsaToASN1 (PrivKeyEC_Prime d a b p g o c s) = (++)
     [ Start Sequence, IntVal 1, OctetString (i2osp d)
     , Start (Container Context 0), Start Sequence, IntVal 1
@@ -239,6 +270,13 @@ ecdsaToASN1 (PrivKeyEC_Prime d a b p g o c s) = (++)
       where
         bytes = i2osp s
 
+newcurveToASN1 :: ByteArrayAccess key => OID -> key -> ASN1S
+newcurveToASN1 oid key = (++)
+    [ Start Sequence, IntVal 0, Start Sequence, OID oid, End Sequence
+    , OctetString (encodeASN1' DER [OctetString $ convert key])
+    , End Sequence
+    ]
+
 mapLeft :: (a0 -> a1) -> Either a0 b -> Either a1 b
 mapLeft f (Left x) = Left (f x)
 mapLeft _ (Right x) = Right x
@@ -248,3 +286,7 @@ privkeyToAlg :: PrivKey -> PubKeyALG
 privkeyToAlg (PrivKeyRSA _)         = PubKeyALG_RSA
 privkeyToAlg (PrivKeyDSA _)         = PubKeyALG_DSA
 privkeyToAlg (PrivKeyEC _)          = PubKeyALG_EC
+privkeyToAlg (PrivKeyX25519 _)      = PubKeyALG_X25519
+privkeyToAlg (PrivKeyX448 _)        = PubKeyALG_X448
+privkeyToAlg (PrivKeyEd25519 _)     = PubKeyALG_Ed25519
+privkeyToAlg (PrivKeyEd448 _)       = PubKeyALG_Ed448
