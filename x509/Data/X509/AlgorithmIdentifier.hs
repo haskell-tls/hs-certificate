@@ -113,4 +113,5 @@ instance ASN1Object SignatureALG where
         Left "fromASN1: X509.SignatureALG: unknown format"
     toASN1 (SignatureALG_Unknown oid) = \xs -> Start Sequence:OID oid:Null:End Sequence:xs
     toASN1 signatureAlg@(SignatureALG hashAlg PubKeyALG_RSAPSS) = \xs -> Start Sequence:OID [1,2,840,113549,1,1,10]:Start Sequence:Start (Container Context 0):Start Sequence:OID (sigOID signatureAlg):End Sequence:End (Container Context 0):Start (Container Context 1): Start Sequence:OID [1,2,840,113549,1,1,8]:Start Sequence:OID (sigOID signatureAlg):End Sequence:End Sequence:End (Container Context 1):Start (Container Context 2):IntVal (saltLen hashAlg):End (Container Context 2):End Sequence:End Sequence:xs
+    toASN1 signatureAlg@(SignatureALG_IntrinsicHash _) = \xs -> Start Sequence:OID (sigOID signatureAlg):End Sequence:xs
     toASN1 signatureAlg = \xs -> Start Sequence:OID (sigOID signatureAlg):Null:End Sequence:xs
