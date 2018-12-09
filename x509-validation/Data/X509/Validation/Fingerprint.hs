@@ -19,9 +19,7 @@ import Data.ByteString (ByteString)
 
 -- | Fingerprint of a certificate
 newtype Fingerprint = Fingerprint ByteString
-    deriving (Show,Eq)
-
-instance ByteArrayAccess Fingerprint
+    deriving (Show,Eq,ByteArrayAccess)
 
 -- | Get the fingerprint of the whole signed object
 -- using the hashing algorithm specified
