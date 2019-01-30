@@ -5,7 +5,6 @@ module System.X509.MacOS
 import Data.PEM (pemParseLBS, PEM(..))
 import System.Process
 import qualified Data.ByteString.Lazy as LBS
-import Control.Applicative
 import Data.Either
 
 import Data.X509
@@ -13,9 +12,6 @@ import Data.X509.CertificateStore
 
 rootCAKeyChain :: FilePath
 rootCAKeyChain = "/System/Library/Keychains/SystemRootCertificates.keychain"
-
-systemKeyChain :: FilePath
-systemKeyChain = "/Library/Keychains/System.keychain"
 
 listInKeyChains :: [FilePath] -> IO [SignedCertificate]
 listInKeyChains keyChains = do
@@ -26,4 +22,7 @@ listInKeyChains keyChains = do
     return targets
 
 getSystemCertificateStore :: IO CertificateStore
-getSystemCertificateStore = makeCertificateStore <$> listInKeyChains [rootCAKeyChain, systemKeyChain]
+getSystemCertificateStore = do
+    rootCerts <- listInKeyChains [rootCAKeyChain]
+    userCerts <- listInKeyChains []
+    pure $ makeCertificateStore $ rootCerts ++ userCerts
