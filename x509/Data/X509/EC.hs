@@ -20,6 +20,7 @@ module Data.X509.EC
 
 import           Data.ASN1.OID
 import           Data.List               (find)
+import           Data.Monoid             ((<>))
 
 import           Data.X509.OID
 import           Data.X509.PrivateKey
