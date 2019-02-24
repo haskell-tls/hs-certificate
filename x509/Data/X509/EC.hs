@@ -9,7 +9,8 @@
 --
 module Data.X509.EC
     (
-      unserializePoint
+      serializePoint
+    , deserializePoint
     , ecPubKeyCurve
     , ecPubKeyCurveName
     , ecPrivKeyCurve
@@ -17,48 +18,69 @@ module Data.X509.EC
     , lookupCurveNameByOID
     ) where
 
-import Data.ASN1.OID
-import Data.List (find)
+import           Data.ASN1.OID
+import           Data.List               (find)
 
-import Data.X509.OID
-import Data.X509.PublicKey
-import Data.X509.PrivateKey
+import           Data.X509.OID
+import           Data.X509.PrivateKey
+import           Data.X509.PublicKey
 
+import           Crypto.Number.Serialize (i2ospOf, os2ip)
 import qualified Crypto.PubKey.ECC.Prim  as ECC
 import qualified Crypto.PubKey.ECC.Types as ECC
-import           Crypto.Number.Serialize (os2ip)
 
-import qualified Data.ByteString as B
+import qualified Data.ByteString         as B
+
+-- | Serialize an EC point and make sure the serialized point fits into the bytestring space
+-- allowed by the curve.
+serializePoint :: ECC.Curve -> ECC.Point -> Either String SerializedPoint
+serializePoint _curve ECC.PointO = Left "Serializing Point0 not supported"
+serializePoint curve (ECC.Point px py) = SerializedPoint . B.cons ptFormat <$> output
+    where
+      ptFormat = 4 -- non compressed format
+      output = (<>) <$> serializedX <*> serializedY
+      serializedX = maybe
+                    (Left "could not serialize the point's x dimension into a bytestring of given size")
+                    Right
+                    $ i2ospOf dimensionLength px
+      serializedY = maybe
+                    (Left "could not serialize the point's y dimension into a bytestring of given size")
+                    Right
+                    $ i2ospOf dimensionLength py
+
+      bits            = ECC.curveSizeBits curve
+      dimensionLength = (bits + 7) `div` 8
 
 -- | Read an EC point from a serialized format and make sure the point is
 -- valid for the specified curve.
-unserializePoint :: ECC.Curve -> SerializedPoint -> Maybe ECC.Point
-unserializePoint curve (SerializedPoint bs) =
+deserializePoint :: ECC.Curve -> SerializedPoint -> Either String ECC.Point
+deserializePoint curve (SerializedPoint bs) =
     case B.uncons bs of
-        Nothing                -> Nothing
+        Nothing                -> Left "too few bytes in the serialized point, could not extract the format prefix"
         Just (ptFormat, input) ->
             case ptFormat of
-                4 -> if B.length input /= 2 * bytes
-                        then Nothing
+                4 -> if B.length input /= 2 * dimensionLength
+                        then Left $ "incorrect length of the serialized point part of the bytestring: expected " <>
+                               show (2 * dimensionLength) <> " but got " <> show (B.length input)
                         else
-                            let (x, y) = B.splitAt bytes input
+                            let (x, y) = B.splitAt dimensionLength input
                                 p      = ECC.Point (os2ip x) (os2ip y)
                              in if ECC.isPointValid curve p
-                                    then Just p
-                                    else Nothing
+                                    then Right p
+                                    else Left "the point is invalid for the curve"
                 -- 2 and 3 for compressed format.
-                _ -> Nothing
-  where bits  = ECC.curveSizeBits curve
-        bytes = (bits + 7) `div` 8
+                _ -> Left $ "expected prefix 4 for uncompressed format but got " <> show ptFormat
+  where bits            = ECC.curveSizeBits curve
+        dimensionLength = (bits + 7) `div` 8
 
 -- | Return the curve associated to an EC Public Key.  This does not check
 -- if a curve in explicit format is valid: if the input is not trusted one
 -- should consider 'ecPubKeyCurveName' instead.
-ecPubKeyCurve :: PubKeyEC -> Maybe ECC.Curve
-ecPubKeyCurve (PubKeyEC_Named name _) = Just $ ECC.getCurveByName name
+ecPubKeyCurve :: PubKeyEC -> Either String ECC.Curve
+ecPubKeyCurve (PubKeyEC_Named name _) = Right $ ECC.getCurveByName name
 ecPubKeyCurve pub@PubKeyEC_Prime{}    =
     fmap buildCurve $
-        unserializePoint (buildCurve undefined) (pubkeyEC_generator pub)
+        deserializePoint (buildCurve undefined) (pubkeyEC_generator pub)
   where
     prime = pubkeyEC_prime pub
     buildCurve g =
@@ -89,11 +111,11 @@ ecPubKeyCurveName pub@PubKeyEC_Prime{}    =
 -- | Return the EC curve associated to an EC Private Key.  This does not check
 -- if a curve in explicit format is valid: if the input is not trusted one
 -- should consider 'ecPrivKeyCurveName' instead.
-ecPrivKeyCurve :: PrivKeyEC -> Maybe ECC.Curve
-ecPrivKeyCurve (PrivKeyEC_Named name _) = Just $ ECC.getCurveByName name
+ecPrivKeyCurve :: PrivKeyEC -> Either String ECC.Curve
+ecPrivKeyCurve (PrivKeyEC_Named name _) = Right $ ECC.getCurveByName name
 ecPrivKeyCurve priv@PrivKeyEC_Prime{}   =
     fmap buildCurve $
-        unserializePoint (buildCurve undefined) (privkeyEC_generator priv)
+        deserializePoint (buildCurve undefined) (privkeyEC_generator priv)
   where
     prime = privkeyEC_prime priv
     buildCurve g =
