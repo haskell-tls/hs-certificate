@@ -17,6 +17,8 @@ import Data.X509
 import Data.X509.CertificateStore
 import Data.X509.Validation
 
+import qualified Data.ByteString as BS
+
 import Data.Hourglass
 import System.Hourglass
 
@@ -370,6 +372,31 @@ testSubjectAltName res san hostname check expected = testWithRes res caseName $ 
                               , AltNameDNS    "dummy2"
                               ]
 
+-- | Tests certificate SubjectAltName against expected IP Address, with or
+-- without 'checkFQHN'.
+testSubjectAltNameIP :: IO (RData pub priv) -- ^ Common test resources
+                     -> BS.ByteString              -- ^ Certificate SubjectAltName
+                     -> HostName            -- ^ Connection identification
+                     -> Bool                -- ^ Value for 'checkFQHN'
+                     -> [FailedReason]      -- ^ Expected validation result
+                     -> TestTree
+testSubjectAltNameIP res ip hostname check expected = testWithRes res caseName $ \rd -> do
+    pair <- mkCertificate 2 100 dn (present rd) (ext:leafStdExts) (CA $ intermediate rd) (keys1 rd)
+    assertValidationResult rd checks hostname [pair, intermediate rd] expected
+  where
+    caseName = if null hostname then "empty" else hostname
+    checks = defaultChecks { checkFQHN = check }
+    dn = mkDn "cn-not-used" -- this CN value is to be tested too
+                            -- (to make sure CN is *not* considered when a
+                            -- SubjectAltName exists)
+    ext = mkExtension False $
+            -- wraps test value with other values
+            ExtSubjectAltName [ AltNameDNS    "dummy1"
+                              , AltNameRFC822 "test@example.com"
+                              , AltNameIP     ip
+                              , AltNameDNS    "dummy2"
+                              ]
+
 -- | Tests 'checkLeafKeyUsage'.
 testLeafKeyUsage :: IO (RData pub priv) -- ^ Common test resources
                  -> TestName            -- ^ Case name
@@ -545,6 +572,8 @@ treeWithAlg groupName alg = withResource (initData alg) freeData $ \res ->
               , testSubjectAltName res "*"             "single"            True [NameMismatch "single"] -- InvalidWildcard
               ]
           , testSubjectAltName res "www.example.com"  "cn-not-used" True [NameMismatch "cn-not-used"]
+          , testSubjectAltNameIP res (BS.pack [10,0,0,1]) "10.0.0.1" True []
+          , testSubjectAltNameIP res (BS.pack [10,0,0,1]) "10.0.0.2" True [NameMismatch "10.0.0.2"]
           , testGroup "disabled"
               [ testSubjectAltName res "www.example.com"  "www.example.com"  False []
               , testSubjectAltName res "www.example.com"  "www2.example.com" False []
