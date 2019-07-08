@@ -574,6 +574,8 @@ treeWithAlg groupName alg = withResource (initData alg) freeData $ \res ->
           , testSubjectAltName res "www.example.com"  "cn-not-used" True [NameMismatch "cn-not-used"]
           , testSubjectAltNameIP res (BS.pack [10,0,0,1]) "10.0.0.1" True []
           , testSubjectAltNameIP res (BS.pack [10,0,0,1]) "10.0.0.2" True [NameMismatch "10.0.0.2"]
+          , testSubjectAltNameIP res (BS.pack [255,255,255,255]) "255.255.255.255" True []
+          , testSubjectAltNameIP res (BS.pack [10,0,0,1]) "266.0.0.1" True [NameMismatch "266.0.0.1"] -- 266 read in Word8 is 10
           , testGroup "disabled"
               [ testSubjectAltName res "www.example.com"  "www.example.com"  False []
               , testSubjectAltName res "www.example.com"  "www2.example.com" False []
