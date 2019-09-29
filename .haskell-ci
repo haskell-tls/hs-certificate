@@ -2,6 +2,8 @@
 compiler: ghc-8.0 lts-9.21
 compiler: ghc-8.2 lts-11.22
 compiler: ghc-8.4 lts-12.9
+compiler: ghc-8.6 lts-13.26
+compiler: ghc-8.8 nightly-2019-09-29
 
 # gitdep: name location commit
 
@@ -12,9 +14,12 @@ option: cryptonitedeps extradep=cryptonite-0.25 extradep=basement-0.0.6 extradep
 # builds
 # recognized simple options: nohaddock allow-newer allowed-failure
 # kvs options: flag=pkg:flagname extradep=package-version gitdep=name
+build: ghc-8.0 cryptonitedeps
 build: ghc-8.2
-build: ghc-8.0 cryptonitedeps os=linux,osx
 build: ghc-8.4 tests=no benchs=no
+build: ghc-8.6 os=linux,osx,windows
+build: ghc-8.8 extradep=asn1-encoding-0.9.6@sha256:784e936495b1408a7831ff000bef25993b910ca9f008f69e1590da80a9d40f7b,1988 extradep=asn1-parse-0.9.5@sha256:77c0126d63070df2d82cb4cfa4febb26c4e280f6d854bc778c2fa4d80ce692b8,976
+
 
 # packages
 package: x509/
