@@ -48,13 +48,29 @@ instance ASN1Object CRL where
     toASN1 crl = encodeCRL crl
     fromASN1 = runParseASN1State parseCRL
 
--- TODO support extension
 instance ASN1Object RevokedCertificate where
-    fromASN1 (Start Sequence : IntVal serial : ASN1Time _ t _ : End Sequence : xs) =
-        Right (RevokedCertificate serial t (Extensions Nothing), xs)
-    fromASN1 l = Left ("fromASN1: X509.RevokedCertificate: unknown format:" ++ show l)
-    toASN1 (RevokedCertificate serial time _) = \xs ->
-        Start Sequence : IntVal serial : ASN1Time TimeGeneralized time (Just (TimezoneOffset 0)) : End Sequence : xs
+    fromASN1 = runParseASN1State $
+        onNextContainer Sequence $
+        RevokedCertificate
+        <$> parseSerialNumber
+        <*> (getNext >>= toTime)
+        <*> getObject
+      where toTime (ASN1Time _ t _) = pure t
+            toTime _                = throwParseError "bad revocation date"
+    toASN1 (RevokedCertificate serial time crlEntryExtensions) = \xs ->
+        [ Start Sequence ] ++
+        [ IntVal serial ] ++
+        [ ASN1Time TimeGeneralized time (Just (TimezoneOffset 0)) ] ++
+        toASN1 crlEntryExtensions [] ++
+        [ End Sequence ] ++
+        xs
+
+parseSerialNumber :: ParseASN1 Integer
+parseSerialNumber = do
+    n <- getNext
+    case n of
+        IntVal v -> return v
+        _        -> throwParseError ("missing serial" ++ show n)
 
 parseCRL :: ParseASN1 CRL
 parseCRL = do
@@ -63,8 +79,8 @@ parseCRL = do
         <*> getObject
         <*> (getNext >>= getThisUpdate)
         <*> getNextUpdate
-        <*> getRevokedCertificates
-        <*> getObject
+        <*> parseRevokedCertificates
+        <*> parseCRLExtensions
   where getVersion (IntVal v) = return $ fromIntegral v
         getVersion _          = throwParseError "unexpected type for version"
 
@@ -76,7 +92,15 @@ parseCRL = do
         timeOrNothing (ASN1Time _ tnext _) = Just tnext
         timeOrNothing _                    = Nothing
 
-        getRevokedCertificates = onNextContainer Sequence $ getMany getObject
+parseRevokedCertificates :: ParseASN1 [RevokedCertificate]
+parseRevokedCertificates =
+    fmap (maybe [] id) $ onNextContainerMaybe Sequence $ getMany getObject
+
+parseCRLExtensions :: ParseASN1 Extensions
+parseCRLExtensions =
+    fmap adapt $ onNextContainerMaybe (Container Context 0) $ getObject
+  where adapt (Just e) = e
+        adapt Nothing = Extensions Nothing
 
 encodeCRL :: CRL -> ASN1S
 encodeCRL crl xs =
@@ -85,10 +109,11 @@ encodeCRL crl xs =
     toASN1 (crlIssuer crl) [] ++
     [ASN1Time TimeGeneralized (crlThisUpdate crl) (Just (TimezoneOffset 0))] ++
     (maybe [] (\t -> [ASN1Time TimeGeneralized t (Just (TimezoneOffset 0))]) (crlNextUpdate crl)) ++
-    [Start Sequence] ++
-    revoked ++
-    [End Sequence] ++
-    toASN1 (crlExtensions crl) [] ++
+    maybeRevoked (crlRevokedCertificates crl) ++
+    maybeCrlExts (crlExtensions crl) ++
     xs
   where
-    revoked = concatMap (\e -> toASN1 e []) (crlRevokedCertificates crl)
+    maybeRevoked [] = []
+    maybeRevoked xs' = asn1Container Sequence $ concatMap (\e -> toASN1 e []) xs'
+    maybeCrlExts (Extensions Nothing) = []
+    maybeCrlExts exts = asn1Container (Container Context 0) $ toASN1 exts []

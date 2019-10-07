@@ -85,6 +85,12 @@ parseCertHeaderValidity = getNextContainer Sequence >>= toTimeBound
         Subject Unique Identifier (Optional) (>= 2)
         Extensions (Optional)   (>= v3)
 -}
+
+parseExtensions :: ParseASN1 Extensions
+parseExtensions = fmap adapt $ onNextContainerMaybe (Container Context 3) $ getObject
+  where adapt (Just e) = e
+        adapt Nothing = Extensions Nothing
+
 parseCertificate :: ParseASN1 Certificate
 parseCertificate =
     Certificate <$> parseCertHeaderVersion
@@ -94,7 +100,7 @@ parseCertificate =
                 <*> parseCertHeaderValidity
                 <*> getObject
                 <*> getObject
-                <*> getObject
+                <*> parseExtensions
 
 encodeCertificateHeader :: Certificate -> [ASN1]
 encodeCertificateHeader cert =
@@ -108,7 +114,9 @@ encodeCertificateHeader cert =
                                            ,ASN1Time (timeType t2) t2 (Just (TimezoneOffset 0))]
         eSubject  = toASN1 (certSubjectDN cert) []
         epkinfo   = toASN1 (certPubKey cert) []
-        eexts     = toASN1 (certExtensions cert) []
+        eexts     = case certExtensions cert of
+                      Extensions Nothing -> []
+                      exts -> asn1Container (Container Context 3) $ toASN1 exts []
         timeType t =
             if t >= timeConvert (Date 2050 January 1)
             then TimeGeneralized

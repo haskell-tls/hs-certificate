@@ -45,10 +45,9 @@ newtype Extensions = Extensions (Maybe [ExtensionRaw])
 instance ASN1Object Extensions where
     toASN1 (Extensions Nothing) = \xs -> xs
     toASN1 (Extensions (Just exts)) = \xs ->
-        asn1Container (Container Context 3) (asn1Container Sequence (concatMap encodeExt exts)) ++ xs
+        asn1Container Sequence (concatMap encodeExt exts) ++ xs
     fromASN1 s = runParseASN1State (Extensions <$> parseExtensions) s
-      where parseExtensions = onNextContainerMaybe (Container Context 3) $
-                              onNextContainer Sequence (getMany getObject)
+      where parseExtensions = onNextContainerMaybe Sequence (getMany getObject)
 
 instance ASN1Object ExtensionRaw where
     toASN1 extraw = \xs -> encodeExt extraw ++ xs
