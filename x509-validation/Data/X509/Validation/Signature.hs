@@ -14,22 +14,22 @@ module Data.X509.Validation.Signature
     , SignatureFailure(..)
     ) where
 
-import Crypto.Error (CryptoFailable(..))
+import           Crypto.Error             (CryptoFailable (..))
+import           Crypto.Hash
+import qualified Crypto.PubKey.DSA        as DSA
+import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
+import qualified Crypto.PubKey.ECC.Types  as ECC
+import qualified Crypto.PubKey.Ed25519    as Ed25519
+import qualified Crypto.PubKey.Ed448      as Ed448
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
-import qualified Crypto.PubKey.RSA.PSS as PSS
-import qualified Crypto.PubKey.DSA as DSA
-import qualified Crypto.PubKey.ECC.Types as ECC
-import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
-import qualified Crypto.PubKey.Ed25519 as Ed25519
-import qualified Crypto.PubKey.Ed448 as Ed448
-import Crypto.Hash
+import qualified Crypto.PubKey.RSA.PSS    as PSS
 
-import Data.ByteString (ByteString)
-import Data.X509
-import Data.X509.EC
-import Data.ASN1.Types
-import Data.ASN1.Encoding
-import Data.ASN1.BinaryEncoding
+import           Data.ASN1.BinaryEncoding
+import           Data.ASN1.Encoding
+import           Data.ASN1.Types
+import           Data.ByteString          (ByteString)
+import           Data.X509
+import           Data.X509.EC
 
 -- | A set of possible return from signature verification.
 --
@@ -148,10 +148,10 @@ verifyECDSA hashALG key =
                 Left _ -> False
                 Right [Start Sequence,IntVal r,IntVal s,End Sequence] ->
                     let curve = ECC.getCurveByName curveName
-                     in case unserializePoint curve pub of
-                            Nothing -> False
-                            Just p  -> let pubkey = ECDSA.PublicKey curve p
-                                        in (ecdsaVerify hashALG) pubkey (ECDSA.Signature r s) msg
+                     in case deserializePoint curve pub of
+                            Left _  -> False
+                            Right p -> let pubkey = ECDSA.PublicKey curve p
+                                       in (ecdsaVerify hashALG) pubkey (ECDSA.Signature r s) msg
                 Right _ -> False
 
         ecdsaVerify HashMD2    = ECDSA.verify MD2

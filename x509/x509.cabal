@@ -47,10 +47,12 @@ Test-Suite test-x509
   type:              exitcode-stdio-1.0
   hs-source-dirs:    Tests
   Main-is:           Tests.hs
+  Other-modules:     X509.PointSerialize
   Build-Depends:     base >= 3 && < 5
                    , bytestring
                    , mtl
                    , tasty
+                   , tasty-hspec
                    , tasty-quickcheck
                    , hourglass
                    , asn1-types

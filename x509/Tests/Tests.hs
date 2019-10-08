@@ -1,26 +1,28 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
-import Test.Tasty
-import Test.Tasty.QuickCheck
+import           Test.Tasty
+import           Test.Tasty.Hspec
+import           Test.Tasty.QuickCheck
 
-import qualified Data.ByteString as B
+import qualified Data.ByteString          as B
 
-import Control.Applicative
-import Control.Monad
+import           Control.Applicative
+import           Control.Monad
 
-import Data.List (nub, sort)
-import Data.ASN1.Types
-import Data.X509
-import Crypto.Error (throwCryptoError)
+import           Crypto.Error             (throwCryptoError)
 import qualified Crypto.PubKey.Curve25519 as X25519
 import qualified Crypto.PubKey.Curve448   as X448
+import qualified Crypto.PubKey.DSA        as DSA
 import qualified Crypto.PubKey.Ed25519    as Ed25519
 import qualified Crypto.PubKey.Ed448      as Ed448
-import qualified Crypto.PubKey.RSA as RSA
-import qualified Crypto.PubKey.DSA as DSA
+import qualified Crypto.PubKey.RSA        as RSA
+import           Data.ASN1.Types
+import           Data.List                (nub, sort)
+import           Data.X509
 
-import Data.Hourglass
+import           Data.Hourglass
+import qualified X509.PointSerialize      as PointSerialize
 
 instance Arbitrary RSA.PublicKey where
     arbitrary = do
@@ -104,7 +106,7 @@ instance Arbitrary PubKeyALG where
 
 instance Arbitrary SignatureALG where
     -- unfortunately as the encoding of this is a single OID as opposed to two OID,
-    -- the testing need to limit itself to Signature ALG that has been defined in the OID database. 
+    -- the testing need to limit itself to Signature ALG that has been defined in the OID database.
     -- arbitrary = SignatureALG <$> arbitrary <*> arbitrary
     arbitrary = elements
         [ SignatureALG HashSHA1 PubKeyALG_RSA
@@ -207,7 +209,9 @@ property_extension_id e = case extDecode (extEncode e) of
                                 Right v | v == e    -> True
                                         | otherwise -> error ("expected " ++ show e ++ " got: " ++ show v)
 
-main = defaultMain $ testGroup "X509"
+main = do
+  pointSerializeRoundtrip <- testSpec "serialize roundtrip" PointSerialize.spec
+  defaultMain $ testGroup "X509"
     [ testGroup "marshall"
         [ testProperty "pubkey" (property_unmarshall_marshall_id :: PubKey -> Bool)
         , testProperty "privkey" (property_unmarshall_marshall_id :: PrivKey -> Bool)
@@ -220,4 +224,6 @@ main = defaultMain $ testGroup "X509"
         , testProperty "certificate" (property_unmarshall_marshall_id :: Certificate -> Bool)
         , testProperty "crl" (property_unmarshall_marshall_id :: CRL -> Bool)
         ]
+    , testGroup "point"
+      [ pointSerializeRoundtrip ]
     ]

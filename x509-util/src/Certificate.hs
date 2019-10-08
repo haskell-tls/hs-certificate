@@ -1,38 +1,40 @@
-{-# LANGUAGE DeriveDataTypeable, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings  #-}
 
-import Data.Either
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as B
-import Data.X509
-import qualified Data.X509 as X509
-import qualified Data.X509.EC as X509
-import Data.List (find)
-import Data.PEM (pemParseBS, pemContent, pemName)
-import System.Console.GetOpt
-import System.Environment
-import Control.Monad
-import Control.Applicative ((<$>))
-import Data.Maybe
-import System.Exit
-import System.X509
-import Data.X509.CertificateStore
-import Data.X509.Validation
-import Data.Hourglass
+import           Control.Applicative        ((<$>))
+import           Control.Monad
+import           Data.Bifunctor             (first)
+import qualified Data.ByteArray             as BA
+import qualified Data.ByteString            as B
+import           Data.Either
+import           Data.Hourglass
+import           Data.List                  (find)
+import           Data.Maybe
+import           Data.PEM                   (pemContent, pemName, pemParseBS)
+import           Data.X509
+import qualified Data.X509                  as X509
+import           Data.X509.CertificateStore
+import qualified Data.X509.EC               as X509
+import           Data.X509.Validation
+import           System.Console.GetOpt
+import           System.Environment
+import           System.Exit
+import           System.X509
 
 -- for signing/verifying certificate
-import Crypto.Hash
-import qualified Crypto.PubKey.RSA as RSA
-import qualified Crypto.PubKey.RSA.PKCS15 as RSA
-import qualified Crypto.PubKey.DSA as DSA
-import qualified Crypto.PubKey.ECC.Types as ECC
+import           Crypto.Hash
+import qualified Crypto.PubKey.DSA          as DSA
+import qualified Crypto.PubKey.ECC.Types    as ECC
+import qualified Crypto.PubKey.RSA          as RSA
+import qualified Crypto.PubKey.RSA.PKCS15   as RSA
 
-import Data.ASN1.Encoding
-import Data.ASN1.BinaryEncoding
-import Data.ASN1.Types
-import Data.ASN1.BitArray
-import Data.X509.Memory
-import Text.Printf
-import Numeric
+import           Data.ASN1.BinaryEncoding
+import           Data.ASN1.BitArray
+import           Data.ASN1.Encoding
+import           Data.ASN1.Types
+import           Data.X509.Memory
+import           Numeric
+import           Text.Printf
 
 formatValidity (start,end) = p start ++ " to " ++ p end
   where p t = timePrint ("YYYY-MM-DD H:MI:S" :: String) t
@@ -45,14 +47,14 @@ hexdump bs = concatMap hex $ BA.unpack bs
 
 hexdump' = hexdump
 
-tryUnserializePoint :: Maybe ECC.Curve
+tryDeserializePoint :: ECC.Curve
                     -> SerializedPoint
-                    -> Either B.ByteString (Integer, Integer)
-tryUnserializePoint mcurve pt@(SerializedPoint bs) =
-    case mcurve >>= flip X509.unserializePoint pt of
-        Nothing              -> Left bs
-        Just (ECC.Point x y) -> Right (x, y)
-        Just ECC.PointO      -> error "unserializePoint returned PointO"
+                    -> Either String (Integer, Integer)
+tryDeserializePoint curve pt =
+    case X509.deserializePoint curve pt of
+        Left err              -> Left err
+        Right ECC.PointO      -> Left "deserializePoint returned PointO"
+        Right (ECC.Point x y) -> Right (x, y)
 
 showDN (X509.DistinguishedName dn) = mapM_ toStr dn
   where toStr (oid, cs@(ASN1CharacterString e t)) =
@@ -128,27 +130,30 @@ showCert signedCert = do
             printf "  g      : %x\n" (DSA.params_g params)
         X509.PubKeyEC pubkey@PubKeyEC_Named{} -> do
             let curveName = pubkeyEC_name pubkey
-            let curve = ECC.getCurveByName curveName
+                curve     = ECC.getCurveByName curveName
+                pt@(SerializedPoint bs)        = pubkeyEC_pub pubkey
             putStrLn "public key ECDSA:"
             printf "  curve  : %s\n" (show curveName)
-            case tryUnserializePoint (Just curve) (pubkeyEC_pub pubkey) of
+            case tryDeserializePoint curve pt of
                 Right (x, y) -> do printf "  point  : %x\n" x
                                    printf "           %x\n" y
-                Left xy      ->    printf "  point  : %s\n" (hexdump xy)
+                Left _err    ->    printf "  point  : %s\n" (hexdump bs)
         X509.PubKeyEC pubkey@PubKeyEC_Prime{} -> do
-            let mcurve = X509.ecPubKeyCurve pubkey
+            let ecurve = X509.ecPubKeyCurve pubkey
+                pubPt@(SerializedPoint pubBs)  = pubkeyEC_pub pubkey
+                genPt@(SerializedPoint genBs)  = pubkeyEC_generator pubkey
             putStrLn "public key ECDSA:"
-            case tryUnserializePoint mcurve (pubkeyEC_pub pubkey) of
+            case ecurve >>= flip tryDeserializePoint pubPt of
                 Right (x, y) -> do printf "  point  : %x\n" x
                                    printf "           %x\n" y
-                Left xy      ->    printf "  point  : %s\n" (hexdump xy)
+                Left _err    ->    printf "  point  : %s\n" (hexdump pubBs)
             printf "  a      : %x\n" (pubkeyEC_a         pubkey)
             printf "  b      : %x\n" (pubkeyEC_b         pubkey)
             printf "  p      : %x\n" (pubkeyEC_prime     pubkey)
-            case tryUnserializePoint mcurve (pubkeyEC_generator pubkey) of
+            case ecurve >>= flip tryDeserializePoint genPt of
                 Right (x, y) -> do printf "  g      : %x\n" x
                                    printf "           %x\n" y
-                Left xy      ->    printf "  g      : %s\n" (hexdump xy)
+                Left _err    ->    printf "  g      : %s\n" (hexdump genBs)
             printf "  n      : %x\n" (pubkeyEC_order     pubkey)
             printf "  h      : %x\n" (pubkeyEC_cofactor  pubkey)
             printf "  seed   : %x\n" (pubkeyEC_seed      pubkey)
@@ -216,13 +221,14 @@ showECKey privkey@PrivKeyEC_Prime{} = unlines $
     ]
   where
     showGenerator = do
-        case tryUnserializePoint mcurve (privkeyEC_generator privkey) of
+        case ecurve >>= flip tryDeserializePoint genPt of
             Right (x, y) -> [ "generator:" ++ (printf "%x" x)
                             , "          " ++ (printf "%x" y)
                             ]
-            Left xy      -> [ "generator:" ++ (show $ hexdump xy)
+            Left _err    -> [ "generator:" ++ (show $ hexdump genBs)
                             ]
-    mcurve = X509.ecPrivKeyCurve privkey
+    genPt@(SerializedPoint genBs) = privkeyEC_generator privkey
+    ecurve = X509.ecPrivKeyCurve privkey
 
 showPrivHexdump :: BA.ByteArrayAccess secret => secret -> String
 showPrivHexdump privkey = unlines
@@ -335,7 +341,7 @@ doASN1Main files = do
         case decodeASN1' BER $ pemContent p of
             Left err   -> error ("decoding ASN1 failed: " ++ show err)
             Right asn1 -> showASN1 0 asn1
-    
+
 doKeyMain files = do
     pems <- readPEMFile (head files)
     forM_ pems $ \pem -> do
@@ -397,11 +403,11 @@ usage = do
 main = do
     args <- getArgs
     case args of
-        []        -> usage
-        "x509":as -> certMain as
-        "cert":as -> certMain as
-        "key":as  -> keyMain as
-        "crl":as  -> crlMain as
-        "asn1":as -> asn1Main as
+        []          -> usage
+        "x509":as   -> certMain as
+        "cert":as   -> certMain as
+        "key":as    -> keyMain as
+        "crl":as    -> crlMain as
+        "asn1":as   -> asn1Main as
         "system":as -> systemMain as
-        _         -> usage
+        _           -> usage
