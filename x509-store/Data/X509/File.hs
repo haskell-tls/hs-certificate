@@ -16,7 +16,7 @@ import qualified Data.ByteString.Lazy as L
 readPEMs :: FilePath -> IO [PEM]
 readPEMs filepath = do
     content <- L.readFile filepath
-    return $ either error id $ pemParseLBS content
+    either fail return $ pemParseLBS content
 
 -- | return all the signed objects in a file.
 --
