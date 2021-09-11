@@ -1,9 +1,11 @@
 module Data.X509.File
     ( readSignedObject
     , readKeyFile
+    , PEMError (..)
     ) where
 
 import Control.Applicative
+import Control.Exception (Exception (..), throw)
 import Data.ASN1.Types
 import Data.ASN1.BinaryEncoding
 import Data.ASN1.Encoding
@@ -13,10 +15,16 @@ import           Data.X509.Memory (pemToKey)
 import Data.PEM (pemParseLBS, pemContent, pemName, PEM)
 import qualified Data.ByteString.Lazy as L
 
+newtype PEMError = PEMError {displayPEMError :: String}
+  deriving Show
+
+instance Exception PEMError where
+  displayException = displayPEMError
+
 readPEMs :: FilePath -> IO [PEM]
 readPEMs filepath = do
     content <- L.readFile filepath
-    return $ either error id $ pemParseLBS content
+    either (throw . PEMError) pure $ pemParseLBS content
 
 -- | return all the signed objects in a file.
 --
