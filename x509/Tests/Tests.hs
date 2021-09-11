@@ -179,7 +179,7 @@ instance Arbitrary Certificate where
 instance Arbitrary RevokedCertificate where
     arbitrary = RevokedCertificate <$> arbitrary
                                    <*> arbitrary
-                                   <*> pure (Extensions Nothing)
+                                   <*> arbitrary
 
 instance Arbitrary CRL where
     arbitrary = CRL <$> pure 1
