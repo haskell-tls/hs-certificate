@@ -35,6 +35,7 @@ import qualified Crypto.PubKey.Curve25519 as X25519
 import qualified Crypto.PubKey.Curve448   as X448
 import qualified Crypto.PubKey.Ed25519    as Ed25519
 import qualified Crypto.PubKey.Ed448      as Ed448
+import           Crypto.Number.Basic (numBytes)
 import           Crypto.Number.Serialize (os2ip)
 import Data.Word
 
@@ -234,11 +235,10 @@ rsaPubFromASN1 :: [ASN1] -> Either String (RSA.PublicKey, [ASN1])
 rsaPubFromASN1 (Start Sequence:IntVal smodulus:IntVal pubexp:End Sequence:xs) =
     Right (pub, xs)
   where
-    pub = RSA.PublicKey { RSA.public_size = calculate_modulus modulus 1
+    pub = RSA.PublicKey { RSA.public_size = numBytes modulus
                         , RSA.public_n    = modulus
                         , RSA.public_e    = pubexp
                         }
-    calculate_modulus n i = if (2 ^ (i * 8)) > n then i else calculate_modulus n (i+1)
     -- some bad implementation will not serialize ASN.1 integer properly, leading
     -- to negative modulus. if that's the case, we correct it.
     modulus = toPositive smodulus

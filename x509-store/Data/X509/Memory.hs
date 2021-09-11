@@ -22,6 +22,7 @@ import qualified Data.X509 as X509
 import           Data.X509.EC as X509
 import Data.PEM (pemParseBS, pemContent, pemName, PEM)
 import qualified Data.ByteString as B
+import           Crypto.Number.Basic (numBytes)
 import           Crypto.Number.Serialize (os2ip)
 import qualified Crypto.PubKey.DSA as DSA
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
@@ -192,8 +193,7 @@ rsaFromASN1 (Start Sequence
              : End Sequence
              : xs) = Right (privKey, xs)
   where
-    calculate_modulus m i = if (2 ^ (i * 8)) > m then i else calculate_modulus m (i+1)
-    pubKey  = RSA.PublicKey { RSA.public_size = calculate_modulus n 1
+    pubKey  = RSA.PublicKey { RSA.public_size = numBytes n
                             , RSA.public_n    = n
                             , RSA.public_e    = e
                             }
