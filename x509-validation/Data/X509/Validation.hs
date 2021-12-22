@@ -23,6 +23,7 @@ module Data.X509.Validation
     , defaultHooks
     -- * Validation
     , validate
+    , validatePure
     , validateDefault
     , getFingerprint
     -- * Cache
@@ -201,43 +202,43 @@ validate hashAlg hooks checks store cache ident cc@(CertificateChain (top:_)) = 
         ValidationCacheDenied s -> return [CacheSaysNo s]
         ValidationCacheUnknown  -> do
             validationTime <- maybe (timeConvert <$> timeCurrent) return $ checkAtTime checks
-            failedReasons <- doValidate validationTime hooks checks store ident cc
+            let failedReasons = validatePure validationTime hooks checks store ident cc
             when (null failedReasons) $ (cacheAdd cache) ident fingerPrint (getCertificate top)
             return failedReasons
   where fingerPrint = getFingerprint top hashAlg
 
 
--- | Validate a certificate chain with explicit parameters
-doValidate :: DateTime
-           -> ValidationHooks
-           -> ValidationChecks
-           -> CertificateStore
-           -> ServiceID
-           -> CertificateChain
-           -> IO [FailedReason]
-doValidate _              _     _      _     _        (CertificateChain [])           = return [EmptyChain]
-doValidate validationTime hooks checks store (fqhn,_) (CertificateChain (top:rchain)) =
-   (hookFilterReason hooks) <$> (return doLeafChecks |> doCheckChain 0 top rchain)
+-- | Validate a certificate chain with explicit pure parameters
+validatePure :: DateTime         -- ^ The time for which to check validity for
+             -> ValidationHooks  -- ^ Hooks to use
+             -> ValidationChecks -- ^ Checks to do
+             -> CertificateStore -- ^ The trusted certificate store for CA
+             -> ServiceID        -- ^ Identification of the connection
+             -> CertificateChain -- ^ The certificate chain we want to validate
+             -> [FailedReason]   -- ^ the return failed reasons (empty list is no failure)
+validatePure _              _     _      _     _        (CertificateChain [])           = [EmptyChain]
+validatePure validationTime hooks checks store (fqhn,_) (CertificateChain (top:rchain)) =
+   hookFilterReason hooks (doLeafChecks |> doCheckChain 0 top rchain)
   where isExhaustive = checkExhaustive checks
         a |> b = exhaustive isExhaustive a b
 
         doLeafChecks = doNameCheck top ++ doV3Check topCert ++ doKeyUsageCheck topCert
             where topCert = getCertificate top
 
-        doCheckChain :: Int -> SignedCertificate -> [SignedCertificate] -> IO [FailedReason]
-        doCheckChain level current chain = do
-            r <- doCheckCertificate (getCertificate current)
+        doCheckChain :: Int -> SignedCertificate -> [SignedCertificate] -> [FailedReason]
+        doCheckChain level current chain =
+            doCheckCertificate (getCertificate current)
             -- check if we have a trusted certificate in the store belonging to this issuer.
-            return r |> (case findCertificate (certIssuerDN cert) store of
-                Just trustedSignedCert      -> return $ checkSignature current trustedSignedCert
-                Nothing | isSelfSigned cert -> return [SelfSigned] |> return (checkSignature current current)
-                        | null chain        -> return [UnknownCA]
+            |> (case findCertificate (certIssuerDN cert) store of
+                Just trustedSignedCert      -> checkSignature current trustedSignedCert
+                Nothing | isSelfSigned cert -> [SelfSigned] |> checkSignature current current
+                        | null chain        -> [UnknownCA]
                         | otherwise         ->
                             case findIssuer (certIssuerDN cert) chain of
-                                Nothing                  -> return [UnknownCA]
+                                Nothing                  -> [UnknownCA]
                                 Just (issuer, remaining) ->
-                                    return (checkCA level $ getCertificate issuer)
-                                    |> return (checkSignature current issuer)
+                                    checkCA level (getCertificate issuer)
+                                    |> checkSignature current issuer
                                     |> doCheckChain (level+1) issuer remaining)
           where cert = getCertificate current
         -- in a strict ordering check the next certificate has to be the issuer.
@@ -306,7 +307,7 @@ doValidate validationTime hooks checks store (fqhn,_) (CertificateChain (top:rch
 
         doCheckCertificate cert =
             exhaustiveList (checkExhaustive checks)
-                [ (checkTimeValidity checks, return ((hookValidateTime hooks) validationTime cert))
+                [ (checkTimeValidity checks, hookValidateTime hooks validationTime cert)
                 ]
         isSelfSigned :: Certificate -> Bool
         isSelfSigned cert = certSubjectDN cert == certIssuerDN cert
@@ -392,15 +393,14 @@ validateCertificateName fqhn cert
 matchSI :: DistinguishedName -> Certificate -> Bool
 matchSI issuerDN issuer = certSubjectDN issuer == issuerDN
 
-exhaustive :: Monad m => Bool -> m [FailedReason] -> m [FailedReason] -> m [FailedReason]
-exhaustive isExhaustive f1 f2 = f1 >>= cont
-  where cont l1
-            | null l1      = f2
-            | isExhaustive = f2 >>= \l2 -> return (l1 ++ l2)
-            | otherwise    = return l1
+exhaustive :: Bool -> [FailedReason] -> [FailedReason] -> [FailedReason]
+exhaustive isExhaustive l1 l2
+  | null l1      = l2
+  | isExhaustive = l1 ++ l2
+  | otherwise    = l1
 
-exhaustiveList :: Monad m => Bool -> [(Bool, m [FailedReason])] -> m [FailedReason]
-exhaustiveList _            []                    = return []
+exhaustiveList :: Bool -> [(Bool, [FailedReason])] -> [FailedReason]
+exhaustiveList _            []                    = []
 exhaustiveList isExhaustive ((performCheck,c):cs)
     | performCheck = exhaustive isExhaustive c (exhaustiveList isExhaustive cs)
     | otherwise    = exhaustiveList isExhaustive cs
