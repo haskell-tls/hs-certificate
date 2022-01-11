@@ -1,5 +1,5 @@
 module System.X509.Common
-  ( openSSLCertEnvOr
+  ( maybeSSLCertEnvOr
   )
 where
 
@@ -18,8 +18,8 @@ getOpenSslEnvs =
         "SSL_CERT_DIR" 
       ]
 
-openSSLCertEnvOr :: IO CertificateStore -> IO CertificateStore
-openSSLCertEnvOr defaultStore = do
+maybeSSLCertEnvOr :: IO CertificateStore -> IO CertificateStore
+maybeSSLCertEnvOr defaultStore = do
   overrideCertPaths <- getOpenSslEnvs
   case overrideCertPaths of
     Nothing -> defaultStore
