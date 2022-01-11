@@ -1,10 +1,10 @@
 module System.X509.Common
-  ( withOpenSSLCertEnv
+  ( openSSLCertEnvOr
   )
 where
 
 import Data.Foldable (asum)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid (mconcat)
 import Data.X509.CertificateStore
 import System.Environment (lookupEnv)
@@ -18,9 +18,9 @@ getOpenSslEnvs =
         "SSL_CERT_DIR" 
       ]
 
-withOpenSSLCertEnv :: IO CertificateStore -> IO CertificateStore
-withOpenSSLCertEnv defaultStore = do
+openSSLCertEnvOr :: IO CertificateStore -> IO CertificateStore
+openSSLCertEnvOr defaultStore = do
   overrideCertPaths <- getOpenSslEnvs
   case overrideCertPaths of
     Nothing -> defaultStore
-    Just certPath -> mconcat . catMaybes <$> mapM readCertificateStore [certPath]
+    Just certPath -> fromMaybe mempty <$> (readCertificateStore certPath)

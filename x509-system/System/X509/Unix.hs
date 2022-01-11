@@ -17,7 +17,7 @@ module System.X509.Unix
     ) where
 
 import System.Environment (getEnv)
-import System.X509.Common (withOpenSSLCertEnv)
+import System.X509.Common (openSSLCertEnvOr)
 import Data.X509.CertificateStore
 
 import Control.Applicative ((<$>))
@@ -38,7 +38,7 @@ envPathOverride :: String
 envPathOverride = "SYSTEM_CERTIFICATE_PATH"
 
 getSystemCertificateStore :: IO CertificateStore
-getSystemCertificateStore = withOpenSSLCertEnv (mconcat . catMaybes <$> (getSystemPaths >>= mapM readCertificateStore))
+getSystemCertificateStore = openSSLCertEnvOr (mconcat . catMaybes <$> (getSystemPaths >>= mapM readCertificateStore))
 
 getSystemPaths :: IO [FilePath]
 getSystemPaths = E.catch ((:[]) <$> getEnv envPathOverride) inDefault

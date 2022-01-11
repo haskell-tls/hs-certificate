@@ -10,7 +10,7 @@ import Data.Either
 
 import Data.X509
 import Data.X509.CertificateStore
-import System.X509.Common (withOpenSSLCertEnv)
+import System.X509.Common (openSSLCertEnvOr)
 
 rootCAKeyChain :: FilePath
 rootCAKeyChain = "/System/Library/Keychains/SystemRootCertificates.keychain"
@@ -27,4 +27,4 @@ listInKeyChains keyChains = do
     return targets
 
 getSystemCertificateStore :: IO CertificateStore
-getSystemCertificateStore = withOpenSSLCertEnv (makeCertificateStore <$> listInKeyChains [rootCAKeyChain, systemKeyChain])
+getSystemCertificateStore = openSSLCertEnvOr (makeCertificateStore <$> listInKeyChains [rootCAKeyChain, systemKeyChain])
