@@ -26,6 +26,7 @@ Library
                    , x509 >= 1.6
                    , x509-store >= 1.6.2
   Exposed-modules:   System.X509
+                     System.X509.Common
                      System.X509.Unix
                      System.X509.MacOS
   ghc-options:       -Wall
