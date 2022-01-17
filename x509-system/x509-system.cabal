@@ -1,12 +1,12 @@
 Name:                x509-system
-version:             1.6.6
-Description:         System X.509 handling
+version:             1.6.7
+Synopsis:            Handle per-operating-system X.509 accessors and storage
+Description:         System X.509 handling for accessing operating system dependents store and other storage methods
 License:             BSD3
 License-file:        LICENSE
 Copyright:           Vincent Hanquez <vincent@snarc.org>
 Author:              Vincent Hanquez <vincent@snarc.org>
 Maintainer:          Vincent Hanquez <vincent@snarc.org>
-Synopsis:            Handle per-operating-system X.509 accessors and storage
 Build-Type:          Simple
 Category:            Data
 stability:           experimental
