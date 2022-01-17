@@ -1,5 +1,5 @@
 Name:                x509-validation
-version:             1.6.11
+version:             1.6.12
 Description:         X.509 Certificate and CRL validation. please see README
 License:             BSD3
 License-file:        LICENSE
