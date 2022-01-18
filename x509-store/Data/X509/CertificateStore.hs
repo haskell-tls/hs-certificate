@@ -3,6 +3,7 @@ module Data.X509.CertificateStore
     ( CertificateStore
     , makeCertificateStore
     , readCertificateStore
+    , readCertificates
     -- * Queries
     , findCertificate
     , listCertificates
