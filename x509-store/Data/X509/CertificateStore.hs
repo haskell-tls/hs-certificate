@@ -7,6 +7,8 @@ module Data.X509.CertificateStore
     -- * Queries
     , findCertificate
     , listCertificates
+    -- * In-memory stores
+    , readCertificateStoreFromMemory
     ) where
 
 import Data.Char (isDigit, isHexDigit)
@@ -65,6 +67,15 @@ listCertificates :: CertificateStore -> [SignedCertificate]
 listCertificates (CertificateStore store) = map snd $ M.toList store
 listCertificates (CertificateStores l)    = concatMap listCertificates l
 
+wrapStore :: [SignedCertificate] -> Maybe CertificateStore
+wrapStore [] = Nothing
+wrapStore l  = Just $ makeCertificateStore l
+
+-- | Like 'readCertificateStore', but in-memory.
+readCertificateStoreFromMemory :: [B.ByteString] -> Maybe CertificateStore
+readCertificateStoreFromMemory =
+    wrapStore . concatMap parseCertificates
+
 -- | Create certificate store by reading certificates from file or directory
 --
 -- This function can be used to read multiple certificates from either
@@ -77,22 +88,25 @@ readCertificateStore path = do
     isFile <- doesFileExist path
     wrapStore <$> (if isDir then makeDirStore else if isFile then makeFileStore else return [])
   where
-    wrapStore :: [SignedCertificate] -> Maybe CertificateStore
-    wrapStore [] = Nothing
-    wrapStore l  = Just $ makeCertificateStore l
-
     makeFileStore = readCertificates path
     makeDirStore  = do
         certFiles <- listDirectoryCerts path
         concat <$> mapM readCertificates certFiles
 
+-- Try to parse certificate from the in-memory content of a file.
+parseCertificates :: B.ByteString -> [SignedCertificate]
+parseCertificates =
+    either (const []) (rights . map getCert) . pemParseBS
+  where
+    getCert  = decodeSignedCertificate . pemContent
+
 -- Try to read certificate from the content of a file.
 --
 -- The file may contains multiple certificates
 readCertificates :: FilePath -> IO [SignedCertificate]
-readCertificates file = E.catch (either (const []) (rights . map getCert) . pemParseBS <$> B.readFile file) skipIOError
+readCertificates file =
+  E.catch (parseCertificates <$> B.readFile file) skipIOError
     where
-        getCert = decodeSignedCertificate . pemContent
         skipIOError :: E.IOException -> IO [SignedCertificate]
         skipIOError _ = return []
 
